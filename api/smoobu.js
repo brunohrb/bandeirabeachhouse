@@ -7,14 +7,17 @@ export default async function handler(req, res) {
       return;
     }
 
-    const response = await fetch(
-      `https://api.smoobu.com/reservations?arrivalFrom=${start}&arrivalTo=${end}`,
-      {
-        headers: {
-          "Api-Key": process.env.SMOOBU_API_KEY
-        }
-      }
-    );
+ const response = await fetch(
+  `https://api.smoobu.com/reservations`,
+  {
+    method: "GET",
+    headers: {
+      "Api-Key": process.env.SMOOBU_API_KEY,
+      "Accept": "application/json"
+    }
+  }
+);
+
 
     if (!response.ok) {
       throw new Error("Erro ao acessar o Smoobu");
