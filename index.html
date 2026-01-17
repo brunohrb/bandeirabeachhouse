@@ -727,83 +727,62 @@ body {
     </div>
   </div>
 
-  <!-- INTEGRAÇÃO SMOOBU -->
   <div id="smoobu" class="hidden">
     <div class="page-header">
       <h1>Integração Smoobu</h1>
-      <p>Configure a conexão automática com sua conta Smoobu</p>
+      <p>Informações sobre a integração com o Smoobu</p>
+    </div>
+
+    <div class="card" style="margin-bottom: 24px; background: #fef3c7; border-color: #fbbf24;">
+      <div style="display: flex; gap: 16px; align-items: start;">
+        <span style="font-size: 32px;">⚠️</span>
+        <div>
+          <h3 style="color: #92400e; margin-bottom: 12px;">Limitação Técnica de Navegador</h3>
+          <p style="color: #78350f; line-height: 1.6; margin-bottom: 12px;">
+            Devido a restrições de segurança CORS (Cross-Origin Resource Sharing), navegadores web não permitem que sites façam requisições diretas à API do Smoobu.
+          </p>
+          <p style="color: #78350f; line-height: 1.6;">
+            <strong>Solução recomendada:</strong> Use a funcionalidade de <strong>Upload de Excel</strong> para importar suas reservas do Smoobu.
+          </p>
+        </div>
+      </div>
     </div>
 
     <div class="card" style="margin-bottom: 24px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <div>
-          <h3 style="margin-bottom: 8px;">Status da Conexão</h3>
-          <span id="smoobuStatusPage" class="status-badge status-disconnected">
-            ⚠️ Desconectado
-          </span>
-        </div>
-        <button class="btn btn-outline" onclick="disconnectSmoobu()" id="btnDisconnect" style="display: none;">
-          🔌 Desconectar
-        </button>
+      <h3 style="margin-bottom: 16px;">📋 Como importar dados do Smoobu</h3>
+      
+      <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <h4 style="margin-bottom: 12px; color: #0369a1;">Passo a passo:</h4>
+        <ol style="margin-left: 20px; color: #0c4a6e; line-height: 2;">
+          <li>No Smoobu, acesse <strong>Reservas</strong></li>
+          <li>Aplique os filtros de data (mês desejado)</li>
+          <li>Clique em <strong>Exportar</strong> e escolha <strong>Excel/CSV</strong></li>
+          <li>Baixe o arquivo exportado</li>
+          <li>Aqui no sistema, vá em <strong>Upload Excel</strong></li>
+          <li>Selecione o arquivo baixado e clique em <strong>Processar</strong></li>
+        </ol>
       </div>
 
-      <div id="smoobuConnect">
-        <p style="margin-bottom: 20px; color: #666; line-height: 1.6;">
-          Para conectar sua conta Smoobu, você precisa gerar uma API Key no painel administrativo do Smoobu.
-        </p>
-
-        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-          <h4 style="margin-bottom: 12px; color: #0369a1;">📝 Como obter sua API Key:</h4>
-          <ol style="margin-left: 20px; color: #0c4a6e; line-height: 1.8;">
-            <li>Acesse <a href="https://login.smoobu.com" target="_blank" style="color: #0284c7; text-decoration: underline;">login.smoobu.com</a></li>
-            <li>Vá em Configurações → API</li>
-            <li>Clique em "Criar nova API Key"</li>
-            <li>Copie a chave gerada</li>
-            <li>Cole abaixo e clique em "Conectar"</li>
-          </ol>
-        </div>
-
-        <label style="display: block; margin-bottom: 8px; font-weight: 600;">API Key do Smoobu</label>
-        <div style="display: flex; gap: 12px;">
-          <input type="password" id="smoobuApiKey" placeholder="Cole sua API Key aqui..." style="flex: 1; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;">
-          <button class="btn btn-primary" onclick="connectSmoobu()" style="padding: 12px 24px;">
-            🔌 Conectar
-          </button>
-        </div>
-        <p style="margin-top: 8px; font-size: 13px; color: #666;">
-          ℹ️ Sua API Key será armazenada localmente e de forma segura no seu navegador
-        </p>
-      </div>
-
-      <div id="smoobuConnected" style="display: none;">
-        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-          <h4 style="margin-bottom: 8px; color: #166534;">✅ Conectado com sucesso!</h4>
-          <p style="color: #15803d; font-size: 14px;">Sua conta Smoobu está conectada e pronta para sincronizar.</p>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
-          <div style="text-align: center; padding: 20px; background: #f9f9f9; border-radius: 8px;">
-            <div style="font-size: 13px; color: #666; margin-bottom: 8px;">Apartamentos</div>
-            <div id="smoobuApartments" style="font-size: 24px; font-weight: 700; color: #1a1a1a;">-</div>
-          </div>
-          <div style="text-align: center; padding: 20px; background: #f9f9f9; border-radius: 8px;">
-            <div style="font-size: 13px; color: #666; margin-bottom: 8px;">Última Sincronização</div>
-            <div id="smoobuLastSync" style="font-size: 14px; font-weight: 600; color: #1a1a1a;">Nunca</div>
-          </div>
-        </div>
-
-        <button class="btn btn-success" onclick="syncSmoobu()" style="width: 100%;">
-          🔄 Sincronizar Agora
+      <div style="text-align: center;">
+        <button class="btn btn-primary" onclick="showPage('upload'); document.querySelectorAll('.menu a').forEach(a => a.classList.remove('active'));" style="padding: 12px 32px; font-size: 16px;">
+          📤 Ir para Upload de Excel
         </button>
       </div>
     </div>
 
-    <!-- Logs de sincronização -->
     <div class="card">
-      <h3 style="margin-bottom: 16px;">📋 Histórico de Sincronizações</h3>
-      <div id="smoobuLogs" style="max-height: 400px; overflow-y: auto;">
-        <p style="text-align: center; padding: 40px; color: #666;">Nenhuma sincronização realizada ainda</p>
-      </div>
+      <h3 style="margin-bottom: 16px;">🔧 Alternativa Avançada (Para Desenvolvedores)</h3>
+      <p style="color: #666; line-height: 1.6; margin-bottom: 12px;">
+        Para integração automática via API, você precisaria criar um backend intermediário (servidor) que:
+      </p>
+      <ul style="margin-left: 20px; color: #666; line-height: 1.8;">
+        <li>Receba requisições do seu navegador</li>
+        <li>Faça as chamadas à API do Smoobu com sua API Key</li>
+        <li>Retorne os dados para o navegador</li>
+      </ul>
+      <p style="color: #666; line-height: 1.6; margin-top: 12px;">
+        Tecnologias sugeridas: Node.js, Python (Flask/FastAPI), PHP, etc.
+      </p>
     </div>
   </div>
 
@@ -1010,41 +989,30 @@ async function connectSmoobu() {
   }
   
   try {
-    // Testar conexão
-    const response = await fetch('https://login.smoobu.com/api/apartments', {
-      headers: {
-        'Api-Key': apiKey,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Falha na autenticação');
-    }
-    
-    const data = await response.json();
+    // Nota: Por questões de CORS, a API do Smoobu não pode ser acessada diretamente do navegador
+    // Vamos salvar a chave e simular a conexão
     
     // Salvar configuração
     smoobuConfig = {
       apiKey: apiKey,
       connected: true,
       connectedAt: new Date().toISOString(),
-      apartments: data.apartments || []
+      apartments: []
     };
     
     localStorage.setItem('smoobuConfig', JSON.stringify(smoobuConfig));
     
-    addSmoobuLog('success', `Conectado com sucesso! ${data.apartments?.length || 0} apartamentos encontrados.`);
+    addSmoobuLog('success', 'API Key salva com sucesso! Use o botão "Sincronizar" para importar reservas.');
     
     updateSmoobuStatus();
     updateSmoobuPage();
     
-    alert('✅ Conectado com sucesso ao Smoobu!');
+    alert('✅ API Key salva com sucesso!\n\n⚠️ Importante: Por limitações de segurança do navegador (CORS), você precisará:\n\n1. Exportar as reservas do Smoobu em Excel\n2. Fazer upload aqui no sistema\n\nOu criar um backend intermediário para fazer as requisições à API.');
     
   } catch (error) {
     console.error('Erro ao conectar:', error);
-    alert('❌ Erro ao conectar. Verifique sua API Key e tente novamente.');
-    addSmoobuLog('error', `Falha na conexão: ${error.message}`);
+    alert('❌ Erro ao salvar. Tente novamente.');
+    addSmoobuLog('error', `Falha ao salvar: ${error.message}`);
   }
 }
 
@@ -1062,64 +1030,18 @@ function disconnectSmoobu() {
 }
 
 async function syncSmoobu() {
-  if (!smoobuConfig.apiKey) {
-    alert('❌ Conecte sua conta Smoobu primeiro!');
-    showPage('smoobu');
-    document.querySelectorAll('.menu a')[4].classList.add('active');
-    return;
-  }
+  alert('⚠️ Sincronização Automática Indisponível\n\n' +
+        'Por limitações de segurança do navegador (CORS), não é possível acessar a API do Smoobu diretamente.\n\n' +
+        '📋 Como importar seus dados:\n\n' +
+        '1. No Smoobu, vá em "Reservas"\n' +
+        '2. Filtre pelo mês desejado\n' +
+        '3. Exporte para Excel/CSV\n' +
+        '4. Aqui no sistema, clique em "Upload Excel"\n' +
+        '5. Faça upload do arquivo\n\n' +
+        'Seus dados serão processados automaticamente! ✅');
   
-  const btn = document.getElementById('btnSync');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<span class="loading"></span> Sincronizando...';
-  btn.disabled = true;
-  
-  try {
-    const monthSelect = document.getElementById('monthSelect').value;
-    const [year, month] = monthSelect.split('-');
-    
-    // Buscar reservas do mês
-    const startDate = `${year}-${month}-01`;
-    const endDate = new Date(year, month, 0).toISOString().slice(0, 10);
-    
-    const response = await fetch(`https://login.smoobu.com/api/reservations?arrivalFrom=${startDate}&arrivalTo=${endDate}`, {
-      headers: {
-        'Api-Key': smoobuConfig.apiKey,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Erro ao buscar reservas');
-    }
-    
-    const data = await response.json();
-    const reservations = data.bookings || [];
-    
-    // Processar reservas
-    processSmoobuReservations(reservations);
-    
-    // Salvar última sincronização
-    smoobuConfig.lastSync = new Date().toISOString();
-    localStorage.setItem('smoobuConfig', JSON.stringify(smoobuConfig));
-    
-    addSmoobuLog('success', `${reservations.length} reservas sincronizadas para ${monthSelect}`);
-    
-    updateSmoobuStatus();
-    render();
-    updateKPIs();
-    updateCharts();
-    
-    alert(`✅ Sincronizado com sucesso! ${reservations.length} reservas importadas.`);
-    
-  } catch (error) {
-    console.error('Erro ao sincronizar:', error);
-    alert('❌ Erro ao sincronizar. Verifique sua conexão e tente novamente.');
-    addSmoobuLog('error', `Falha na sincronização: ${error.message}`);
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
+  showPage('upload');
+  document.querySelectorAll('.menu a').forEach(a => a.classList.remove('active'));
 }
 
 function processSmoobuReservations(reservations) {
