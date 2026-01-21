@@ -41,13 +41,6 @@
 </button>
 
 
-<input
-  type="file"
-  id="fileSmoobu"
-  accept=".csv"
-  style="display:none"
-/>
-
                 </div>
                 <div id="view-cards"><div id="indicadores-gerais" class="indicadores-grid"></div></div>
                 <div id="view-lista" style="display: none;">
@@ -229,8 +222,11 @@ function setupFilters() {
         "analitica"===e&&(setupAnaliticaFilters(),renderAnalitica()),
             "despesas"===e&&renderTabelaDespesasDetalhada(),
             "proprietarios"===e&&renderProprietarios()
+if (e === "financeiro" || e === "analitica") {
+    atualizarDoSmoobuViaDownload();
         }
-        
+        }
+
         function setViewMode(e){
             currentViewMode=e,
             document.getElementById("view-cards").style.display="cards"===e?"block":"none",
@@ -788,40 +784,61 @@ alert(`✅ ${novos.length} reservas novas importadas`);
     setViewMode("cards");
 
 // 👇 GATILHO AUTOMÁTICO (1 vez por sessão)
-  if (!sessionStorage.getItem("smoobuAtualizado")) {
-    setTimeout(() => {
-      abrirAtualizacaoSmoobu();
-    }, 500);
-  }
+ 
 });
       
+function getSmoobuCsvUrlAnoAtual() {
+    const ano = new Date().getFullYear();
 
-function atualizarDoSmoobuViaDownload() {
-  alert(
-    "📥 O Smoobu vai baixar o CSV do ano atual.\n\n" +
-    "Depois:\n" +
-    "1️⃣ Selecione o arquivo baixado\n" +
-    "2️⃣ O sistema atualizará automaticamente"
-  );
-
-  window.open(getSmoobuCsvUrlAnoAtual(), "_blank");
-
-  setTimeout(() => {
-    document.getElementById("fileSmoobu").click();
-  }, 500);
+    return (
+        "https://login.smoobu.com/api/v2/users/670124/bookings/exports/csv" +
+        "?sort=-createdAt" +
+        `&filter[arrivalDate][from]=${ano}-01-01` +
+        `&filter[arrivalDate][to]=${ano}-12-31` +
+        "&filter[includeIntersections]=true" +
+        "&filter[excludeMockedBookings]=true" +
+        "&filter[statuses][0]=1"
+    );
 }
 
-function abrirAtualizacaoSmoobu() {
-  const ok = confirm(
-    "📥 Deseja atualizar automaticamente os dados do Smoobu\n" +
-    "referentes a TODO o ano atual?\n\n" +
-    "Isso é feito uma única vez ao entrar no sistema."
-  );
+function jaAtualizouHoje() {
+    const hoje = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    return localStorage.getItem("smoobuAtualizadoEm") === hoje;
+}
 
-  if (!ok) return;
+function marcarAtualizadoHoje() {
+    const hoje = new Date().toISOString().slice(0, 10);
+    localStorage.setItem("smoobuAtualizadoEm", hoje);
+}
 
-  sessionStorage.setItem("smoobuAtualizado", "1");
-  atualizarDoSmoobuViaDownload();
+
+function atualizarDoSmoobuViaDownload() {
+
+    // 🔁 permite testar de novo se quiser
+    const forcar = false;
+
+    if (!forcar && jaAtualizouHoje()) {
+        console.log("Smoobu já atualizado hoje");
+        return;
+    }
+
+    console.log("Abrindo download do Smoobu...");
+
+    // 🔗 abre o CSV do ano inteiro
+    window.open(getSmoobuCsvUrlAnoAtual(), "_blank");
+
+    // marca como feito hoje
+    marcarAtualizadoHoje();
+
+    // ⏳ pede o arquivo manualmente (limite do navegador)
+    setTimeout(() => {
+        const input = document.getElementById("fileInput");
+        if (input) {
+            input.click();
+        } else {
+            alert("❌ input fileInput não encontrado");
+        }
+    }, 1000);
 }
 
 function parseDataBR(valor) {
