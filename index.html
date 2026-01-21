@@ -44,13 +44,7 @@
                 </div>
                 <div id="view-cards"><div id="indicadores-gerais" class="indicadores-grid"></div></div>
                 <div id="view-lista" style="display: none;">
-                    <div class="filter-ano-pequeno">
-                        <label style="font-weight:600;margin:0;">Filtrar por Ano:</label>
-                        <select id="filtroAnoLista" onchange="renderViews()" style="width:150px;padding:8px;border:1px solid var(--border-color);border-radius:6px;">
-                            <option value="">Todos os anos</option>
-                        </select>
-                    </div>
-                    <div id="indicadores-lista" class="indicadores-grid"></div>
+                                      <div id="indicadores-lista" class="indicadores-grid"></div>
                     <div class="card"><div id="tabela-lista-financeira"></div></div>
                 </div>
             </div>
@@ -141,12 +135,50 @@
             <div class="page-header"><h3>Adicionar Nova Despesa</h3><button style="background:none; border:none; font-size: 24px; cursor:pointer;" onclick="closeDespesaModal()">&times;</button></div>
             <div class="form-group"><label class="form-label">Unidade</label><select id="despesaUnidade" class="form-select"></select></div>
             <div class="form-group"><label class="form-label">Descrição</label><input type="text" id="despesaDescricao" class="form-input"></div>
-            <div class="form-group"><label class="form-label">Categoria</label><input type="text" id="despesaCategoria" class="form-input"></div>
+            <div class="form-group">
+    <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;">
+        Categoria
+        <button type="button" class="btn btn-link" onclick="openCategoriaModal()">⚙️</button>
+    </label>
+    <select id="despesaCategoria" class="form-select"></select>
+</div>
+
             <div class="form-group"><label class="form-label">Data</label><input type="date" id="despesaData" class="form-input"></div>
-            <div class="form-group"><label class="form-label">Valor</label><input type="number" id="despesaValor" class="form-input"></div>
+            <div class="form-group">
+    <label class="form-label">Valor</label>
+    <input
+    type="text"
+    id="despesaValor"
+    class="form-input"
+    placeholder="R$ 0,00"
+    oninput="formatarValorBR(this)">
+
+</div>
+
             <button class="btn btn-primary" style="width: 100%;" onclick="salvarDespesa()">Salvar Despesa</button>
         </div>
     </div>
+
+<!-- MODAL DE CATEGORIAS -->
+<div id="categoriaModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="page-header">
+            <h3>Categorias de Despesa</h3>
+            <button style="background:none;border:none;font-size:24px;cursor:pointer;"
+                    onclick="closeCategoriaModal()">&times;</button>
+        </div>
+
+        <div class="form-group">
+            <input type="text" id="novaCategoria" class="form-input" placeholder="Nova categoria">
+            <button class="btn btn-primary"
+                    style="margin-top:10px;width:100%;"
+                    onclick="addCategoria()">Adicionar</button>
+        </div>
+
+        <div id="listaCategorias"></div>
+    </div>
+</div>
+
 
 <script>
 /* ===========================
@@ -156,6 +188,8 @@
 const DB_RESERVAS = "DB_RESERVAS";
 const DB_DESPESAS = "DB_DESPESAS";
 const DB_PROPRIETARIOS = "DB_PROPRIETARIOS";
+const DB_CATEGORIAS = "DB_CATEGORIAS";
+
 
 function getDb(key) {
     try {
@@ -345,6 +379,13 @@ alert(`✅ ${novos.length} reservas novas importadas`);
         .join("");
 
     // 🔄 Atualiza Select2
+// 📅 Define o ano atual como padrão
+const anoAtual = new Date().getFullYear().toString();
+
+if (anos.includes(anoAtual)) {
+    $("#filtroAnos").val([anoAtual]);
+}
+
     $("#filtroAnos").trigger("change");
     $("#filtroMeses").trigger("change");
     $("#filtroUnidades").trigger("change");
@@ -567,13 +608,7 @@ alert(`✅ ${novos.length} reservas novas importadas`);
                 const unidades=Array.isArray(unidadesVal)?unidadesVal:(unidadesVal?[unidadesVal]:[]);
                 
                 let anosFinais=anos;
-                if("lista"===currentViewMode){
-                    const anoFiltro=document.getElementById("filtroAnoLista").value;
-                    if(anoFiltro){
-                        anosFinais=[anoFiltro];
-                    }
-                }
-                
+             
                 const passaNosFiltros=(registro,campoData)=>{
                     const ano=registro[campoData].substring(0,4);
                     const mes=registro[campoData].substring(5,7);
@@ -682,10 +717,32 @@ alert(`✅ ${novos.length} reservas novas importadas`);
             e.length>0?e.sort((e,a)=>new Date(a.data)-new Date(e.data)).forEach(e=>{t+=`<tr><td>${e.descricao}</td><td>${e.unidade}</td><td>${e.categoria}</td><td>${(new Date(e.data)).toLocaleDateString("pt-BR",{timeZone:"UTC"})}</td><td>${formatCurrency(e.valor)}</td><td><button class="btn btn-link" style="color:var(--red);" onclick="excluirDespesa('${e.id}')">Excluir</button></td></tr>`}):t+='<tr><td colspan="6" style="text-align:center; padding: 20px;">Nenhuma despesa cadastrada.</td></tr>',a.innerHTML=t+"</tbody>"
         }
         
-        function openDespesaModal(){
-            document.getElementById("despesaModal").classList.add("active"),
-            document.getElementById("despesaData").valueAsDate=new Date
-        }
+       function openDespesaModal() {
+
+    // abre o modal
+    document.getElementById("despesaModal").classList.add("active");
+
+    // data padrão = hoje
+    document.getElementById("despesaData").valueAsDate = new Date();
+
+    // 🔗 popula unidades automaticamente
+    const selectUnidade = document.getElementById("despesaUnidade");
+    const unidades = [...new Set(getDb(DB_RESERVAS).map(r => r.unidade))].sort();
+
+    selectUnidade.innerHTML =
+        '<option value="">Selecione a unidade</option>' +
+        unidades.map(u => `<option value="${u}">${u}</option>`).join("");
+
+    // 📂 popula categorias automaticamente  ✅ (PASSO 2.3)
+    const selectCategoria = document.getElementById("despesaCategoria");
+    const categorias = getDb(DB_CATEGORIAS);
+
+    selectCategoria.innerHTML =
+        '<option value="">Selecione a categoria</option>' +
+        categorias.map(c => `<option value="${c}">${c}</option>`).join("");
+}
+
+
         
         function closeDespesaModal(){
             document.getElementById("despesaModal").classList.remove("active")
@@ -857,6 +914,76 @@ function parseDataBR(valor) {
 
     return null;
 }
+
+function openCategoriaModal() {
+    document.getElementById("categoriaModal").classList.add("active");
+    renderCategorias();
+}
+
+function closeCategoriaModal() {
+    document.getElementById("categoriaModal").classList.remove("active");
+}
+
+function addCategoria() {
+    const input = document.getElementById("novaCategoria");
+    const nome = input.value.trim();
+    if (!nome) return;
+
+    const categorias = getDb(DB_CATEGORIAS);
+    if (!categorias.includes(nome)) {
+        categorias.push(nome);
+        saveDb(DB_CATEGORIAS, categorias);
+    }
+
+    input.value = "";
+
+    // 🔄 atualiza lista do modal
+    renderCategorias();
+
+    // 🔄 atualiza SELECT da despesa imediatamente ✅
+    const selectCategoria = document.getElementById("despesaCategoria");
+    selectCategoria.innerHTML =
+        '<option value="">Selecione a categoria</option>' +
+        categorias.map(c => `<option value="${c}">${c}</option>`).join("");
+
+    // já seleciona a categoria recém-criada
+    selectCategoria.value = nome;
+}
+
+function renderCategorias() {
+    const lista = document.getElementById("listaCategorias");
+    const categorias = getDb(DB_CATEGORIAS);
+
+    lista.innerHTML = categorias.map(c =>
+        `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+            <span>${c}</span>
+            <button class="btn btn-link" style="color:red;" onclick="removeCategoria('${c}')">Excluir</button>
+        </div>`
+    ).join("");
+}
+
+function removeCategoria(nome) {
+    saveDb(DB_CATEGORIAS, getDb(DB_CATEGORIAS).filter(c => c !== nome));
+    renderCategorias();
+}
+
+function formatarValorBR(input) {
+    let valor = input.value.replace(/\D/g, "");
+
+    if (!valor) {
+        input.value = "";
+        return;
+    }
+
+    valor = (parseInt(valor, 10) / 100).toFixed(2);
+
+    input.value = valor
+        .replace(".", ",")
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    
+    input.value = "R$ " + input.value;
+}
+
     </script>
 </body>
 </html>
