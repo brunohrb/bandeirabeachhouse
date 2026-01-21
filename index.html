@@ -32,8 +32,22 @@
                     <button class="btn btn-primary" onclick="renderViews()">Aplicar</button>
                 </div>
                 <div class="flex gap-16" style="margin-bottom: 24px;">
-                    <button class="btn btn-primary" id="btn-view-cards" onclick="setViewMode('cards')">📊 Cards</button>
-                    <button class="btn btn-secondary" id="btn-view-lista" onclick="setViewMode('lista')">📄 Lista</button>
+<button class="btn btn-primary" id="btn-view-cards" onclick="setViewMode('cards')">📊 Cards</button>
+    <button class="btn btn-secondary" id="btn-view-lista" onclick="setViewMode('lista')">📄 Lista</button>
+
+    <!-- 🔄 BOTÃO NOVO -->
+<button onclick="atualizarDoSmoobuViaDownload()">
+  🔄 Atualizar do Smoobu
+</button>
+
+
+<input
+  type="file"
+  id="fileSmoobu"
+  accept=".csv"
+  style="display:none"
+/>
+
                 </div>
                 <div id="view-cards"><div id="indicadores-gerais" class="indicadores-grid"></div></div>
                 <div id="view-lista" style="display: none;">
@@ -121,7 +135,10 @@
             </div>
             <div id="upload" class="page">
                 <div class="page-header"><h2>Upload de Arquivo Smoobu</h2></div>
-                <div class="card"><div class="upload-area" onclick="document.getElementById('fileInput').click()"><input type="file" id="fileInput" accept=".xlsx,.xls" onchange="processarEAdicionarDados(this.files[0])"><div style="font-size: 48px; margin-bottom: 16px;">📄</div><h3>Selecione o arquivo de RESERVAS</h3><p>A receita será contabilizada pela data de PARTIDA.</p></div></div>
+                <div class="card"><div class="upload-area" onclick="document.getElementById('fileInput').click()"><input type="file" id="fileInput" accept=".xlsx,.xls" onchange="processarEAdicionarDados(this.files[0])">
+
+
+<div style="font-size: 48px; margin-bottom: 16px;">📄</div><h3>Selecione o arquivo de RESERVAS</h3><p>A receita será contabilizada pela data de PARTIDA.</p></div></div>
             </div>
         </div>
     </div>
@@ -136,21 +153,80 @@
             <button class="btn btn-primary" style="width: 100%;" onclick="salvarDespesa()">Salvar Despesa</button>
         </div>
     </div>
-    <script>
-        const DB_RESERVAS='reservasDB',DB_DESPESAS='despesasDB',DB_PROPRIETARIOS='proprietariosDB';
-        const getDb=e=>JSON.parse(localStorage.getItem(e)||"[]"),
-              saveDb=(e,a)=>localStorage.setItem(e,JSON.stringify(a)),
-              formatCurrency=e=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(e||0);
-        let currentViewMode="cards";
-        let chartsAnalitica={};
-        
+
+<script>
+/* ===========================
+   BANCO LOCAL (OBRIGATÓRIO)
+=========================== */
+
+const DB_RESERVAS = "DB_RESERVAS";
+const DB_DESPESAS = "DB_DESPESAS";
+const DB_PROPRIETARIOS = "DB_PROPRIETARIOS";
+
+function getDb(key) {
+    try {
+        return JSON.parse(localStorage.getItem(key)) || [];
+    } catch (e) {
+        console.error("Erro ao ler DB:", key, e);
+        return [];
+    }
+}
+
+function saveDb(key, data) {
+    localStorage.setItem(key, JSON.stringify(data));
+}
+
+function formatCurrency(valor) {
+    return (valor || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+    });
+}
+
+/* ===========================
+   CONTROLES GLOBAIS
+=========================== */
+let currentViewMode = "cards";
+let chartsAnalitica = {};
+
+
+function setupFilters() {
+    const dados = getDb(DB_RESERVAS);
+    if (dados.length === 0) return;
+
+    const anos = [...new Set(dados.map(e => e.mesAno.substring(0, 4)))].sort();
+    const meses = [...new Set(dados.map(e => e.mesAno.substring(5, 7)))].sort();
+    const unidades = [...new Set(dados.map(e => e.unidade))].sort();
+
+    const selAno = document.getElementById("filtroAnos");
+    const selMes = document.getElementById("filtroMeses");
+    const selUn = document.getElementById("filtroUnidades");
+
+    selAno.innerHTML = anos.map(a => `<option value="${a}">${a}</option>`).join("");
+
+    const nomesMeses = {
+        "01":"Janeiro","02":"Fevereiro","03":"Março","04":"Abril",
+        "05":"Maio","06":"Junho","07":"Julho","08":"Agosto",
+        "09":"Setembro","10":"Outubro","11":"Novembro","12":"Dezembro"
+    };
+
+    selMes.innerHTML = meses
+        .map(m => `<option value="${m}">${nomesMeses[m]}</option>`)
+        .join("");
+
+    selUn.innerHTML = unidades.map(u => `<option value="${u}">${u}</option>`).join("");
+
+    $("#filtroAnos").trigger("change");
+    $("#filtroMeses").trigger("change");
+    $("#filtroUnidades").trigger("change");
+}
+
         function showPage(e,a){
             document.querySelectorAll(".page").forEach(e=>e.classList.remove("active")),
             document.querySelectorAll(".menu-item").forEach(e=>e.classList.remove("active")),
             document.getElementById(e).classList.add("active"),
             a&&a.classList.add("active"),
-            "financeiro"===e&&(setupFilters(),renderViews()),
-            "analitica"===e&&(setupAnaliticaFilters(),renderAnalitica()),
+        "analitica"===e&&(setupAnaliticaFilters(),renderAnalitica()),
             "despesas"===e&&renderTabelaDespesasDetalhada(),
             "proprietarios"===e&&renderProprietarios()
         }
@@ -166,46 +242,153 @@
             renderViews()
         }
         
-        function processarEAdicionarDados(e){
-            if(!e)return;
-            const a=new FileReader;
-            a.onload=function(t){
-                try{
-                    const s=XLSX.read(new Uint8Array(t.target.result),{type:"array",cellDates:!0}),
-                          r=XLSX.utils.sheet_to_json(s.Sheets[s.SheetNames[0]]).map(e=>{
-                        const a=e.Partida||e["Check-out"];
-                        if(!a)return null;
-                        const t=new Date(a);
-                        const s=parseFloat(e.Preço||e.Price||0);
-                        let r=(e.Portal||e.Channel||"").toLowerCase(),o=0;
-                        return r.includes("booking")?o=.15*s:r.includes("airbnb")&&(o=.03*s),{
-                            unidade:(e.Alojamento||e.Accommodation||"N/A").trim(),
-                            mesAno:`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}`,
-                            receita:s,
-                            comissao:o
-                        }
-                    }).filter(Boolean);
-                    if(r.length>0){
-                        const e=getDb(DB_RESERVAS);
-                        e.push(...r),saveDb(DB_RESERVAS,e),alert(`✅ ${r.length} registros importados!`),
-                        document.getElementById("fileInput").value="",
-                        showPage("financeiro",document.querySelector('.menu-item[onclick*="financeiro"]'))
-                    }else alert("⚠️ Nenhum registro com data de partida válida foi encontrado.")
-                }catch(e){alert("❌ Erro ao processar o arquivo: "+e.message)}
-            },a.readAsArrayBuffer(e)
+     function processarEAdicionarDados(e){
+    if (!e) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function (evt) {
+        try {
+            const workbook = XLSX.read(
+                new Uint8Array(evt.target.result),
+                { type: "array" }
+            );
+
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+           const dados = XLSX.utils.sheet_to_json(sheet)
+    .map(linha => {
+
+        // 🔑 ID ÚNICO DA RESERVA (Smoobu)
+        const idReserva = linha["Posição"];
+        if (!idReserva) return null;
+
+// 📅 usa CHEGADA (REGRA CORRETA)
+const data = parseDataBR(linha.Chegada || linha["Check-in"]);
+if (!data) return null;
+
+        // 💰 SÓ CONTA SE TIVER PREÇO
+        const preco = parseFloat(linha.Preço || linha.Price || 0);
+        if (!preco || preco <= 0) return null;
+
+        // 🧾 COMISSÃO (pode ser zero)
+        const comissao = parseFloat(linha["Comissão incluída"] || 0);
+
+        return {
+            idReserva: String(idReserva).trim(), // 👈 ESSENCIAL
+            unidade: (linha.Alojamento || linha.Accommodation || "N/A").trim(),
+            ano: data.ano,
+            mes: data.mes,
+            mesAno: data.mesAno,
+            receita: preco,
+            comissao: comissao
+        };
+    })
+    .filter(Boolean);
+
+
+
+            if (dados.length === 0) {
+                alert("⚠️ Nenhuma reserva válida encontrada.");
+                return;
+            }
+
+        const banco = getDb(DB_RESERVAS);
+
+// 🔒 cria um set com IDs já existentes
+const idsExistentes = new Set(
+    banco.map(r => r.idReserva)
+);
+
+// 🔎 só entram reservas novas
+const novos = dados.filter(r => !idsExistentes.has(r.idReserva));
+
+if (novos.length === 0) {
+    alert("ℹ️ Nenhuma reserva nova encontrada (duplicadas ignoradas)");
+    return;
+}
+
+banco.push(...novos);
+saveDb(DB_RESERVAS, banco);
+
+alert(`✅ ${novos.length} reservas novas importadas`);
+
+
+            alert(`✅ ${dados.length} reservas importadas com sucesso`);
+
+            setupFilters();
+            renderViews();
+
+        } catch (err) {
+            console.error(err);
+            alert("❌ Erro ao processar arquivo");
         }
+    };
+
+    reader.readAsArrayBuffer(e);
+}
+
         
-        function setupFilters(){
-            const e=getDb(DB_RESERVAS),
-                  a=[...new Set(e.map(e=>e.unidade))].sort(),
-                  t=[...new Set(e.map(e=>e.mesAno.substring(0,4)))].sort(),
-                  s=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"].map((e,a)=>({id:String(a+1).padStart(2,"0"),text:e}));
-            $("#filtroUnidades").empty().select2({data:a,placeholder:"Todos os prédios"}),
-            $("#filtroAnos").empty().select2({data:t,placeholder:"Todos os anos"}),
-            $("#filtroMeses").empty().select2({data:s,placeholder:"Todos os meses"}),
-            document.getElementById("despesaUnidade").innerHTML="<option value=''>Selecione</option>"+a.map(e=>`<option value="${e}">${e}</option>`).join(""),
-            document.getElementById("filtroAnoLista").innerHTML="<option value=''>Todos os anos</option>"+t.map(e=>`<option value="${e}">${e}</option>`).join("")
-        }
+       function setupFilters() {
+    const dados = getDb(DB_RESERVAS);
+    if (dados.length === 0) return;
+
+    // 📆 ANOS (YYYY)
+    const anos = [...new Set(
+        dados.map(e => e.mesAno.substring(0, 4))
+    )].sort();
+
+    // 📅 MESES (MM)
+    const meses = [...new Set(
+        dados.map(e => e.mesAno.substring(5, 7))
+    )].sort();
+
+    // 🏢 UNIDADES
+    const unidades = [...new Set(
+        dados.map(e => e.unidade)
+    )].sort();
+
+    const selAno = document.getElementById("filtroAnos");
+    const selMes = document.getElementById("filtroMeses");
+    const selUn = document.getElementById("filtroUnidades");
+
+    // 🔹 ANOS
+    selAno.innerHTML = anos
+        .map(a => `<option value="${a}">${a}</option>`)
+        .join("");
+
+    // 🔹 MESES (com nome)
+    const nomesMeses = {
+        "01": "Janeiro",
+        "02": "Fevereiro",
+        "03": "Março",
+        "04": "Abril",
+        "05": "Maio",
+        "06": "Junho",
+        "07": "Julho",
+        "08": "Agosto",
+        "09": "Setembro",
+        "10": "Outubro",
+        "11": "Novembro",
+        "12": "Dezembro"
+    };
+
+    selMes.innerHTML = meses
+        .map(m => `<option value="${m}">${nomesMeses[m]}</option>`)
+        .join("");
+
+    // 🔹 UNIDADES
+    selUn.innerHTML = unidades
+        .map(u => `<option value="${u}">${u}</option>`)
+        .join("");
+
+    // 🔄 Atualiza Select2
+    $("#filtroAnos").trigger("change");
+    $("#filtroMeses").trigger("change");
+    $("#filtroUnidades").trigger("change");
+}
+
+
         
         function setupAnaliticaFilters(){
             const e=getDb(DB_RESERVAS),
@@ -412,7 +595,6 @@
         }
         
         function renderViews(){
-            setupFilters();
             try{
                 let anosVal=$("#filtroAnos").val();
                 let mesesVal=$("#filtroMeses").val();
@@ -597,11 +779,88 @@
             saveDb(DB_PROPRIETARIOS,a),alert("✅ Proprietários salvos com sucesso!")
         }
         
-        $(document).ready(function(){
-            $("#filtroAnos, #filtroMeses, #filtroUnidades, #filtroAnaliticaAnos, #filtroAnaliticaMeses, #filtroAnaliticaUnidades").select2(),
-            showPage("financeiro",document.querySelector(".menu-item.active")),
-            setViewMode("cards")
-        });
+        $(document).ready(function () {
+    $("#filtroAnos, #filtroMeses, #filtroUnidades").select2();
+
+    // 🔧 inicializa filtros UMA ÚNICA VEZ
+
+    showPage("financeiro", document.querySelector('.menu-item[onclick*="financeiro"]'));
+    setViewMode("cards");
+
+// 👇 GATILHO AUTOMÁTICO (1 vez por sessão)
+  if (!sessionStorage.getItem("smoobuAtualizado")) {
+    setTimeout(() => {
+      abrirAtualizacaoSmoobu();
+    }, 500);
+  }
+});
+      
+
+function atualizarDoSmoobuViaDownload() {
+  alert(
+    "📥 O Smoobu vai baixar o CSV do ano atual.\n\n" +
+    "Depois:\n" +
+    "1️⃣ Selecione o arquivo baixado\n" +
+    "2️⃣ O sistema atualizará automaticamente"
+  );
+
+  window.open(getSmoobuCsvUrlAnoAtual(), "_blank");
+
+  setTimeout(() => {
+    document.getElementById("fileSmoobu").click();
+  }, 500);
+}
+
+function abrirAtualizacaoSmoobu() {
+  const ok = confirm(
+    "📥 Deseja atualizar automaticamente os dados do Smoobu\n" +
+    "referentes a TODO o ano atual?\n\n" +
+    "Isso é feito uma única vez ao entrar no sistema."
+  );
+
+  if (!ok) return;
+
+  sessionStorage.setItem("smoobuAtualizado", "1");
+  atualizarDoSmoobuViaDownload();
+}
+
+function parseDataBR(valor) {
+    if (!valor) return null;
+
+    // 🟢 Se vier como Date do Excel
+    if (valor instanceof Date && !isNaN(valor)) {
+        const ano = valor.getFullYear();
+        const mes = String(valor.getMonth() + 1).padStart(2, "0");
+
+        return {
+            ano: String(ano),
+            mes: mes,
+            mesAno: `${ano}-${mes}`
+        };
+    }
+
+    // 🟡 Se vier como texto "dd/mm/aa" ou "dd/mm/aaaa"
+    if (typeof valor === "string") {
+        const partes = valor.split("/");
+        if (partes.length !== 3) return null;
+
+        let dia = partes[0];
+        let mes = partes[1];
+        let ano = partes[2];
+
+        if (ano.length === 2) {
+            ano = "20" + ano;
+        }
+
+        return {
+            ano: ano,
+            mes: mes.padStart(2, "0"),
+            mesAno: `${ano}-${mes.padStart(2, "0")}`
+        };
+    }
+
+    return null;
+}
     </script>
 </body>
 </html>
