@@ -128,7 +128,8 @@
             </div>
             <div id="upload" class="page">
                 <div class="page-header"><h2>Upload de Arquivo Smoobu</h2></div>
-                <div class="card"><div class="upload-area" onclick="document.getElementById('fileInput').click()"><input type="file" id="fileInput" accept=".xlsx,.xls" onchange="processarEAdicionarDados(this.files[0])">
+                <div class="card"><div class="upload-area">
+<input type="file" id="fileInput" accept=".xlsx,.xls" onchange="processarEAdicionarDados(this.files[0])">
 
 
 <div style="font-size: 48px; margin-bottom: 16px;">📄</div><h3>Selecione o arquivo de RESERVAS</h3><p>A receita será contabilizada pela data de PARTIDA.</p></div></div>
@@ -183,36 +184,6 @@ let currentViewMode = "cards";
 let chartsAnalitica = {};
 
 
-function setupFilters() {
-    const dados = getDb(DB_RESERVAS);
-    if (dados.length === 0) return;
-
-    const anos = [...new Set(dados.map(e => e.mesAno.substring(0, 4)))].sort();
-    const meses = [...new Set(dados.map(e => e.mesAno.substring(5, 7)))].sort();
-    const unidades = [...new Set(dados.map(e => e.unidade))].sort();
-
-    const selAno = document.getElementById("filtroAnos");
-    const selMes = document.getElementById("filtroMeses");
-    const selUn = document.getElementById("filtroUnidades");
-
-    selAno.innerHTML = anos.map(a => `<option value="${a}">${a}</option>`).join("");
-
-    const nomesMeses = {
-        "01":"Janeiro","02":"Fevereiro","03":"Março","04":"Abril",
-        "05":"Maio","06":"Junho","07":"Julho","08":"Agosto",
-        "09":"Setembro","10":"Outubro","11":"Novembro","12":"Dezembro"
-    };
-
-    selMes.innerHTML = meses
-        .map(m => `<option value="${m}">${nomesMeses[m]}</option>`)
-        .join("");
-
-    selUn.innerHTML = unidades.map(u => `<option value="${u}">${u}</option>`).join("");
-
-    $("#filtroAnos").trigger("change");
-    $("#filtroMeses").trigger("change");
-    $("#filtroUnidades").trigger("change");
-}
 
         function showPage(e,a){
             document.querySelectorAll(".page").forEach(e=>e.classList.remove("active")),
@@ -222,9 +193,6 @@ function setupFilters() {
         "analitica"===e&&(setupAnaliticaFilters(),renderAnalitica()),
             "despesas"===e&&renderTabelaDespesasDetalhada(),
             "proprietarios"===e&&renderProprietarios()
-if (e === "financeiro" || e === "analitica") {
-    atualizarDoSmoobuViaDownload();
-        }
         }
 
         function setViewMode(e){
@@ -309,8 +277,6 @@ saveDb(DB_RESERVAS, banco);
 
 alert(`✅ ${novos.length} reservas novas importadas`);
 
-
-            alert(`✅ ${dados.length} reservas importadas com sucesso`);
 
             setupFilters();
             renderViews();
@@ -776,7 +742,21 @@ alert(`✅ ${novos.length} reservas novas importadas`);
         }
         
         $(document).ready(function () {
-    $("#filtroAnos, #filtroMeses, #filtroUnidades").select2();
+$("#filtroAnos").select2({
+    placeholder: "Filtrar por ano",
+    allowClear: true
+});
+
+$("#filtroMeses").select2({
+    placeholder: "Filtrar por mês",
+    allowClear: true
+});
+
+$("#filtroUnidades").select2({
+    placeholder: "Filtrar por unidade",
+    allowClear: true
+});
+
 
     // 🔧 inicializa filtros UMA ÚNICA VEZ
 
@@ -784,6 +764,10 @@ alert(`✅ ${novos.length} reservas novas importadas`);
     setViewMode("cards");
 
 // 👇 GATILHO AUTOMÁTICO (1 vez por sessão)
+    // 🔄 ATUALIZA AUTOMÁTICA — 1ª vez do dia
+    if (!jaAtualizouHoje()) {
+        atualizarDoSmoobuViaDownload("auto");
+    }
  
 });
       
@@ -812,34 +796,29 @@ function marcarAtualizadoHoje() {
 }
 
 
-function atualizarDoSmoobuViaDownload() {
+function atualizarDoSmoobuViaDownload(motivo = "manual") {
 
-    // 🔁 permite testar de novo se quiser
-    const forcar = false;
-
-    if (!forcar && jaAtualizouHoje()) {
-        console.log("Smoobu já atualizado hoje");
-        return;
-    }
-
-    console.log("Abrindo download do Smoobu...");
-
-    // 🔗 abre o CSV do ano inteiro
+    // 1️⃣ Abre o Smoobu
     window.open(getSmoobuCsvUrlAnoAtual(), "_blank");
 
-    // marca como feito hoje
-    marcarAtualizadoHoje();
+    // 2️⃣ Se foi automático (primeira vez do dia), marca no sistema
+    if (motivo === "auto") {
+        marcarAtualizadoHoje();
+    }
 
-    // ⏳ pede o arquivo manualmente (limite do navegador)
+    // 3️⃣ Leva para a tela de Upload
+    showPage("upload", document.querySelector('.menu-item[onclick*="upload"]'));
+
+    // 4️⃣ Apenas destaca onde subir o arquivo
     setTimeout(() => {
         const input = document.getElementById("fileInput");
         if (input) {
-            input.click();
-        } else {
-            alert("❌ input fileInput não encontrado");
+            input.scrollIntoView({ behavior: "smooth", block: "center" });
         }
-    }, 1000);
+    }, 500);
 }
+
+
 
 function parseDataBR(valor) {
     if (!valor) return null;
