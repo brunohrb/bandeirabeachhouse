@@ -43,11 +43,110 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
     text-transform: uppercase;
 }
 
+/* 📱 MOBILE FIRST — até tablets */
+@media (max-width: 768px) {
+
+    /* layout geral */
+    .container {
+        flex-direction: column;
+    }
+
+    .main {
+        margin-left: 0;
+        width: 100%;
+        padding: 16px;
+    }
+
+    /* sidebar vira topo */
+    .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+        padding: 12px 0;
+    }
+
+    .menu-item {
+        padding: 14px 20px;
+        font-size: 16px;
+    }
+
+    /* cards */
+    .indicadores-grid,
+    .analitica-cards {
+        grid-template-columns: 1fr;
+    }
+
+    /* botões grandes para toque */
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .flex.gap-16 {
+        flex-direction: column;
+    }
+
+    /* modais */
+    .modal-content {
+        width: 95%;
+        padding: 20px;
+    }
+
+    /* tabelas */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+        font-size: 13px;
+    }
+
+    th, td {
+        padding: 10px;
+    }
+}
+
+.menu-toggle {
+    display: none;
+    font-size: 24px;
+    padding: 0 24px 12px;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .menu-toggle {
+        display: block;
+    }
+
+    .sidebar .menu-item {
+        display: none;
+    }
+
+    .sidebar.open .menu-item {
+        display: flex;
+    }
+}
+
+@media (max-width: 768px) {
+    table th:first-child,
+    table td:first-child {
+        position: sticky;
+        left: 0;
+        background: white;
+        z-index: 2;
+        font-weight: 600;
+    }
+}
+
+
 </style>
 </head>
 <body>
     <div class="container">
         <div class="sidebar">
+   <!-- ☰ BOTÃO MOBILE -->
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
 <div class="logo">
     <div class="logo-mark">
         <svg width="48" height="48" viewBox="0 0 64 64" fill="none"
@@ -1425,6 +1524,10 @@ function carregarCategoriasDespesa() {
         opt.textContent = c;
         select.appendChild(opt);
     });
+}
+
+function toggleMenu() {
+    document.querySelector(".sidebar").classList.toggle("open");
 }
 
 
