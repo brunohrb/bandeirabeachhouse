@@ -139,6 +139,26 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
     }
 }
 
+.btn-outline {
+    background: white;
+    color: var(--primary-dark);
+    border: 1px solid var(--border-color);
+}
+
+.btn-outline:hover {
+    background: #f8f9fa;
+}
+
+.btn-outline-secondary {
+    background: white;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+}
+
+.btn-outline-secondary:hover {
+    background: rgba(212,165,116,0.1);
+}
+
 
 </style>
 </head>
@@ -196,9 +216,14 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
     <button class="btn btn-secondary" id="btn-view-lista" onclick="setViewMode('lista')">📄 Lista</button>
 
     <!-- 🔄 BOTÃO NOVO -->
-<button onclick="atualizarDoSmoobuViaDownload()">
-  🔄 Atualizar do Smoobu
+<button class="btn btn-outline" onclick="atualizarDoSmoobuViaDownload()">
+    🔄 Smoobu
 </button>
+
+<button class="btn btn-outline-secondary" onclick="openUploadManualModal()">
+   Movi
+</button>
+
 
 
                 </div>
@@ -343,6 +368,43 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
     </div>
 </div>
 
+<!-- MODAL UPLOAD MANUAL -->
+    <div id="uploadManualModal" class="modal-overlay">
+        <div class="modal-content">
+
+            <div class="page-header">
+                <h3>Upload Manual – Movi 505</h3>
+                <button style="background:none;border:none;font-size:24px;cursor:pointer;"
+                        onclick="closeUploadManualModal()">&times;</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Unidade</label>
+                <input type="text"
+                       class="form-input"
+                       value="Movi 505"
+                       disabled>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Arquivo financeiro</label>
+                <div class="upload-area"
+                     onclick="document.getElementById('uploadManualFile').click()">
+
+                    <input type="file"
+                           id="uploadManualFile"
+                           accept=".xlsx,.xls,image/*"
+                           style="display:none"
+                           onchange="processarUploadManual(this.files[0])">
+
+                    <div style="font-size:48px;margin-bottom:16px;">📄</div>
+                    <h3>Selecionar arquivo</h3>
+                    <p>Arquivo mensal com Valor, Taxa App e Taxa Short Stay</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
 
 <script>
 /* ===========================
@@ -629,7 +691,17 @@ if (anos.includes(anoAtual)) {
                 const despesas=getDb(DB_DESPESAS).filter(e=>passaNosFiltros(e,"data"));
                 
                 const receita=reservas.reduce((acc,e)=>acc+e.receita,0);
-                const comissao=reservas.reduce((acc,e)=>acc+e.comissao,0);
+const comissaoPortais = reservas.reduce(
+    (acc,e)=>acc + (e.comissaoPortais ?? e.comissao ?? 0),
+    0
+);
+
+const comissaoShort = reservas.reduce(
+    (acc,e)=>acc + (e.comissaoShortStay ?? 0),
+    0
+);
+
+const comissao = comissaoPortais + comissaoShort;
                 const despesasTotal=despesas.reduce((acc,e)=>acc+e.valor,0);
                 const lucro=receita-comissao-despesasTotal;
                 
@@ -849,49 +921,110 @@ labels: mesesLabels,
             }
         }
         
-        function renderCardsView(e,a){
-            const t=e.reduce((e,a)=>e+a.receita,0),
-                  s=e.reduce((e,a)=>e+a.comissao,0),
-                  r=a.reduce((e,a)=>e+a.valor,0),
-                  o=t-s-r;
-            document.getElementById("indicadores-gerais").innerHTML=`
-                <div class="indicador-card"><div class="indicador-label">Receita Total</div><div class="indicador-valor green">${formatCurrency(t)}</div></div>
-                <div class="indicador-card"><div class="indicador-label">Comissão Portais</div><div class="indicador-valor red">-${formatCurrency(s)}</div></div>
-                <div class="indicador-card"><div class="indicador-label">Total de Reservas</div><div class="indicador-valor">${e.length}</div></div>
-                <div class="indicador-card clickable" onclick="showPage('despesas', document.querySelector('.menu-item[onclick*=\\'despesas\\']'))"><div class="indicador-label">Despesas</div><div class="indicador-valor red">-${formatCurrency(r)}</div></div>
-                <div class="indicador-card"><div class="indicador-label">Lucro Líquido</div><div class="indicador-valor green">${formatCurrency(o)}</div></div>
-            `
-        }
+     function renderCardsView(e,a){
+  const t = e.reduce((acc,x)=>acc+x.receita,0);
+
+	    const comissaoPortais = e.reduce(
+	      (acc,x)=>acc+(x.comissaoPortais ?? x.comissao ?? 0), 0
+	  );
+
+	  const comissaoShort = e.reduce(
+	      (acc,x)=>acc+(x.comissaoShortStay ?? 0), 0
+	  );
+
+	  const r = a.reduce((acc,x)=>acc+x.valor,0);
+	  const o = t - comissaoPortais - comissaoShort - r;
+
+	  document.getElementById("indicadores-gerais").innerHTML = `
+	      <div class="indicador-card">
+	          <div class="indicador-label">Receita Total</div>
+	          <div class="indicador-valor green">${formatCurrency(t)}</div>
+	      </div>
+
+	      <div class="indicador-card">
+	          <div class="indicador-label">Comissão Portais</div>
+	          <div class="indicador-valor red">-${formatCurrency(comissaoPortais)}</div>
+	      </div>
+
+	      <div class="indicador-card">
+	          <div class="indicador-label">Comissão Short Stay</div>
+	          <div class="indicador-valor red">-${formatCurrency(comissaoShort)}</div>
+	      </div>
+
+	      <div class="indicador-card clickable"
+	           onclick="showPage('despesas', document.querySelector('.menu-item[onclick*=\\'despesas\\']'))">
+	          <div class="indicador-label">Despesas</div>
+	          <div class="indicador-valor red">-${formatCurrency(r)}</div>
+	      </div>
+
+	      <div class="indicador-card">
+	          <div class="indicador-label">Lucro Líquido</div>
+	          <div class="indicador-valor ${o>=0?'green':'red'}">
+	              ${formatCurrency(o)}
+	          </div>
+	      </div>
+	  `;
+}  // ✅ ESSA CHAVE FALTAVA
+
+
         
         function renderListaView(e,a,t,s,r){
-            const o=document.getElementById("tabela-lista-financeira"),
-                  n=t.length>0?t:[...new Set(getDb(DB_RESERVAS).map(e=>e.unidade))].sort(),
-                  l=1===s.length?s[0]:(new Date).getFullYear().toString(),
+            const o=document.getElementById("tabela-lista-financeira");
+            
+            // 🏢 ORDEM PERSONALIZADA DAS UNIDADES
+            const ordemDesejada = ["103", "201", "Movi", "102", "2.7", "2.5", "104"];
+            const unidadesExistentes = [...new Set(getDb(DB_RESERVAS).map(r => r.unidade))];
+            
+            const n = unidadesExistentes.sort((u1, u2) => {
+                const idx1 = ordemDesejada.findIndex(o => u1.includes(o));
+                const idx2 = ordemDesejada.findIndex(o => u2.includes(o));
+                if (idx1 !== -1 && idx2 !== -1) return idx1 - idx2;
+                if (idx1 !== -1) return -1;
+                if (idx2 !== -1) return 1;
+                return u1.localeCompare(u2);
+            });
+
+            const l=1===s.length?s[0]:(new Date).getFullYear().toString(),
                   d=r.length>0?r.sort():["01","02","03","04","05","06","07","08","09","10","11","12"],
                   i=["Receita Total","Comissão Portais","Despesas","Lucro"];
             
-            const receitaTotal=e.reduce((acc,item)=>acc+item.receita,0),
-                  comissaoTotal=e.reduce((acc,item)=>acc+item.comissao,0),
-                  despesasTotal=a.reduce((acc,item)=>acc+item.valor,0),
-                  lucroTotal=receitaTotal-comissaoTotal-despesasTotal;
+            const receitaTotal=e.reduce((acc,item)=>acc+item.receita,0);
+            const comissaoPortais = e.reduce((acc,item)=>acc+(item.comissaoPortais ?? item.comissao ?? 0), 0);
+            const comissaoShort = e.reduce((acc,item)=>acc+(item.comissaoShortStay ?? 0), 0);
+            const despesasTotal=a.reduce((acc,item)=>acc+item.valor,0);
+            const lucroTotal=receitaTotal - comissaoPortais - comissaoShort - despesasTotal;
             
             document.getElementById("indicadores-lista").innerHTML=`
                 <div class="indicador-card"><div class="indicador-label">Receita Total</div><div class="indicador-valor green">${formatCurrency(receitaTotal)}</div></div>
-                <div class="indicador-card"><div class="indicador-label">Comissão Portais</div><div class="indicador-valor red">-${formatCurrency(comissaoTotal)}</div></div>
+                <div class="indicador-card"><div class="indicador-label">Comissão Portais</div><div class="indicador-valor red">-${formatCurrency(comissaoPortais)}</div></div>
+                <div class="indicador-card"><div class="indicador-label">Comissão Short Stay</div><div class="indicador-valor red">-${formatCurrency(comissaoShort)}</div></div>
                 <div class="indicador-card"><div class="indicador-label">Despesas</div><div class="indicador-valor red">-${formatCurrency(despesasTotal)}</div></div>
-                <div class="indicador-card"><div class="indicador-label">Lucro Líquido</div><div class="indicador-valor green">${formatCurrency(lucroTotal)}</div></div>
+                <div class="indicador-card"><div class="indicador-label">Lucro Líquido</div><div class="indicador-valor ${lucroTotal>=0?'green':'red'}">${formatCurrency(lucroTotal)}</div></div>
             `;
             
             let c=``;
             n.forEach(t=>{
+                // 💰 CALCULA RESUMO DA UNIDADE PARA O CABEÇALHO
+                const resUnidade = e.filter(r => r.unidade === t);
+                const despUnidade = a.filter(d => d.unidade === t);
+                const recUn = resUnidade.reduce((acc, r) => acc + r.receita, 0);
+                const comPUn = resUnidade.reduce((acc, r) => acc + (r.comissaoPortais ?? r.comissao ?? 0), 0);
+                const comSUn = resUnidade.reduce((acc, r) => acc + (r.comissaoShortStay ?? 0), 0);
+                const despUn = despUnidade.reduce((acc, d) => acc + d.valor, 0);
+                const lucroUn = recUn - comPUn - comSUn - despUn;
+
                 c+=`<div class="unidade-grupo">
                     <div class="unidade-header" onclick="toggleUnidade('${t.replace(/\s+/g,'_')}')">
                         <div class="unidade-nome">
-                            <span class="unidade-toggle" id="toggle_${t.replace(/\s+/g,'_')}">▼</span>
+                            <span class="unidade-toggle collapsed" id="toggle_${t.replace(/\s+/g,'_')}">▶</span>
                             ${t}
                         </div>
+                        <div style="font-size: 12px; display: flex; gap: 15px;">
+                            <span>Faturamento: <b class="green">${formatCurrency(recUn)}</b></span>
+                            <span>Lucro: <b class="${lucroUn>=0?'green':'red'}">${formatCurrency(lucroUn)}</b></span>
+                        </div>
                     </div>
-                    <div class="unidade-conteudo" id="conteudo_${t.replace(/\s+/g,'_')}">
+                    <div class="unidade-conteudo collapsed" id="conteudo_${t.replace(/\s+/g,'_')}">
                         <table>
                             <thead><tr><th>Tipo</th>${d.map(e=>`<th>${e}/${l.substring(2)}</th>`).join("")}</tr></thead>
                             <tbody>`;
@@ -939,25 +1072,31 @@ if (tipo === "Despesas") {
 }
 
 
-    // 🔹 LINHAS NORMAIS (Receita, Comissão, Lucro)
-    c += `<tr><td>${tipo}</td>`;
+	    // 🔹 LINHAS NORMAIS (Receita, Comissão, Lucro)
+	    c += `<tr><td>${tipo}</td>`;
 
-    d.forEach(mes=>{
-        const n = `${l}-${mes}`;
-        const reservasMes = e.filter(x => x.unidade === t && x.mesAno === n);
-        const despesasMes = a.filter(x => x.unidade === t && x.data.startsWith(n));
+	    d.forEach(mes=>{
+	        const n = `${l}-${mes}`;
+	        const reservasMes = e.filter(x => x.unidade === t && x.mesAno === n);
+	        const despesasMes = a.filter(x => x.unidade === t && x.data.startsWith(n));
 
-        let valor = 0;
-        if (tipo === "Receita Total") valor = reservasMes.reduce((acc,x)=>acc+x.receita,0);
-        else if (tipo === "Comissão Portais") valor = -reservasMes.reduce((acc,x)=>acc+x.comissao,0);
-        else if (tipo === "Lucro")
-            valor =
-                reservasMes.reduce((acc,x)=>acc+x.receita,0)
-              - reservasMes.reduce((acc,x)=>acc+x.comissao,0)
-              - despesasMes.reduce((acc,x)=>acc+x.valor,0);
+	        let valor = 0;
+	        if (tipo === "Receita Total") valor = reservasMes.reduce((acc,x)=>acc+x.receita,0);
+	        else if (tipo === "Comissão Portais") {
+                const cp = reservasMes.reduce((acc,x)=>acc+(x.comissaoPortais ?? x.comissao ?? 0),0);
+                const cs = reservasMes.reduce((acc,x)=>acc+(x.comissaoShortStay ?? 0),0);
+                valor = -(cp + cs);
+            }
+	        else if (tipo === "Lucro") {
+                const rec = reservasMes.reduce((acc,x)=>acc+x.receita,0);
+                const cp = reservasMes.reduce((acc,x)=>acc+(x.comissaoPortais ?? x.comissao ?? 0),0);
+                const cs = reservasMes.reduce((acc,x)=>acc+(x.comissaoShortStay ?? 0),0);
+                const desp = despesasMes.reduce((acc,x)=>acc+x.valor,0);
+                valor = rec - cp - cs - desp;
+            }
 
-        c += `<td class="${valor<0?'red':''}">${formatCurrency(valor)}</td>`;
-    });
+	        c += `<td class="${valor<0?'red':''}">${formatCurrency(valor)}</td>`;
+	    });
 
     c += `</tr>`;
 
@@ -1529,6 +1668,176 @@ function carregarCategoriasDespesa() {
 
 function toggleMenu() {
     document.querySelector(".sidebar").classList.toggle("open");
+}
+
+function openUploadManualModal() {
+    document.getElementById("uploadManualModal").classList.add("active");
+}
+
+function closeUploadManualModal() {
+    document.getElementById("uploadManualModal").classList.remove("active");
+}
+
+
+
+function parseNumeroBR(valor) {
+    if (!valor) return 0;
+    return parseFloat(
+        String(valor)
+            .replace("R$", "")
+            .replace(/\./g, "")
+            .replace(",", ".")
+    ) || 0;
+}
+
+function parseMesAno(texto) {
+    const mapa = {
+        jan: "01", fev: "02", mar: "03", abr: "04",
+        mai: "05", jun: "06", jul: "07", ago: "08",
+        set: "09", out: "10", nov: "11", dez: "12"
+    };
+
+    const match = texto.match(/(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\/(\d{2})/);
+    if (!match) return {};
+
+    return {
+        mes: mapa[match[1]],
+        ano: "20" + match[2]
+    };
+}
+
+function parseNumeroBR(valor) {
+    if (valor === null || valor === undefined) return 0;
+
+    if (typeof valor === "number") return valor;
+
+    if (typeof valor === "string") {
+        return parseFloat(
+            valor
+                .replace(/\./g, "")
+                .replace(",", ".")
+                .replace(/[^\d.-]/g, "")
+        ) || 0;
+    }
+
+    return 0;
+}
+
+function processarUploadManual(file) {
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function (evt) {
+        try {
+            const workbook = XLSX.read(
+                new Uint8Array(evt.target.result),
+                { type: "array", cellDates: true }
+            );
+
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const linhas = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+            console.log("Iniciando processamento manual. Total de linhas:", linhas.length);
+
+            let mesAtual = null;
+            const banco = getDb(DB_RESERVAS);
+            const novos = [];
+
+            linhas.forEach((l, idx) => {
+                // 🔍 Busca flexível por DATA
+                let dataEncontrada = null;
+                for (let chave in l) {
+                    const valorChave = l[chave];
+                    const chaveLower = chave.toLowerCase();
+                    
+                    // Se for objeto Date do Excel
+                    if (valorChave instanceof Date && !isNaN(valorChave)) {
+                        dataEncontrada = valorChave;
+                        break;
+                    }
+                    
+                    // Se for string que parece data (dd/mm/aaaa ou aaaa-mm-dd)
+                    if (typeof valorChave === "string" && (valorChave.includes("/") || valorChave.includes("-"))) {
+                        const d = new Date(valorChave);
+                        if (!isNaN(d)) {
+                            dataEncontrada = d;
+                            break;
+                        }
+                    }
+                }
+
+                if (dataEncontrada) {
+                    const ano = dataEncontrada.getFullYear();
+                    const mes = String(dataEncontrada.getMonth() + 1).padStart(2, "0");
+                    mesAtual = `${ano}-${mes}`;
+                }
+
+                // 🔍 Busca flexível por VALOR (Receita)
+                let valorReceita = 0;
+                for (let chave in l) {
+                    const chaveLower = chave.toLowerCase();
+                    if (chaveLower.includes("valor") || chaveLower.includes("preço") || chaveLower.includes("price") || chaveLower.includes("receita")) {
+                        valorReceita = parseNumeroBR(l[chave]);
+                        if (valorReceita !== 0) break;
+                    }
+                }
+
+                // Se não encontrou valor mas tem mesAtual, ignora a linha (pode ser cabeçalho)
+                if (!mesAtual || valorReceita === 0) return;
+
+                // 🔍 Busca flexível por COMISSÕES
+                let comissaoPortais = 0;
+                let comissaoShortStay = 0;
+
+                for (let chave in l) {
+                    const chaveLower = chave.toLowerCase();
+                    if (chaveLower.includes("taxa app") || chaveLower.includes("comissão") || chaveLower.includes("comissao")) {
+                        comissaoPortais = parseNumeroBR(l[chave]);
+                    }
+                    if (chaveLower.includes("short stay") || chaveLower.includes("taxa adm")) {
+                        comissaoShortStay = parseNumeroBR(l[chave]);
+                    }
+                }
+
+                novos.push({
+                    idReserva: `MANUAL_${mesAtual}_${idx}_${Date.now()}`,
+                    unidade: "Movi 505",
+                    ano: mesAtual.substring(0, 4),
+                    mes: mesAtual.substring(5, 7),
+                    mesAno: mesAtual,
+                    receita: valorReceita,
+                    comissao: comissaoPortais,
+                    comissaoPortais: comissaoPortais,
+                    comissaoShortStay: comissaoShortStay
+                });
+            });
+
+            console.log("Processamento concluído. Novos registros:", novos.length);
+
+            if (!novos.length) {
+                alert("⚠️ Nenhum lançamento financeiro válido encontrado.\n\nCertifique-se que o arquivo tem uma coluna de 'Data' e uma de 'Valor'.");
+                return;
+            }
+
+            banco.push(...novos);
+            saveDb(DB_RESERVAS, banco);
+
+            alert(`✅ ${novos.length} lançamentos importados com sucesso para Movi 505`);
+
+            closeUploadManualModal();
+            setupFilters();
+            setupAnaliticaFilters();
+            renderViews();
+            renderAnalitica();
+
+        } catch (e) {
+            console.error("Erro no processamento manual:", e);
+            alert("Erro ao processar o arquivo manual: " + e.message);
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
 }
 
 
