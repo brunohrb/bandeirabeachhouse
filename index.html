@@ -1194,14 +1194,14 @@ $("#filtroUnidades").select2({
  
 });
       
-function getSmoobuCsvUrlAnoAtual() {
-    const ano = new Date().getFullYear();
-
+function getSmoobuExcelUrl() {
     return (
-        "https://login.smoobu.com/api/v2/users/670124/bookings/exports/csv" +
-        "?sort=-createdAt" +
-        `&filter[arrivalDate][from]=${ano}-01-01` +
-        `&filter[arrivalDate][to]=${ano}-12-31` +
+        "https://login.smoobu.com/api/v2/users/670124/bookings/exports/xlsx" +
+        "?sort=arrivalDate" +
+        "&filter[arrivalDate][from]=2026-01-01" +
+        "&filter[arrivalDate][to]=2027-12-31" +
+        "&filter[departureDate][from]=2026-01-01" +
+        "&filter[departureDate][to]=2027-12-31" +
         "&filter[includeIntersections]=true" +
         "&filter[excludeMockedBookings]=true" +
         "&filter[statuses][0]=1"
@@ -1222,7 +1222,8 @@ function marcarAtualizadoHoje() {
 function atualizarDoSmoobuViaDownload(motivo = "manual") {
 
     // 1️⃣ Abre o Smoobu
-    window.open(getSmoobuCsvUrlAnoAtual(), "_blank");
+    window.open(getSmoobuExcelUrl(), "_blank");
+
 
     // 2️⃣ Se foi automático (primeira vez do dia), marca no sistema
     if (motivo === "auto") {
