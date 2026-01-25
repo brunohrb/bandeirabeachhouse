@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -9,6 +10,57 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  const db = window.supabase.createClient(
+    "https://vzdxhxbevewmbdnmetrj.supabase.co",
+    "sb_publishable_iF6vzSt0RfW6J_FJzbL68w_xpCjcGof"
+  );
+</script>
+
+<script>
+  // CACHE GLOBAL DE RESERVAS (Supabase ou Local)
+  let CACHE_RESERVAS = null;
+</script>
+
+<script>
+  async function carregarReservasSupabase() {
+    const { data, error } = await db
+      .from("reservas")
+      .select(`
+        id_reserva,
+        ano,
+        mes,
+        mes_ano,
+        receita,
+        comissao_portais,
+        comissao_short_stay,
+        unidades ( nome )
+      `);
+
+    if (!error && data && data.length) {
+      console.log("🌐 Reservas carregadas do Supabase");
+
+      CACHE_RESERVAS = data.map(r => ({
+        idReserva: r.id_reserva,
+        unidade: r.unidades.nome,
+        ano: r.ano,
+        mes: r.mes,
+        mesAno: r.mes_ano,
+        receita: r.receita,
+        comissao: r.comissao_portais,
+        comissaoShortStay: r.comissao_short_stay
+      }));
+
+    } else {
+      console.log("💾 Usando reservas do localStorage");
+      CACHE_RESERVAS = getDb(DB_RESERVAS);
+    }
+  }
+</script>
+
+
     <style>:root{--primary-color:#2d7a7a;--primary-dark:#1a4d4d;--accent-color:#d4a574;--text-dark:#333;--text-light:#666;--bg-light:#f5f5f5;--bg-white:#fff;--border-color:#e0e0e0;--red:#dc3545;--green:#28a745}*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;background:var(--bg-light);color:var(--text-dark)}.container{display:flex;min-height:100vh}.sidebar{width:260px;background:linear-gradient(180deg,var(--primary-color) 0%,var(--primary-dark) 100%);color:white;padding:24px 0;position:fixed;height:100vh;overflow-y:auto;z-index:100}.logo{display:flex;align-items:center;gap:12px;padding:0 24px 24px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:24px}.menu-item{padding:12px 24px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:12px;font-size:14px}.menu-item:hover{background:rgba(255,255,255,.1)}.menu-item.active{background:rgba(255,255,255,.15);border-left:3px solid var(--accent-color)}.main{margin-left:260px;flex:1;padding:32px;width:calc(100% - 260px)}.page{display:none}.page.active{display:block}.page-header{margin-bottom:24px;display:flex;justify-content:space-between;align-items:center}.page-header h2{font-size:28px;color:var(--primary-dark);font-weight:700}.card{background:var(--bg-white);border-radius:12px;padding:24px;box-shadow:0 4px 12px rgba(0,0,0,.08);margin-bottom:24px}.btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:8px}.btn-primary{background:var(--primary-dark);color:white}.btn-primary:hover{background:var(--primary-color)}.btn-secondary{background:var(--accent-color);color:white}.btn-link{background:none;color:var(--text-light);font-weight:500}.upload-area{border:2px dashed var(--primary-color);border-radius:12px;padding:48px;text-align:center;cursor:pointer}.form-group{margin-bottom:20px}.form-label{display:block;margin-bottom:8px;font-size:14px;font-weight:500}.form-input,.form-select{width:100%;padding:12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px}.flex{display:flex}.gap-16{gap:16px}.flex-1{flex:1}.filter-bar{display:flex;flex-wrap:wrap;gap:16px;align-items:center}.select2-container{width:100%!important}.select2-container .select2-selection--multiple{border:1px solid var(--border-color)!important;padding:6px!important;border-radius:8px!important;min-height:48px}.indicadores-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr); /* 👈 força 5 cards na mesma linha */
@@ -699,8 +751,14 @@ if (anos.includes(anoAtual)) {
                     return passaAno&&passaMes&&passaUnidade;
                 };
                 
-                const reservas=getDb(DB_RESERVAS).filter(e=>passaNosFiltros(e,"mesAno"));
-                const despesas=getDb(DB_DESPESAS).filter(e=>passaNosFiltros(e,"data"));
+const reservas=(CACHE_RESERVAS || getDb(DB_RESERVAS))
+  .filter(e=>passaNosFiltros(e,"mesAno"));
+
+
+
+const despesas=getDb(DB_DESPESAS)
+  .filter(e=>passaNosFiltros(e,"data"));
+
                 
                 const receita=reservas.reduce((acc,e)=>acc+e.receita,0);
 const comissaoPortais = reservas.reduce(
@@ -895,7 +953,8 @@ labels: mesesLabels,
             });
         }
         
-        function renderViews(){
+        async function renderViews(){
+
             try{
                 let anosVal=$("#filtroAnos").val();
                 let mesesVal=$("#filtroMeses").val();
@@ -919,8 +978,14 @@ labels: mesesLabels,
                     return passaAno&&passaMes&&passaUnidade;
                 };
                 
-                const reservas=getDb(DB_RESERVAS).filter(e=>passaNosFiltros(e,"mesAno"));
-                const despesas=getDb(DB_DESPESAS).filter(e=>passaNosFiltros(e,"data"));
+const reservas=(CACHE_RESERVAS || getDb(DB_RESERVAS))
+  .filter(e=>passaNosFiltros(e,"mesAno"));
+
+
+
+const despesas=getDb(DB_DESPESAS)
+  .filter(e=>passaNosFiltros(e,"data"));
+
                 
                 if("cards"===currentViewMode){
                     renderCardsView(reservas,despesas);
@@ -1312,8 +1377,8 @@ renderTabelaDespesasDetalhada();
         function salvarProprietarios(){
             const e=document.querySelectorAll(".prop-input"),a=Array.from(e).map(e=>({unidade:e.dataset.unidade,nome:e.value.trim()})).filter(e=>e.nome);
             saveDb(DB_PROPRIETARIOS,a),alert("✅ Proprietários salvos com sucesso!")
-        }
-        
+        }        
+
         $(document).ready(function () {
 $("#filtroAnos").select2({
     placeholder: "Filtrar por ano",
@@ -1330,11 +1395,143 @@ $("#filtroUnidades").select2({
     allowClear: true
 });
 
+async function syncDespesas() {
+  const despesasLocal = getDb(DB_DESPESAS);
+
+  if (!despesasLocal.length) {
+    console.log("ℹ️ Nenhuma despesa local encontrada");
+    return;
+  }
+
+  // 1️⃣ unidades
+  const { data: unidades, error: errUn } = await db
+    .from("unidades")
+    .select("id, nome");
+
+  if (errUn) {
+    console.error("Erro ao buscar unidades:", errUn);
+    return;
+  }
+
+  const mapaUnidades = {};
+  unidades.forEach(u => {
+    mapaUnidades[u.nome] = u.id;
+  });
+
+  // 2️⃣ categorias
+  const { data: categorias } = await db
+    .from("categorias_despesas")
+    .select("id, nome");
+
+  const mapaCategorias = {};
+  (categorias || []).forEach(c => {
+    mapaCategorias[c.nome] = c.id;
+  });
+
+  // 3️⃣ monta despesas
+  const novas = despesasLocal
+    .map(d => ({
+      unidade_id: mapaUnidades[d.unidade],
+      categoria_id: mapaCategorias[d.categoria] ?? null,
+      descricao: d.descricao,
+      data: d.data,
+      valor: d.valor
+    }))
+    .filter(d => d.unidade_id);
+
+  if (!novas.length) {
+    console.log("ℹ️ Nenhuma despesa válida para migrar");
+    return;
+  }
+
+  // 4️⃣ insere
+  const { error } = await db
+    .from("despesas")
+    .insert(novas);
+
+  if (error) {
+    console.error("❌ Erro ao inserir despesas:", error);
+  } else {
+    console.log(`✔ ${novas.length} despesas migradas para o Supabase`);
+  }
+}
+
+
+async function syncReservas() {
+  const reservasLocal = getDb(DB_RESERVAS);
+  if (!reservasLocal.length) {
+    console.log("ℹ️ Nenhuma reserva local encontrada");
+    return;
+  }
+
+  const { data: unidades, error: errUn } = await db
+    .from("unidades")
+    .select("id, nome");
+
+  if (errUn) {
+    console.error("Erro ao buscar unidades:", errUn);
+    return;
+  }
+
+  const mapaUnidades = {};
+  unidades.forEach(u => {
+    mapaUnidades[u.nome] = u.id;
+  });
+
+  const { data: existentes, error: errRes } = await db
+    .from("reservas")
+    .select("id_reserva");
+
+  if (errRes) {
+    console.error("Erro ao buscar reservas existentes:", errRes);
+    return;
+  }
+
+  const idsExistentes = new Set(existentes.map(r => r.id_reserva));
+
+  const novas = reservasLocal
+    .filter(r => !idsExistentes.has(r.idReserva))
+    .map(r => ({
+      id_reserva: r.idReserva,
+      unidade_id: mapaUnidades[r.unidade],
+      ano: r.ano,
+      mes: r.mes,
+      mes_ano: r.mesAno,
+      receita: r.receita,
+      comissao_portais: r.comissao ?? 0,
+      comissao_short_stay: r.comissaoShortStay ?? 0
+    }))
+    .filter(r => r.unidade_id);
+
+  if (!novas.length) {
+    console.log("✔ Nenhuma reserva nova para inserir");
+    return;
+  }
+
+  const { error: insertErr } = await db
+    .from("reservas")
+    .insert(novas);
+
+  if (insertErr) {
+    console.error("❌ Erro ao inserir reservas:", insertErr);
+  } else {
+    console.log(`✔ ${novas.length} reservas migradas para o Supabase`);
+  }
+}
+
 
     // 🔧 inicializa filtros UMA ÚNICA VEZ
+carregarReservasSupabase().then(() => {
 
-    showPage("financeiro", document.querySelector('.menu-item[onclick*="financeiro"]'));
+    showPage(
+        "financeiro",
+        document.querySelector('.menu-item[onclick*="financeiro"]')
+    );
+
     setViewMode("cards");
+
+});
+
 
 // 👇 GATILHO AUTOMÁTICO (1 vez por sessão)
     // 🔄 ATUALIZA AUTOMÁTICA — 1ª vez do dia
@@ -1852,6 +2049,373 @@ function processarUploadManual(file) {
     reader.readAsArrayBuffer(file);
 }
 
+async function syncUnidades() {
+  // unidades vindas do sistema atual (localStorage)
+  const reservas = await getReservas();
+
+  if (!reservas.length) return;
+
+  const unidadesUnicas = [...new Set(reservas.map(r => r.unidade))];
+
+  // busca unidades já existentes no Supabase
+  const { data: existentes, error } = await db
+    .from("unidades")
+    .select("id, nome");
+
+  if (error) {
+    console.error("Erro ao buscar unidades:", error);
+    return;
+  }
+
+  const nomesExistentes = new Set(existentes.map(u => u.nome));
+
+  // filtra só as novas
+  const novas = unidadesUnicas
+    .filter(nome => !nomesExistentes.has(nome))
+    .map(nome => ({ nome }));
+
+  if (!novas.length) {
+    console.log("✔ Nenhuma unidade nova para criar");
+    return;
+  }
+
+  const { error: insertError } = await db
+    .from("unidades")
+    .insert(novas);
+
+  if (insertError) {
+    console.error("Erro ao inserir unidades:", insertError);
+  } else {
+    console.log(`✔ ${novas.length} unidades criadas no Supabase`);
+  }
+}
+
+async function syncReservas() {
+  const reservasLocal = getDb(DB_RESERVAS);
+  if (!reservasLocal.length) {
+    console.log("ℹ️ Nenhuma reserva local encontrada");
+    return;
+  }
+
+  // 1️⃣ Carrega unidades do Supabase
+  const { data: unidades, error: errUn } = await db
+    .from("unidades")
+    .select("id, nome");
+
+  if (errUn) {
+    console.error("Erro ao buscar unidades:", errUn);
+    return;
+  }
+
+  const mapaUnidades = {};
+  unidades.forEach(u => {
+    mapaUnidades[u.nome] = u.id;
+  });
+
+  // 2️⃣ Busca IDs de reservas já existentes
+  const { data: existentes, error: errRes } = await db
+    .from("reservas")
+    .select("id_reserva");
+
+  if (errRes) {
+    console.error("Erro ao buscar reservas existentes:", errRes);
+    return;
+  }
+
+  const idsExistentes = new Set(existentes.map(r => r.id_reserva));
+
+  // 3️⃣ Prepara reservas novas
+  const novas = reservasLocal
+    .filter(r => !idsExistentes.has(r.idReserva))
+    .map(r => ({
+      id_reserva: r.idReserva,
+      unidade_id: mapaUnidades[r.unidade],
+      ano: r.ano,
+      mes: r.mes,
+      mes_ano: r.mesAno,
+      receita: r.receita,
+      comissao_portais: r.comissao ?? 0,
+      comissao_short_stay: r.comissaoShortStay ?? 0
+    }))
+    .filter(r => r.unidade_id); // segurança extra
+
+  if (!novas.length) {
+    console.log("✔ Nenhuma reserva nova para inserir");
+    return;
+  }
+
+  // 4️⃣ Insere no Supabase
+  const { error: insertErr } = await db
+    .from("reservas")
+    .insert(novas);
+
+  if (insertErr) {
+    console.error("❌ Erro ao inserir reservas:", insertErr);
+  } else {
+    console.log(`✔ ${novas.length} reservas migradas para o Supabase`);
+  }
+}
+
+
+async function syncCategorias() {
+  const categoriasLocal = getDb(DB_CATEGORIAS);
+
+  if (!categoriasLocal.length) {
+    console.log("ℹ️ Nenhuma categoria local encontrada");
+    return;
+  }
+
+  // busca categorias existentes
+  const { data: existentes, error } = await db
+    .from("categorias_despesas")
+    .select("nome");
+
+  if (error) {
+    console.error("Erro ao buscar categorias:", error);
+    return;
+  }
+
+  const nomesExistentes = new Set(existentes.map(c => c.nome));
+
+  const novas = categoriasLocal
+    .filter(nome => !nomesExistentes.has(nome))
+    .map(nome => ({ nome }));
+
+  if (!novas.length) {
+    console.log("✔ Nenhuma categoria nova para inserir");
+    return;
+  }
+
+  const { error: insertErr } = await db
+    .from("categorias_despesas")
+    .insert(novas);
+
+  if (insertErr) {
+    console.error("❌ Erro ao inserir categorias:", insertErr);
+  } else {
+    console.log(`✔ ${novas.length} categorias migradas para o Supabase`);
+  }
+}
+
+async function syncProprietarios() {
+  const proprietariosLocal = getDb(DB_PROPRIETARIOS);
+
+  if (!proprietariosLocal.length) {
+    console.log("ℹ️ Nenhum proprietário local encontrado");
+    return;
+  }
+
+  const { data: unidades, error } = await db
+    .from("unidades")
+    .select("id, nome");
+
+  if (error) {
+    console.error("Erro ao buscar unidades:", error);
+    return;
+  }
+
+  const mapaUnidades = {};
+  unidades.forEach(u => {
+    mapaUnidades[u.nome] = u.id;
+  });
+
+  const novos = proprietariosLocal
+    .map(p => ({
+      unidade_id: mapaUnidades[p.unidade],
+      nome: p.nome
+    }))
+    .filter(p => p.unidade_id && p.nome);
+
+  if (!novos.length) {
+    console.log("ℹ️ Nenhum proprietário válido para migrar");
+    return;
+  }
+
+  const { error: insertErr } = await db
+    .from("proprietarios")
+    .insert(novos, { ignoreDuplicates: true });
+
+  if (insertErr) {
+    console.error("❌ Erro ao inserir proprietários:", insertErr);
+  } else {
+    console.log(`✔ ${novos.length} proprietários migrados para o Supabase`);
+  }
+}
+
+async function syncProprietarios() {
+  const proprietariosLocal = getDb(DB_PROPRIETARIOS);
+
+  if (!proprietariosLocal.length) {
+    console.log("ℹ️ Nenhum proprietário local encontrado");
+    return;
+  }
+
+  const { data: unidades, error } = await db
+    .from("unidades")
+    .select("id, nome");
+
+  if (error) {
+    console.error("Erro ao buscar unidades:", error);
+    return;
+  }
+
+  const mapaUnidades = {};
+  unidades.forEach(u => {
+    mapaUnidades[u.nome] = u.id;
+  });
+
+  const novos = proprietariosLocal
+    .map(p => ({
+      unidade_id: mapaUnidades[p.unidade],
+      nome: p.nome
+    }))
+    .filter(p => p.unidade_id && p.nome);
+
+  if (!novos.length) {
+    console.log("ℹ️ Nenhum proprietário válido para migrar");
+    return;
+  }
+
+  const { error: insertErr } = await db
+    .from("proprietarios")
+    .insert(novos, { ignoreDuplicates: true });
+
+  if (insertErr) {
+    console.error("❌ Erro ao inserir proprietários:", insertErr);
+  } else {
+    console.log(`✔ ${novos.length} proprietários migrados para o Supabase`);
+  }
+}
+
+async function getReservas() {
+  const { data, error } = await db
+    .from("reservas")
+    .select(`
+      id,
+      id_reserva,
+      ano,
+      mes,
+      mes_ano,
+      receita,
+      comissao_portais,
+      comissao_short_stay,
+      unidades ( nome )
+    `);
+
+  if (!error && data && data.length) {
+    // adapta para o formato antigo do sistema
+    return data.map(r => ({
+      idReserva: r.id_reserva,
+      unidade: r.unidades.nome,
+      ano: r.ano,
+      mes: r.mes,
+      mesAno: r.mes_ano,
+      receita: r.receita,
+      comissao: r.comissao_portais,
+      comissaoShortStay: r.comissao_short_stay
+    }));
+  }
+
+  // fallback total
+  return getDb(DB_RESERVAS);
+}
+
+
+async function getReservasFonte() {
+  const { data, error } = await db
+    .from("reservas")
+    .select(`
+      id_reserva,
+      ano,
+      mes,
+      mes_ano,
+      receita,
+      comissao_portais,
+      comissao_short_stay,
+      unidades ( nome )
+    `);
+
+  if (!error && data && data.length) {
+    console.log("📡 Dados vindos do Supabase");
+    return data.map(r => ({
+      idReserva: r.id_reserva,
+      unidade: r.unidades.nome,
+      ano: r.ano,
+      mes: r.mes,
+      mesAno: r.mes_ano,
+      receita: r.receita,
+      comissao: r.comissao_portais,
+      comissaoShortStay: r.comissao_short_stay
+    }));
+  }
+
+  console.log("💾 Fallback localStorage");
+  return getDb(DB_RESERVAS);
+}
+
+async function getReservasFonte() {
+  const { data, error } = await db
+    .from("reservas")
+    .select(`
+      id_reserva,
+      ano,
+      mes,
+      mes_ano,
+      receita,
+      comissao_portais,
+      comissao_short_stay,
+      unidades ( nome )
+    `);
+
+  if (!error && data && data.length) {
+    console.log("🌐 Reservas vindas do Supabase");
+    return data.map(r => ({
+      idReserva: r.id_reserva,
+      unidade: r.unidades.nome,
+      ano: r.ano,
+      mes: r.mes,
+      mesAno: r.mes_ano,
+      receita: r.receita,
+      comissao: r.comissao_portais,
+      comissaoShortStay: r.comissao_short_stay
+    }));
+  }
+
+  console.log("💾 Reservas vindas do localStorage");
+  return getDb(DB_RESERVAS);
+}
+
+async function carregarReservasSupabase() {
+  const { data, error } = await db
+    .from("reservas")
+    .select(`
+      id_reserva,
+      ano,
+      mes,
+      mes_ano,
+      receita,
+      comissao_portais,
+      comissao_short_stay,
+      unidades ( nome )
+    `);
+
+  if (!error && data && data.length) {
+    console.log("🌐 Reservas carregadas do Supabase");
+    CACHE_RESERVAS = data.map(r => ({
+      idReserva: r.id_reserva,
+      unidade: r.unidades.nome,
+      ano: r.ano,
+      mes: r.mes,
+      mesAno: r.mes_ano,
+      receita: r.receita,
+      comissao: r.comissao_portais,
+      comissaoShortStay: r.comissao_short_stay
+    }));
+  } else {
+    console.log("💾 Usando reservas do localStorage");
+    CACHE_RESERVAS = getDb(DB_RESERVAS);
+  }
+}
 
     </script>
 </body>
