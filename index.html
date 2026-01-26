@@ -219,37 +219,36 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 
 
         <div class="main">
-            <div id="financeiro" class="page">
-                <div class="page-header"><h2>Financeiro</h2><button class="btn btn-link" onclick="zerarFinanceiro()">/ Zerar tudo</button>
+          <div id="financeiro" class="page">
+    <div class="page-header">
+        <h2>Financeiro</h2>
+        <div style="display:flex;gap:12px;">
+            <button class="btn btn-link" onclick="fazerBackupExcel()">💾 Backup</button>
+            <button class="btn btn-link" onclick="document.getElementById('restaurarBackupInput').click()">📥 Restaurar</button>
+            <input type="file" id="restaurarBackupInput" accept=".xlsx,.xls" style="display:none" onchange="restaurarBackupExcel(this.files[0])">
+        </div>
+    </div>
+    
+    <div class="card filter-bar">
+        <div class="form-group flex-1"><select id="filtroAnos" class="form-select" multiple="multiple"></select></div>
+        <div class="form-group flex-1"><select id="filtroMeses" class="form-select" multiple="multiple"></select></div>
+        <div class="form-group flex-1"><select id="filtroUnidades" class="form-select" multiple="multiple"></select></div>
+        <button class="btn btn-primary" onclick="renderViews()">Aplicar</button>
+    </div>
+    
+    <div class="flex gap-16" style="margin-bottom: 24px;">
+        <button class="btn btn-primary" id="btn-view-cards" onclick="setViewMode('cards')">📊 Cards</button>
+        <button class="btn btn-secondary" id="btn-view-lista" onclick="setViewMode('lista')">📄 Lista</button>
+        <button class="btn btn-outline" onclick="atualizarDoSmoobuViaDownload()">🔄 Smoobu</button>
+        <button class="btn btn-outline-secondary" onclick="openUploadManualModal()">Movi</button>
+    </div>
+    
+    <div id="view-cards"><div id="indicadores-gerais" class="indicadores-grid"></div></div>
+    <div id="view-lista" style="display: none;">
+        <div id="indicadores-lista" class="indicadores-grid"></div>
+        <div class="card"><div id="tabela-lista-financeira"></div></div>
+    </div>
 </div>
-                <div class="card filter-bar">
-                    <div class="form-group flex-1"><select id="filtroAnos" class="form-select" multiple="multiple"></select></div>
-                    <div class="form-group flex-1"><select id="filtroMeses" class="form-select" multiple="multiple"></select></div>
-                    <div class="form-group flex-1"><select id="filtroUnidades" class="form-select" multiple="multiple"></select></div>
-                    <button class="btn btn-primary" onclick="renderViews()">Aplicar</button>
-                </div>
-                <div class="flex gap-16" style="margin-bottom: 24px;">
-<button class="btn btn-primary" id="btn-view-cards" onclick="setViewMode('cards')">📊 Cards</button>
-    <button class="btn btn-secondary" id="btn-view-lista" onclick="setViewMode('lista')">📄 Lista</button>
-
-    <!-- 🔄 BOTÃO NOVO -->
-<button class="btn btn-outline" onclick="atualizarDoSmoobuViaDownload()">
-    🔄 Smoobu
-</button>
-
-<button class="btn btn-outline-secondary" onclick="openUploadManualModal()">
-   Movi
-</button>
-
-
-
-                </div>
-                <div id="view-cards"><div id="indicadores-gerais" class="indicadores-grid"></div></div>
-                <div id="view-lista" style="display: none;">
-                                      <div id="indicadores-lista" class="indicadores-grid"></div>
-                    <div class="card"><div id="tabela-lista-financeira"></div></div>
-                </div>
-            </div>
 
 
             <div id="analitica" class="page">
@@ -301,6 +300,15 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                         <div class="analitica-card-value green" id="analitica-lucro">R$ 0,00</div>
                         <div class="analitica-card-chart"><canvas id="chart-lucro"></canvas></div>
                     </div>
+
+<div class="analitica-card">
+    <div class="analitica-card-header">
+        <div class="analitica-card-icon">🎫</div>
+        <div class="analitica-card-title">Ticket Médio</div>
+    </div>
+    <div class="analitica-card-value green" id="analitica-ticket">R$ 0,00</div>
+</div>
+
                 </div>
                 <div class="card">
                     <h3 style="margin-bottom:20px;">Receita por Unidade</h3>
@@ -326,16 +334,30 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                 <div class="page-header"><h2>Gestão de Proprietários</h2></div>
                 <div class="card"><div id="proprietarios-list"></div><button class="btn btn-primary" style="margin-top: 16px;" onclick="salvarProprietarios()">Salvar Alterações</button></div>
             </div>
-            <div id="upload" class="page">
-                <div class="page-header"><h2>Upload de Arquivo Smoobu</h2></div>
-                <div class="card"><div class="upload-area">
-<input type="file" id="fileInput" accept=".xlsx,.xls" onchange="processarEAdicionarDados(this.files[0])">
 
-
-<div style="font-size: 48px; margin-bottom: 16px;">📄</div><h3>Selecione o arquivo de RESERVAS</h3><p>A receita será contabilizada pela data de PARTIDA.</p></div></div>
-            </div>
+<div id="upload" class="page">
+    <div class="page-header"><h2>Upload de Dados</h2></div>
+    
+    <div class="card">
+        <h3 style="margin-bottom:16px;">📄 Importar Reservas (Smoobu)</h3>
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="processarEAdicionarDados(this.files[0])" style="display:none">
+            <div style="font-size: 48px; margin-bottom: 16px;">📄</div>
+            <h3>Selecione o arquivo de RESERVAS</h3>
+            <p>A receita será contabilizada pela data de CHEGADA.</p>
         </div>
     </div>
+    
+    <div class="card">
+        <h3 style="margin-bottom:16px;">📊 Importar Financeiro (Movi)</h3>
+        <div class="upload-area" onclick="document.getElementById('uploadManualFile2').click()">
+            <input type="file" id="uploadManualFile2" accept=".xlsx,.xls,image/*" style="display:none" onchange="processarUploadManual(this.files[0])">
+            <div style="font-size: 48px; margin-bottom: 16px;">💰</div>
+            <h3>Selecione o arquivo financeiro</h3>
+            <p>Arquivo mensal com Valor, Taxa App e Taxa Short Stay</p>
+        </div>
+    </div>
+</div>
     <div id="despesaModal" class="modal-overlay">
         <div class="modal-content">
             <div class="page-header"><h3>Adicionar Nova Despesa</h3><button style="background:none; border:none; font-size: 24px; cursor:pointer;" onclick="closeDespesaModal()">&times;</button></div>
@@ -390,7 +412,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
         <div class="modal-content">
 
             <div class="page-header">
-                <h3>Upload Manual – Movi 505</h3>
+                <h3>Upload Manual – Movi</h3>
                 <button style="background:none;border:none;font-size:24px;cursor:pointer;"
                         onclick="closeUploadManualModal()">&times;</button>
             </div>
@@ -399,7 +421,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                 <label class="form-label">Unidade</label>
                 <input type="text"
                        class="form-input"
-                       value="Movi 505"
+                       value="Movi"
                        disabled>
             </div>
 
@@ -427,7 +449,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 // ===== 1️⃣ CONFIGURAÇÃO SUPABASE =====
 const db = window.supabase.createClient(
     "https://vzdxhxbevewmbdnmetrj.supabase.co",
-"sb_publishable_iF6vzSt0RfW6J_FJzbL68w_xpCjcGof"
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6ZHhoeGJldmV3bWJkbm1ldHJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwOTI4MTgsImV4cCI6MjA4MzY2ODgxOH0.XRWZ66NkqYFM8qWPwBQD5D1veokAuNaWMSwjbG1a5RE"
 );
 
 // ===== 2️⃣ VARIÁVEIS GLOBAIS =====
@@ -738,65 +760,37 @@ function parseNumeroBR(valor) {
 
         
    function setupFilters() {
-    const dados = CACHE_RESERVAS || getDb(DB_RESERVAS);  // ✅ CORRETO
-    if (dados.length === 0) return;
+    const dados = CACHE_RESERVAS || getDb(DB_RESERVAS);
+    
+    if (dados.length === 0) {
+        console.log("⚠️ Nenhuma reserva para filtros");
+        return;
+    }
 
-    // 📆 ANOS (YYYY)
-    const anos = [...new Set(
-        dados.map(e => e.mesAno.substring(0, 4))
-    )].sort();
+    const anos = [...new Set(dados.map(e => e.mesAno.substring(0, 4)))].sort();
+    const meses = [...new Set(dados.map(e => e.mesAno.substring(5, 7)))].sort();
+    const unidades = [...new Set(dados.map(e => e.unidade))].sort();
 
-    // 📅 MESES (MM)
-    const meses = [...new Set(
-        dados.map(e => e.mesAno.substring(5, 7))
-    )].sort();
-
-    // 🏢 UNIDADES
-    const unidades = [...new Set(
-        dados.map(e => e.unidade)
-    )].sort();
+    console.log("📊 Filtros:", { anos, meses, unidades });
 
     const selAno = document.getElementById("filtroAnos");
     const selMes = document.getElementById("filtroMeses");
     const selUn = document.getElementById("filtroUnidades");
 
-    // 🔹 ANOS
-    selAno.innerHTML = anos
-        .map(a => `<option value="${a}">${a}</option>`)
-        .join("");
-
-    // 🔹 MESES (com nome)
     const nomesMeses = {
-        "01": "Janeiro",
-        "02": "Fevereiro",
-        "03": "Março",
-        "04": "Abril",
-        "05": "Maio",
-        "06": "Junho",
-        "07": "Julho",
-        "08": "Agosto",
-        "09": "Setembro",
-        "10": "Outubro",
-        "11": "Novembro",
-        "12": "Dezembro"
+        "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril",
+        "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto",
+        "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro"
     };
 
-    selMes.innerHTML = meses
-        .map(m => `<option value="${m}">${nomesMeses[m]}</option>`)
-        .join("");
+    selAno.innerHTML = anos.map(a => `<option value="${a}">${a}</option>`).join("");
+    selMes.innerHTML = meses.map(m => `<option value="${m}">${nomesMeses[m]}</option>`).join("");
+    selUn.innerHTML = unidades.map(u => `<option value="${u}">${u}</option>`).join("");
 
-    // 🔹 UNIDADES
-    selUn.innerHTML = unidades
-        .map(u => `<option value="${u}">${u}</option>`)
-        .join("");
-
-    // 🔄 Atualiza Select2
-// 📅 Define o ano atual como padrão
-const anoAtual = new Date().getFullYear().toString();
-
-if (anos.includes(anoAtual)) {
-    $("#filtroAnos").val([anoAtual]);
-}
+    const anoAtual = new Date().getFullYear().toString();
+    if (anos.includes(anoAtual)) {
+        $("#filtroAnos").val([anoAtual]);
+    }
 
     $("#filtroAnos").trigger("change");
     $("#filtroMeses").trigger("change");
@@ -805,47 +799,44 @@ if (anos.includes(anoAtual)) {
 
 
         
-       function setupAnaliticaFilters() {
-    const dados = getDb(DB_RESERVAS);
+      function setupAnaliticaFilters() {
+    const dados = CACHE_RESERVAS || getDb(DB_RESERVAS);
+
+    if (dados.length === 0) {
+        console.log("⚠️ Nenhuma reserva para analítica");
+        return;
+    }
 
     const unidades = [...new Set(dados.map(e => e.unidade))].sort();
     const anos = [...new Set(dados.map(e => e.mesAno.substring(0, 4)))].sort();
 
     const meses = [
-        { id: "01", text: "Janeiro" },
-        { id: "02", text: "Fevereiro" },
-        { id: "03", text: "Março" },
-        { id: "04", text: "Abril" },
-        { id: "05", text: "Maio" },
-        { id: "06", text: "Junho" },
-        { id: "07", text: "Julho" },
-        { id: "08", text: "Agosto" },
-        { id: "09", text: "Setembro" },
-        { id: "10", text: "Outubro" },
-        { id: "11", text: "Novembro" },
-        { id: "12", text: "Dezembro" }
+        { id: "01", text: "Janeiro" }, { id: "02", text: "Fevereiro" },
+        { id: "03", text: "Março" }, { id: "04", text: "Abril" },
+        { id: "05", text: "Maio" }, { id: "06", text: "Junho" },
+        { id: "07", text: "Julho" }, { id: "08", text: "Agosto" },
+        { id: "09", text: "Setembro" }, { id: "10", text: "Outubro" },
+        { id: "11", text: "Novembro" }, { id: "12", text: "Dezembro" }
     ];
 
-    // 🔹 recria Select2
-    $("#filtroAnaliticaUnidades")
-        .empty()
-        .select2({ data: unidades, placeholder: "Todos os alojamentos" });
+    $("#filtroAnaliticaUnidades").empty().select2({ 
+        data: unidades, 
+        placeholder: "Todos os alojamentos" 
+    });
 
-    $("#filtroAnaliticaAnos")
-        .empty()
-        .select2({ data: anos, placeholder: "Todos os anos" });
+    $("#filtroAnaliticaAnos").empty().select2({ 
+        data: anos, 
+        placeholder: "Todos os anos" 
+    });
 
-    $("#filtroAnaliticaMeses")
-        .empty()
-        .select2({ data: meses, placeholder: "Todos os meses" });
+    $("#filtroAnaliticaMeses").empty().select2({ 
+        data: meses, 
+        placeholder: "Todos os meses" 
+    });
 
-    // 🟢 SELECIONA O ANO ATUAL
     const anoAtual = new Date().getFullYear().toString();
-
     if (anos.includes(anoAtual)) {
-        $("#filtroAnaliticaAnos")
-            .val([anoAtual])
-            .trigger("change");
+        $("#filtroAnaliticaAnos").val([anoAtual]).trigger("change");
     }
 }
 
@@ -905,6 +896,8 @@ const comissao = comissaoPortais + comissaoShort;
                 document.getElementById("analitica-despesas").className="analitica-card-value red";
                 document.getElementById("analitica-lucro").textContent=formatCurrency(lucro);
                 document.getElementById("analitica-lucro").className=lucro>=0?"analitica-card-value green":"analitica-card-value red";
+const ticketMedio = reservas.length > 0 ? receita / reservas.length : 0;
+document.getElementById("analitica-ticket").textContent = formatCurrency(ticketMedio);
                 
                 renderAnaliticaCharts(reservas,despesas,anos,meses,unidades);
             }catch(err){
@@ -1997,11 +1990,12 @@ function editarDespesa(id) {
 
 function carregarUnidadesDespesa() {
     const select = document.getElementById("despesaUnidade");
+    if (!select) return;
 
-    // pega unidades das reservas
-    const unidades = [
-        ...new Set(getDb(DB_RESERVAS).map(r => r.unidade))
-    ].sort();
+    const dados = CACHE_RESERVAS || getDb(DB_RESERVAS);
+    const unidades = [...new Set(dados.map(r => r.unidade))].sort();
+
+    console.log("🏢 Unidades para despesa:", unidades);
 
     select.innerHTML = '<option value="">Selecione a unidade</option>';
 
@@ -2071,12 +2065,12 @@ function parseNumeroBR(valor) {
     return 0;
 }
 
-async function processarUploadManual(file) {
+function processarUploadManual(file) {
     if (!file) return;
 
     const reader = new FileReader();
 
-    reader.onload = async function (evt) {
+    reader.onload = function (evt) {
         try {
             const workbook = XLSX.read(
                 new Uint8Array(evt.target.result),
@@ -2086,38 +2080,44 @@ async function processarUploadManual(file) {
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const linhas = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-            console.log("📊 Total de linhas:", linhas.length);
+            console.log("📊 Processando Movi:", linhas.length, "linhas");
 
-            let mesAtual = null;
             const novos = [];
+            const banco = getDb(DB_RESERVAS);
+            let linhaDados = null;
 
             linhas.forEach((l, idx) => {
-                // 🔍 Busca DATA
-                let dataEncontrada = null;
+                let dataEntrada = null;
+                let dataSaida = null;
+
                 for (let chave in l) {
                     const valorChave = l[chave];
+                    const chaveLower = chave.toLowerCase();
                     
-                    if (valorChave instanceof Date && !isNaN(valorChave)) {
-                        dataEncontrada = valorChave;
-                        break;
+                    if ((chaveLower.includes("entrada") || chaveLower.includes("check-in") || chaveLower.includes("checkin")) && 
+                        valorChave instanceof Date && !isNaN(valorChave)) {
+                        dataEntrada = valorChave;
                     }
                     
-                    if (typeof valorChave === "string" && (valorChave.includes("/") || valorChave.includes("-"))) {
-                        const d = new Date(valorChave);
-                        if (!isNaN(d)) {
-                            dataEncontrada = d;
-                            break;
-                        }
+                    if ((chaveLower.includes("saida") || chaveLower.includes("saída") || chaveLower.includes("check-out") || chaveLower.includes("checkout")) && 
+                        valorChave instanceof Date && !isNaN(valorChave)) {
+                        dataSaida = valorChave;
+                    }
+                    
+                    if (!dataEntrada && valorChave instanceof Date && !isNaN(valorChave)) {
+                        dataEntrada = valorChave;
                     }
                 }
 
-                if (dataEncontrada) {
-                    const ano = dataEncontrada.getFullYear();
-                    const mes = String(dataEncontrada.getMonth() + 1).padStart(2, "0");
-                    mesAtual = `${ano}-${mes}`;
-                }
+                if (!dataEntrada) return;
 
-                // 🔍 Busca VALOR
+                const ano = dataEntrada.getFullYear();
+                const mes = String(dataEntrada.getMonth() + 1).padStart(2, "0");
+                const diaEntrada = String(dataEntrada.getDate()).padStart(2, "0");
+                const mesAno = `${ano}-${mes}`;
+                
+                const diaSaida = dataSaida ? String(dataSaida.getDate()).padStart(2, "0") : "00";
+
                 let valorReceita = 0;
                 for (let chave in l) {
                     const chaveLower = chave.toLowerCase();
@@ -2128,9 +2128,8 @@ async function processarUploadManual(file) {
                     }
                 }
 
-                if (!mesAtual || valorReceita === 0) return;
+                if (valorReceita === 0) return;
 
-                // 🔍 Busca COMISSÕES
                 let comissaoPortais = 0;
                 let comissaoShortStay = 0;
 
@@ -2145,36 +2144,58 @@ async function processarUploadManual(file) {
                     }
                 }
 
+                const chaveUnica = `MOVI_${mesAno}_${diaEntrada}-${diaSaida}_${valorReceita.toFixed(2)}`;
+
+                const jaExiste = banco.some(r => r.idReserva === chaveUnica);
+
+                if (jaExiste) {
+                    console.log("⚠️ Duplicada:", chaveUnica);
+                    return;
+                }
+
                 novos.push({
-                    idReserva: `MANUAL_${mesAtual}_${idx}_${Date.now()}`,
-                    unidade: "Movi 505",
-                    ano: mesAtual.substring(0, 4),
-                    mes: mesAtual.substring(5, 7),
-                    mesAno: mesAtual,
+                    idReserva: chaveUnica,
+                    unidade: "Movi",
+                    ano: ano.toString(),
+                    mes: mes,
+                    mesAno: mesAno,
                     receita: valorReceita,
                     comissao: comissaoPortais,
+                    comissaoPortais: comissaoPortais,
                     comissaoShortStay: comissaoShortStay
                 });
             });
 
+            console.log("✅ Novos:", novos.length);
+
             if (!novos.length) {
-                alert("⚠️ Nenhum lançamento válido encontrado.");
+                alert("⚠️ Nenhum lançamento novo.\n\nTodos já existem.");
                 return;
             }
 
-            // 🌐 SALVA NO SUPABASE
-            await salvarReservasNoSupabase(novos);
+           // Salva no localStorage primeiro
+banco.push(...novos);
+saveDb(DB_RESERVAS, banco);
 
-            // 🔄 Recarrega
-            await carregarReservasSupabase();
-            closeUploadManualModal();
-            setupFilters();
-            setupAnaliticaFilters();
-            renderViews();
-
+// Depois salva no Supabase
+salvarReservasNoSupabase(novos).then(() => {
+    closeUploadManualModal();
+    carregarReservasSupabase().then(() => {
+        setupFilters();
+        setupAnaliticaFilters();
+        renderViews();
+    });
+}).catch(err => {
+    console.error("Erro ao salvar no Supabase:", err);
+    // Mesmo com erro, fecha modal e atualiza
+    closeUploadManualModal();
+    setupFilters();
+    setupAnaliticaFilters();
+    renderViews();
+});
         } catch (e) {
-            console.error("Erro:", e);
-            alert("Erro: " + e.message);
+            console.error(e);
+            alert("❌ Erro: " + e.message);
         }
     };
 
@@ -2655,7 +2676,8 @@ $(document).ready(async function () {
         setupFilters();
         setupAnaliticaFilters();
         showPage("financeiro", document.querySelector('.menu-item[onclick*="financeiro"]'));
-        setViewMode("cards");
+        setViewMode("lista");
+
     } catch (err) {
         console.error("Erro:", err);
     }
@@ -2674,6 +2696,129 @@ function carregarCategoriasDespesa() {
         opt.textContent = c;
         select.appendChild(opt);
     });
+}
+
+// ADICIONE estas funções no seu <script>
+
+async function fazerBackupExcel() {
+    try {
+        const reservas = CACHE_RESERVAS || getDb(DB_RESERVAS);
+        const despesas = getDb(DB_DESPESAS);
+        const proprietarios = getDb(DB_PROPRIETARIOS);
+        const categorias = getDb(DB_CATEGORIAS);
+
+        const wb = XLSX.utils.book_new();
+
+        const reservasExport = reservas.map(r => ({
+            'ID Reserva': r.idReserva,
+            'Unidade': r.unidade,
+            'Ano': r.ano,
+            'Mês': r.mes,
+            'Mês/Ano': r.mesAno,
+            'Receita': r.receita,
+            'Comissão Portais': r.comissao || 0,
+            'Comissão Short Stay': r.comissaoShortStay || 0
+        }));
+
+        const despesasExport = despesas.map(d => ({
+            'ID': d.id,
+            'Unidade': d.unidade,
+            'Descrição': d.descricao,
+            'Categoria': d.categoria,
+            'Data': d.data,
+            'Valor': d.valor
+        }));
+
+        const proprietariosExport = proprietarios.map(p => ({
+            'Unidade': p.unidade,
+            'Nome': p.nome
+        }));
+
+        const categoriasExport = categorias.map(c => ({ 'Categoria': c }));
+
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(reservasExport), "Reservas");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(despesasExport), "Despesas");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(proprietariosExport), "Proprietários");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(categoriasExport), "Categorias");
+
+        const hoje = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `Backup_Bandeira_${hoje}.xlsx`);
+
+        alert("✅ Backup realizado com sucesso!");
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ Erro ao fazer backup: " + err.message);
+    }
+}
+
+function restaurarBackupExcel(file) {
+    if (!file) return;
+
+    if (!confirm("⚠️ ATENÇÃO!\n\nIsso irá SUBSTITUIR todos os dados atuais.\n\nDeseja continuar?")) {
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function(evt) {
+        try {
+            const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: "array" });
+
+            if (workbook.SheetNames.includes("Reservas")) {
+                const reservasSheet = XLSX.utils.sheet_to_json(workbook.Sheets["Reservas"]);
+                const reservas = reservasSheet.map(r => ({
+                    idReserva: r['ID Reserva'],
+                    unidade: r['Unidade'],
+                    ano: r['Ano'],
+                    mes: r['Mês'],
+                    mesAno: r['Mês/Ano'],
+                    receita: r['Receita'],
+                    comissao: r['Comissão Portais'] || 0,
+                    comissaoShortStay: r['Comissão Short Stay'] || 0
+                }));
+                saveDb(DB_RESERVAS, reservas);
+            }
+
+            if (workbook.SheetNames.includes("Despesas")) {
+                const despesasSheet = XLSX.utils.sheet_to_json(workbook.Sheets["Despesas"]);
+                const despesas = despesasSheet.map(d => ({
+                    id: d['ID'],
+                    unidade: d['Unidade'],
+                    descricao: d['Descrição'],
+                    categoria: d['Categoria'],
+                    data: d['Data'],
+                    valor: d['Valor']
+                }));
+                saveDb(DB_DESPESAS, despesas);
+            }
+
+            if (workbook.SheetNames.includes("Proprietários")) {
+                const propsSheet = XLSX.utils.sheet_to_json(workbook.Sheets["Proprietários"]);
+                const props = propsSheet.map(p => ({
+                    unidade: p['Unidade'],
+                    nome: p['Nome']
+                }));
+                saveDb(DB_PROPRIETARIOS, props);
+            }
+
+            if (workbook.SheetNames.includes("Categorias")) {
+                const catsSheet = XLSX.utils.sheet_to_json(workbook.Sheets["Categorias"]);
+                const cats = catsSheet.map(c => c['Categoria']);
+                saveDb(DB_CATEGORIAS, cats);
+            }
+
+            alert("✅ Backup restaurado com sucesso!");
+            
+            location.reload();
+
+        } catch (err) {
+            console.error(err);
+            alert("❌ Erro ao restaurar backup: " + err.message);
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
 }
     </script>
 </body>
