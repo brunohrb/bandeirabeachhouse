@@ -695,7 +695,7 @@ function parseNumeroBR(valor) {
             renderViews()
         }
         
-  async function processarEAdicionarDados(e) {
+async function processarEAdicionarDados(e) {
     if (!e) return;
 
     const reader = new FileReader();
@@ -721,15 +721,25 @@ function parseNumeroBR(valor) {
                     if (!preco || preco <= 0) return null;
 
                     const comissao = parseFloat(linha["Comissão incluída"] || 0);
+                    const unidade = (linha.Alojamento || linha.Accommodation || "N/A").trim();
+
+                    // 🔑 CHAVE ÚNICA COM UNIDADE+DATA+VALOR
+                    const dia = linha.Chegada instanceof Date 
+                        ? String(linha.Chegada.getDate()).padStart(2, '0')
+                        : '01';
+                    
+                    const chaveUnica = `SMOOBU_${unidade}_${data.ano}${data.mes}${dia}_${preco.toFixed(2)}`;
 
                     return {
-                        idReserva: String(idReserva).trim(),
-                        unidade: (linha.Alojamento || linha.Accommodation || "N/A").trim(),
+                        idReserva: chaveUnica,  // 👈 USA CHAVE COMPOSTA
+                        unidade: unidade,
                         ano: data.ano,
                         mes: data.mes,
                         mesAno: data.mesAno,
                         receita: preco,
-                        comissao: comissao
+                        comissao: comissao,
+                        comissaoPortais: comissao,
+                        comissaoShortStay: 0
                     };
                 })
                 .filter(Boolean);
@@ -747,17 +757,17 @@ function parseNumeroBR(valor) {
             // 🔄 Recarrega da nuvem
             await carregarReservasSupabase();
             setupFilters();
+            setupAnaliticaFilters();
             renderViews();
 
         } catch (err) {
             console.error(err);
-            alert("⌚ Erro ao processar arquivo");
+            alert("❌ Erro ao processar arquivo: " + err.message);
         }
     };
 
     reader.readAsArrayBuffer(e);
 }
-
         
    function setupFilters() {
     const dados = CACHE_RESERVAS || getDb(DB_RESERVAS);
@@ -2070,131 +2080,169 @@ function processarUploadManual(file) {
 
     const reader = new FileReader();
 
-    reader.onload = function (evt) {
+    reader.onload = async function (evt) {
         try {
             const workbook = XLSX.read(
                 new Uint8Array(evt.target.result),
                 { type: "array", cellDates: true }
             );
 
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const linhas = XLSX.utils.sheet_to_json(sheet, { defval: null });
+            console.log("📊 Processando planilha Movi...");
 
-            console.log("📊 Processando Movi:", linhas.length, "linhas");
+            let sheetName = workbook.SheetNames.find(name => 
+                name.includes('Lista de reservas') || name.includes('Movi')
+            );
+
+            if (!sheetName) sheetName = workbook.SheetNames[0];
+
+            console.log(`📋 Aba: ${sheetName}`);
+
+            const sheet = workbook.Sheets[sheetName];
+            const linhas = XLSX.utils.sheet_to_json(sheet, { 
+                header: 1,
+                defval: null,
+                raw: true
+            });
+
+            console.log(`📊 Total: ${linhas.length} linhas`);
 
             const novos = [];
             const banco = getDb(DB_RESERVAS);
-            let linhaDados = null;
+            const idsExistentes = new Set(banco.map(r => r.idReserva));
 
-            linhas.forEach((l, idx) => {
-                let dataEntrada = null;
-                let dataSaida = null;
+            let mesAtual = null;
+            let anoAtual = null;
+            let linhasIgnoradas = 0;
+            let duplicadas = 0;
 
-                for (let chave in l) {
-                    const valorChave = l[chave];
-                    const chaveLower = chave.toLowerCase();
-                    
-                    if ((chaveLower.includes("entrada") || chaveLower.includes("check-in") || chaveLower.includes("checkin")) && 
-                        valorChave instanceof Date && !isNaN(valorChave)) {
-                        dataEntrada = valorChave;
-                    }
-                    
-                    if ((chaveLower.includes("saida") || chaveLower.includes("saída") || chaveLower.includes("check-out") || chaveLower.includes("checkout")) && 
-                        valorChave instanceof Date && !isNaN(valorChave)) {
-                        dataSaida = valorChave;
-                    }
-                    
-                    if (!dataEntrada && valorChave instanceof Date && !isNaN(valorChave)) {
-                        dataEntrada = valorChave;
-                    }
-                }
-
-                if (!dataEntrada) return;
-
-                const ano = dataEntrada.getFullYear();
-                const mes = String(dataEntrada.getMonth() + 1).padStart(2, "0");
-                const diaEntrada = String(dataEntrada.getDate()).padStart(2, "0");
-                const mesAno = `${ano}-${mes}`;
+            for (let i = 1; i < linhas.length; i++) {
+                const linha = linhas[i];
                 
-                const diaSaida = dataSaida ? String(dataSaida.getDate()).padStart(2, "0") : "00";
+                const periodo = linha[0];
+                const valor = linha[1];
+                const taxaApp = linha[2];
+                const taxaShort = linha[3];
 
-                let valorReceita = 0;
-                for (let chave in l) {
-                    const chaveLower = chave.toLowerCase();
-                    if (chaveLower.includes("valor") || chaveLower.includes("preço") || 
-                        chaveLower.includes("price") || chaveLower.includes("receita")) {
-                        valorReceita = parseNumeroBR(l[chave]);
-                        if (valorReceita !== 0) break;
-                    }
+                if (!periodo) continue;
+
+                if (periodo instanceof Date) {
+                    anoAtual = periodo.getFullYear().toString();
+                    mesAtual = String(periodo.getMonth() + 1).padStart(2, '0');
+                    console.log(`📅 ${anoAtual}-${mesAtual}`);
+                    continue;
                 }
 
-                if (valorReceita === 0) return;
-
-                let comissaoPortais = 0;
-                let comissaoShortStay = 0;
-
-                for (let chave in l) {
-                    const chaveLower = chave.toLowerCase();
-                    if (chaveLower.includes("taxa app") || chaveLower.includes("comissão") || 
-                        chaveLower.includes("comissao")) {
-                        comissaoPortais = parseNumeroBR(l[chave]);
+                if (typeof valor !== 'number' || valor <= 0) {
+                    if (typeof valor === 'string') {
+                        console.log(`   ⏭️ ${periodo}: ${valor}`);
                     }
-                    if (chaveLower.includes("short stay") || chaveLower.includes("taxa adm")) {
-                        comissaoShortStay = parseNumeroBR(l[chave]);
-                    }
+                    linhasIgnoradas++;
+                    continue;
                 }
 
-                const chaveUnica = `MOVI_${mesAno}_${diaEntrada}-${diaSaida}_${valorReceita.toFixed(2)}`;
-
-                const jaExiste = banco.some(r => r.idReserva === chaveUnica);
-
-                if (jaExiste) {
-                    console.log("⚠️ Duplicada:", chaveUnica);
-                    return;
+                if (!anoAtual || !mesAtual) {
+                    console.warn(`⚠️ Reserva sem ano/mês: ${periodo}`);
+                    linhasIgnoradas++;
+                    continue;
                 }
 
-                novos.push({
+                const mesAno = `${anoAtual}-${mesAtual}`;
+                const periodoStr = String(periodo);
+
+                const matchDia = periodoStr.match(/(\d{1,2})/);
+                const dia = matchDia ? matchDia[1].padStart(2, '0') : '01';
+
+                const chaveUnica = `MOVI_${anoAtual}${mesAtual}${dia}_${valor.toFixed(2)}`;
+
+                if (idsExistentes.has(chaveUnica)) {
+                    console.log(`   ⚠️ ${periodo}: R$ ${valor.toFixed(2)} (duplicada)`);
+                    duplicadas++;
+                    continue;
+                }
+
+                const comissaoPortais = typeof taxaApp === 'number' ? taxaApp : 0;
+                const comissaoShortStay = typeof taxaShort === 'number' ? taxaShort : 0;
+
+                const reserva = {
                     idReserva: chaveUnica,
                     unidade: "Movi",
-                    ano: ano.toString(),
-                    mes: mes,
+                    ano: anoAtual,
+                    mes: mesAtual,
                     mesAno: mesAno,
-                    receita: valorReceita,
+                    receita: valor,
                     comissao: comissaoPortais,
                     comissaoPortais: comissaoPortais,
                     comissaoShortStay: comissaoShortStay
-                });
-            });
+                };
 
-            console.log("✅ Novos:", novos.length);
+                novos.push(reserva);
+                console.log(`   ✅ ${periodo} (${mesAno}): R$ ${valor.toFixed(2)}`);
+            }
+
+            console.log("\n📊 RESULTADO:");
+            console.log(`   ✅ Novas: ${novos.length}`);
+            console.log(`   ⚠️ Duplicadas: ${duplicadas}`);
+            console.log(`   ⏭️ Ignoradas: ${linhasIgnoradas}`);
+
+            if (novos.length > 0) {
+                const totalReceita = novos.reduce((sum, r) => sum + r.receita, 0);
+                const por2025 = novos.filter(r => r.ano === '2025');
+                const por2026 = novos.filter(r => r.ano === '2026');
+                
+                console.log(`   💰 Total: R$ ${totalReceita.toFixed(2)}`);
+                console.log(`   📅 2025: ${por2025.length} reservas (R$ ${por2025.reduce((s,r)=>s+r.receita,0).toFixed(2)})`);
+                console.log(`   📅 2026: ${por2026.length} reservas (R$ ${por2026.reduce((s,r)=>s+r.receita,0).toFixed(2)})`);
+            }
 
             if (!novos.length) {
-                alert("⚠️ Nenhum lançamento novo.\n\nTodos já existem.");
+                alert(`⚠️ Nenhum lançamento novo.\n\n• Duplicadas: ${duplicadas}\n• Ignoradas: ${linhasIgnoradas}`);
                 return;
             }
 
-           // Salva no localStorage primeiro
-banco.push(...novos);
-saveDb(DB_RESERVAS, banco);
+            // 🚨 NOVO: Tenta salvar no Supabase PRIMEIRO
+            try {
+                console.log("☁️ Salvando no Supabase...");
+                await salvarReservasNoSupabase(novos);
+                
+                // ✅ Sucesso no Supabase
+                console.log("✅ Salvo no Supabase!");
+                
+                // Também salva local como backup
+                banco.push(...novos);
+                saveDb(DB_RESERVAS, banco);
+                
+                closeUploadManualModal();
+                await carregarReservasSupabase();
+                setupFilters();
+                setupAnaliticaFilters();
+                renderViews();
+                
+                const total = novos.reduce((sum, r) => sum + r.receita, 0);
+                const r2026 = novos.filter(r => r.ano === '2026');
+                
+                alert(`✅ ${novos.length} reservas importadas!\n\n💰 Total: R$ ${total.toFixed(2)}\n\n📅 2026: ${r2026.length} reservas (R$ ${r2026.reduce((s,r)=>s+r.receita,0).toFixed(2)})`);
+                
+            } catch (err) {
+                // ❌ Falhou no Supabase
+                console.error("❌ Erro ao salvar no Supabase:", err);
+                
+                // Salva só no localStorage
+                banco.push(...novos);
+                saveDb(DB_RESERVAS, banco);
+                
+                closeUploadManualModal();
+                setupFilters();
+                setupAnaliticaFilters();
+                renderViews();
+                
+                const total = novos.reduce((sum, r) => sum + r.receita, 0);
+                
+                // 🚨 AVISO CLARO
+                alert(`⚠️ ATENÇÃO!\n\n${novos.length} reservas salvas APENAS LOCALMENTE.\n\nErro ao salvar na nuvem: ${err.message}\n\nEssas reservas não estarão disponíveis em outros dispositivos!\n\n💰 Total: R$ ${total.toFixed(2)}`);
+            }
 
-// Depois salva no Supabase
-salvarReservasNoSupabase(novos).then(() => {
-    closeUploadManualModal();
-    carregarReservasSupabase().then(() => {
-        setupFilters();
-        setupAnaliticaFilters();
-        renderViews();
-    });
-}).catch(err => {
-    console.error("Erro ao salvar no Supabase:", err);
-    // Mesmo com erro, fecha modal e atualiza
-    closeUploadManualModal();
-    setupFilters();
-    setupAnaliticaFilters();
-    renderViews();
-});
         } catch (e) {
-            console.error(e);
+            console.error("❌ ERRO:", e);
             alert("❌ Erro: " + e.message);
         }
     };
