@@ -728,9 +728,16 @@ async function processarEAdicionarDados(e) {
                         ? String(linha.Chegada.getDate()).padStart(2, '0')
                         : '01';
                     
-                    const chaveUnica = `SMOOBU_${unidade}_${data.ano}${data.mes}${dia}_${preco.toFixed(2)}`;
+                  const idBase =
+    linha["Posição"] ||
+    linha["Reservation ID"] ||
+    `${data.ano}${data.mes}${dia}_${Math.random().toString(36).slice(2,8)}`;
 
-                    return {
+const chaveUnica = `SMOOBU_${idBase}`;
+
+return {
+    idReserva: chaveUnica,
+
                         idReserva: chaveUnica,  // 👈 USA CHAVE COMPOSTA
                         unidade: unidade,
                         ano: data.ano,
