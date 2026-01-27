@@ -603,18 +603,31 @@ async function salvarReservasNoSupabase(reservas) {
 
         // Remove reservas sem unidade_id
         const novasValidas = novas.filter(r => r.unidade_id);
+// 🔒 ELIMINA DUPLICATAS INTERNAS PELO id_reserva
+const mapaUnicos = new Map();
+
+novasValidas.forEach(r => {
+    if (!mapaUnicos.has(r.id_reserva)) {
+        mapaUnicos.set(r.id_reserva, r);
+    }
+});
+
+const novasSemDuplicatas = Array.from(mapaUnicos.values());
+
 
         // 5️⃣ Monta mensagem detalhada
         let mensagem = `📊 Resultado do processamento:\n\n`;
         mensagem += `Total de reservas no arquivo: ${reservas.length}\n`;
-        mensagem += `✅ Novas reservas inseridas: ${novasValidas.length}\n`;
+mensagem += `✅ Novas reservas inseridas: ${novasSemDuplicatas.length}\n`;
         mensagem += `⚠️ Reservas duplicadas (já existem): ${duplicadas.length}\n`;
 
         // 6️⃣ Insere apenas as novas
         if (novasValidas.length > 0) {
             const { error: insertErr } = await db
-                .from("reservas")
-                .insert(novasValidas);
+.from("reservas")
+.upsert(novasSemDuplicatas, { onConflict: "id_reserva" });
+
+
 
             if (insertErr) {
                 throw new Error("Erro ao inserir: " + insertErr.message);
@@ -733,21 +746,21 @@ async function processarEAdicionarDados(e) {
     linha["Reservation ID"] ||
     `${data.ano}${data.mes}${dia}_${Math.random().toString(36).slice(2,8)}`;
 
-const chaveUnica = `SMOOBU_${idBase}`;
+const chaveUnica = `SMOOBU_${idBase}_${data.mesAno}`;
+
 
 return {
     idReserva: chaveUnica,
+    unidade: unidade,
+    ano: data.ano,
+    mes: data.mes,
+    mesAno: data.mesAno,
+    receita: preco,
+    comissao: comissao,
+    comissaoPortais: comissao,
+    comissaoShortStay: 0
+};
 
-                        idReserva: chaveUnica,  // 👈 USA CHAVE COMPOSTA
-                        unidade: unidade,
-                        ano: data.ano,
-                        mes: data.mes,
-                        mesAno: data.mesAno,
-                        receita: preco,
-                        comissao: comissao,
-                        comissaoPortais: comissao,
-                        comissaoShortStay: 0
-                    };
                 })
                 .filter(Boolean);
 
