@@ -2358,13 +2358,18 @@ function parseNumeroBR(valor) {
     return 0;
 }
 
-function processarUploadManual(file) {
+async function processarUploadManual(file) {
     if (!file) return;
+
+    // 🔄 Mostra tela de loading
+    mostrarLoading("Lendo arquivo Movi...");
 
     const reader = new FileReader();
 
     reader.onload = async function (evt) {
         try {
+            atualizarLoading("Processando Excel...", 20);
+
             const workbook = XLSX.read(
                 new Uint8Array(evt.target.result),
                 { type: "array", cellDates: true }
@@ -2377,8 +2382,6 @@ function processarUploadManual(file) {
 
             if (!sheetName) sheetName = workbook.SheetNames[0];
 
-            console.log(`📋 Aba: ${sheetName}`);
-
             const sheet = workbook.Sheets[sheetName];
             const linhas = XLSX.utils.sheet_to_json(sheet, { 
                 header: 1,
@@ -2386,9 +2389,9 @@ function processarUploadManual(file) {
                 raw: true
             });
 
-            console.log(`📊 Total: ${linhas.length} linhas`);
+            atualizarLoading("Extraindo reservas...", 40);
 
-            const novos = [];
+            const reservasNovas = [];
             let mesAtual = null;
             let anoAtual = null;
 
@@ -2406,7 +2409,6 @@ function processarUploadManual(file) {
                 if (periodo instanceof Date) {
                     anoAtual = periodo.getFullYear().toString();
                     mesAtual = String(periodo.getMonth() + 1).padStart(2, '0');
-                    console.log(`📅 ${anoAtual}-${mesAtual}`);
                     continue;
                 }
 
@@ -2417,7 +2419,6 @@ function processarUploadManual(file) {
 
                 // ⚠️ Se não tem ano/mês, pula
                 if (!anoAtual || !mesAtual) {
-                    console.warn(`⚠️ Reserva sem ano/mês: ${periodo}`);
                     continue;
                 }
 
@@ -2436,7 +2437,7 @@ function processarUploadManual(file) {
                 const comissaoPortais = typeof taxaApp === 'number' ? taxaApp : 0;
                 const comissaoShortStay = typeof taxaShort === 'number' ? taxaShort : 0;
 
-                const reserva = {
+                reservasNovas.push({
                     idReserva: chaveUnica,
                     unidade: "Movi",
                     ano: anoAtual,
@@ -2445,34 +2446,135 @@ function processarUploadManual(file) {
                     receita: valor,
                     comissao: comissaoPortais,
                     comissaoPortais: comissaoPortais,
-                    comissaoShortStay: comissaoShortStay
-                };
-
-                novos.push(reserva);
-                console.log(`   ✅ ${periodo} (${mesAno}): R$ ${valor.toFixed(2)}`);
+                    comissaoShortStay: comissaoShortStay,
+                    status: 'ativa'
+                });
             }
 
-            console.log("\n📊 RESULTADO:");
-            console.log(`   ✅ Novas: ${novos.length}`);
-
-            if (!novos.length) {
+            if (reservasNovas.length === 0) {
+                esconderLoading();
                 alert("⚠️ Nenhuma reserva encontrada no arquivo.");
                 return;
             }
 
-            // 🌐 Salva no Supabase
-            await salvarReservasNoSupabase(novos);
-            
+            atualizarLoading("Verificando reservas existentes...", 60);
+
+            // 🔍 Busca reservas existentes no Supabase
+            const { data: existentes, error } = await db
+                .from("reservas")
+                .select("id, id_reserva, status");
+
+            if (error) throw error;
+
+            // 📊 Monta mapa de reservas existentes
+            const mapaExistentes = {};
+            existentes.forEach(r => {
+                mapaExistentes[r.id_reserva] = {
+                    id: r.id,
+                    status: r.status || 'ativa'
+                };
+            });
+
+            atualizarLoading("Aplicando regras...", 80);
+
+            // 📈 Estatísticas
+            const stats = {
+                novas: 0,
+                repetidas: 0,
+                canceladas: 0,
+                atualizadas: 0
+            };
+
+            const paraInserir = [];
+            const paraAtualizar = [];
+            const detalhes = [];
+
+            // 🔥 APLICAR REGRAS (mesma lógica do Smoobu)
+            for (const reserva of reservasNovas) {
+                const existe = mapaExistentes[reserva.idReserva];
+
+                if (!existe) {
+                    // ✅ NOVA RESERVA
+                    paraInserir.push(reserva);
+                    stats.novas++;
+                    detalhes.push(`✅ Nova: ${reserva.idReserva} - R$ ${reserva.receita.toFixed(2)}`);
+                } else {
+                    // 📋 JÁ EXISTE
+                    if (existe.status === 'ativa') {
+                        stats.repetidas++;
+                        detalhes.push(`⚪ Já existe: ${reserva.idReserva}`);
+                    }
+                }
+            }
+
+            atualizarLoading("Salvando no banco...", 90);
+
+            // 💾 Insere novas
+            if (paraInserir.length > 0) {
+                await salvarReservasNoSupabase(paraInserir);
+            }
+
+            // 🔄 Atualiza existentes (se houver)
+            if (paraAtualizar.length > 0) {
+                for (const reserva of paraAtualizar) {
+                    await db
+                        .from("reservas")
+                        .update(reserva)
+                        .eq('id', reserva.id);
+                }
+            }
+
+            atualizarLoading("Recarregando dados...", 95);
+
+            // 🔄 Recarrega
             closeUploadManualModal();
             await carregarReservasSupabase();
+            await carregarDespesasSupabase();
             setupFilters();
             setupAnaliticaFilters();
             renderViews();
-            
-            const total = novos.reduce((sum, r) => sum + r.receita, 0);
-            alert(`✅ ${novos.length} reservas importadas!\n\n💰 Total: R$ ${total.toFixed(2)}`);
+
+            atualizarLoading("Concluído!", 100);
+
+            // 📊 Mostra relatório
+            setTimeout(() => {
+                esconderLoading();
+                
+                const totalReceita = reservasNovas.reduce((sum, r) => sum + r.receita, 0);
+                
+                const htmlRelatorio = `
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h3 style="color: #2d7a7a; margin-bottom: 15px;">📈 Resumo - Movi</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #28a745;">
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">NOVAS RESERVAS</div>
+                                <div style="font-size: 28px; font-weight: 700; color: #28a745;">${stats.novas}</div>
+                            </div>
+                            <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #ffc107;">
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">REPETIDAS</div>
+                                <div style="font-size: 28px; font-weight: 700; color: #ffc107;">${stats.repetidas}</div>
+                            </div>
+                        </div>
+                        <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px; text-align: center;">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">RECEITA TOTAL</div>
+                            <div style="font-size: 32px; font-weight: 700; color: #2d7a7a;">R$ ${totalReceita.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                        <h4 style="color: #333; margin-bottom: 10px;">📋 Detalhes (${detalhes.length} registros)</h4>
+                        <div style="max-height: 300px; overflow-y: auto; background: white; padding: 15px; border-radius: 6px; font-size: 13px; line-height: 1.8;">
+                            ${detalhes.join('<br>')}
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('relatorioConteudo').innerHTML = htmlRelatorio;
+                document.getElementById('modalRelatorio').classList.add('active');
+            }, 500);
 
         } catch (e) {
+            esconderLoading();
             console.error("❌ ERRO:", e);
             alert("❌ Erro: " + e.message);
         }
