@@ -175,6 +175,43 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
     background: rgba(212,165,116,0.1);
 }
 
+.btn-outline-secondary:hover {
+    background: rgba(212,165,116,0.1);
+}
+
+/* Animações para notificações */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(45, 122, 122, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 24px rgba(45, 122, 122, 0.6);
+    }
+}
+
+</style>
 
 </style>
 </head>
@@ -564,9 +601,11 @@ function mostrarSistema() {
     carregarReservasSupabase().then(() => {
         showPage("financeiro", document.querySelector('.menu-item[onclick*="financeiro"]'));
         setViewMode("cards");
+        
+        // 🔄 VERIFICA SE PRECISA ATUALIZAR DO SMOOBU
+        verificarAtualizacaoAutomatica();
     });
 }
-
 function logout() {
     sessionStorage.removeItem('autenticado');
     location.reload();
@@ -2008,6 +2047,58 @@ function marcarAtualizadoHoje() {
     localStorage.setItem("smoobuAtualizadoEm", hoje);
 }
 
+function verificarAtualizacaoAutomatica() {
+    // Verifica se já atualizou hoje
+    if (!jaAtualizouHoje()) {
+        // Aguarda 2 segundos para o sistema carregar completamente
+        setTimeout(() => {
+            // 🔥 ABRE AUTOMATICAMENTE o Smoobu (sem perguntar)
+            console.log("📥 Primeira entrada do dia - abrindo Smoobu...");
+            
+            // Abre o link do Smoobu em nova aba
+            window.open(getSmoobuExcelUrl(), "_blank");
+            
+            // Marca como atualizado
+            marcarAtualizadoHoje();
+            
+            // Vai pra tela de Upload
+            showPage("upload", document.querySelector('.menu-item[onclick*="upload"]'));
+            
+            // Mostra notificação na tela
+            const notificacao = document.createElement('div');
+            notificacao.innerHTML = `
+                <div style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #2d7a7a 0%, #1a4d4d 100%); color: white; padding: 20px 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); z-index: 10000; text-align: center; min-width: 400px; animation: slideDown 0.5s;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">📥</div>
+                    <h3 style="margin: 0 0 10px 0; font-size: 18px;">Atualização Diária</h3>
+                    <p style="margin: 0; font-size: 14px; opacity: 0.9;">O Smoobu foi aberto em nova aba.<br>Salve o arquivo e faça o upload abaixo! ⬇️</p>
+                </div>
+            `;
+            document.body.appendChild(notificacao);
+            
+            // Remove notificação após 8 segundos
+            setTimeout(() => {
+                notificacao.style.animation = 'slideUp 0.5s';
+                setTimeout(() => notificacao.remove(), 500);
+            }, 8000);
+            
+            // Destaca a área de upload após 1 segundo
+            setTimeout(() => {
+                const input = document.getElementById("fileInput");
+                if (input) {
+                    input.scrollIntoView({ behavior: "smooth", block: "center" });
+                    
+                    // Adiciona efeito de pulso no card de upload
+                    const uploadCard = input.closest('.card');
+                    if (uploadCard) {
+                        uploadCard.style.animation = 'pulse 2s infinite';
+                    }
+                }
+            }, 1000);
+            
+        }, 2000); // Aguarda 2 segundos após login
+    }
+}
+
 
 function atualizarDoSmoobuViaDownload(motivo = "manual") {
 
@@ -3390,6 +3481,8 @@ async function alterarSenha() {
         alert('❌ Erro ao alterar senha: ' + err.message);
     }
 }
+
+
     </script>
 <!-- 🔄 TELA DE LOADING -->
 <div id="telaLoading" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
