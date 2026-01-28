@@ -179,7 +179,32 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 </style>
 </head>
 <body>
-    <div class="container">
+<body>
+    <!-- 🔐 TELA DE LOGIN -->
+    <div id="telaLogin" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #2d7a7a 0%, #1a4d4d 100%);">
+        <div style="background: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); width: 100%; max-width: 400px;">
+            <h2 style="text-align: center; color: #2d7a7a; margin-bottom: 10px;">🏠 Bandeira Stay</h2>
+            <p style="text-align: center; color: #666; margin-bottom: 30px; font-size: 14px;">Sistema de Gestão</p>
+            
+            <div style="margin-bottom: 30px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Senha de Acesso</label>
+                <input type="password" id="loginSenha" placeholder="Digite a senha"
+                       style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px;"
+                       onkeypress="if(event.key==='Enter') fazerLogin()">
+            </div>
+            
+            <button onclick="fazerLogin()" 
+                    style="width: 100%; padding: 14px; background: #2d7a7a; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.3s;"
+                    onmouseover="this.style.background='#1a4d4d'" 
+                    onmouseout="this.style.background='#2d7a7a'">
+                Entrar
+            </button>
+            
+            <div id="loginErro" style="margin-top: 15px; padding: 12px; background: #fee; border-left: 3px solid #dc3545; color: #dc3545; border-radius: 4px; display: none; font-size: 14px;"></div>
+        </div>
+    </div>
+
+    <div class="container" id="sistemaCompleto" style="display: none;">
         <div class="sidebar">
    <!-- ☰ BOTÃO MOBILE -->
     <div class="menu-toggle" onclick="toggleMenu()">☰</div>
@@ -213,7 +238,9 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
             <div class="menu-item" onclick="showPage('despesas', this)">💸 Despesas</div>
             <div class="menu-item" onclick="showPage('reservas', this)">🧹 Reservas Futuras</div>
             <div class="menu-item" onclick="showPage('proprietarios', this)">👤 Proprietários</div>
+            <div class="menu-item" onclick="showPage('configuracoes', this)">⚙️ Configurações</div>
             <div class="menu-item" onclick="showPage('upload', this)">📤 Upload de Dados</div>
+            <div class="menu-item" onclick="logout()" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">🚪 Sair</div>
         </div>
 
 
@@ -334,7 +361,31 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                 <div class="page-header"><h2>Gestão de Proprietários</h2></div>
                 <div class="card"><div id="proprietarios-list"></div><button class="btn btn-primary" style="margin-top: 16px;" onclick="salvarProprietarios()">Salvar Alterações</button></div>
             </div>
-
+<div id="configuracoes" class="page">
+                <div class="page-header"><h2>⚙️ Configurações</h2></div>
+                
+                <div class="card">
+                    <h3 style="margin-bottom: 20px;">🔐 Alterar Senha de Acesso</h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Senha Atual</label>
+                        <input type="password" id="senhaAtual" class="form-input" placeholder="Digite a senha atual">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Nova Senha</label>
+                        <input type="password" id="senhaNova" class="form-input" placeholder="Digite a nova senha">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Confirmar Nova Senha</label>
+                        <input type="password" id="senhaConfirma" class="form-input" placeholder="Confirme a nova senha">
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="alterarSenha()">Salvar Nova Senha</button>
+                </div>
+                
+            </div>
 <div id="upload" class="page">
     <div class="page-header"><h2>Upload de Dados</h2></div>
     
@@ -446,6 +497,82 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
     </div>
 
 <script>
+// ========================================
+// 🔐 AUTENTICAÇÃO
+// ========================================
+
+// Verifica se já está logado
+window.addEventListener('load', () => {
+    const logado = sessionStorage.getItem('autenticado');
+    if (logado === 'true') {
+        mostrarSistema();
+    }
+});
+
+async function fazerLogin() {
+    const senha = document.getElementById('loginSenha').value;
+    
+    if (!senha) {
+        mostrarErro('Digite a senha');
+        return;
+    }
+    
+    try {
+        // Busca senha do banco
+        const { data, error } = await db
+            .from('configuracao')
+            .select('senha_hash')
+            .eq('id', 1)
+            .single();
+        
+        if (error) {
+            console.error('Erro ao buscar senha:', error);
+            mostrarErro('Erro ao verificar senha');
+            return;
+        }
+        
+        // Compara senha
+        if (senha === data.senha_hash) {
+            sessionStorage.setItem('autenticado', 'true');
+            mostrarSistema();
+        } else {
+            mostrarErro('Senha incorreta');
+            document.getElementById('loginSenha').value = '';
+            document.getElementById('loginSenha').focus();
+        }
+        
+    } catch (err) {
+        console.error('Erro no login:', err);
+        mostrarErro('Erro ao fazer login');
+    }
+}
+
+function mostrarErro(msg) {
+    const erroDiv = document.getElementById('loginErro');
+    erroDiv.textContent = '❌ ' + msg;
+    erroDiv.style.display = 'block';
+    setTimeout(() => {
+        erroDiv.style.display = 'none';
+    }, 3000);
+}
+
+function mostrarSistema() {
+    document.getElementById('telaLogin').style.display = 'none';
+    document.getElementById('sistemaCompleto').style.display = 'flex';
+    
+    // Carrega sistema normalmente
+    carregarReservasSupabase().then(() => {
+        showPage("financeiro", document.querySelector('.menu-item[onclick*="financeiro"]'));
+        setViewMode("cards");
+    });
+}
+
+function logout() {
+    sessionStorage.removeItem('autenticado');
+    location.reload();
+}
+
+// ========================================
 // ===== 1️⃣ CONFIGURAÇÃO SUPABASE =====
 const db = window.supabase.createClient(
     "https://vzdxhxbevewmbdnmetrj.supabase.co",
@@ -1543,10 +1670,7 @@ async function excluirDespesa(id) {
     renderTabelaDespesasDetalhada();
 }
         
-        function zerarFinanceiro(){
-            confirm("ATENÇÃO! Apagará TUDO. Deseja continuar?")&&(localStorage.removeItem(DB_RESERVAS),localStorage.removeItem(DB_DESPESAS),localStorage.removeItem(DB_PROPRIETARIOS),alert("Todos os dados foram zerados."),showPage("financeiro",document.querySelector('.menu-item[onclick*="financeiro"]')))
-        }
-        
+
         function processarReservasFuturas(e){
             if(!e)return;
             const a=new FileReader;
@@ -2948,6 +3072,74 @@ async function carregarDespesasSupabase() {
         console.error("Erro ao carregar despesas:", err);
         CACHE_DESPESAS = [];
         return [];
+    }
+}
+
+async function alterarSenha() {
+    const senhaAtual = document.getElementById('senhaAtual').value;
+    const senhaNova = document.getElementById('senhaNova').value;
+    const senhaConfirma = document.getElementById('senhaConfirma').value;
+    
+    // Validações
+    if (!senhaAtual || !senhaNova || !senhaConfirma) {
+        alert('❌ Preencha todos os campos!');
+        return;
+    }
+    
+    if (senhaNova !== senhaConfirma) {
+        alert('❌ A nova senha e a confirmação não coincidem!');
+        return;
+    }
+    
+    if (senhaNova.length < 6) {
+        alert('❌ A nova senha deve ter pelo menos 6 caracteres!');
+        return;
+    }
+    
+    try {
+        // 1️⃣ Verifica senha atual
+        const { data, error } = await db
+            .from('configuracao')
+            .select('senha_hash')
+            .eq('id', 1)
+            .single();
+        
+        if (error) {
+            alert('❌ Erro ao verificar senha atual');
+            console.error(error);
+            return;
+        }
+        
+        if (senhaAtual !== data.senha_hash) {
+            alert('❌ Senha atual incorreta!');
+            document.getElementById('senhaAtual').value = '';
+            document.getElementById('senhaAtual').focus();
+            return;
+        }
+        
+        // 2️⃣ Atualiza para nova senha
+        const { error: updateError } = await db
+            .from('configuracao')
+            .update({ senha_hash: senhaNova })
+            .eq('id', 1);
+        
+        if (updateError) {
+            alert('❌ Erro ao salvar nova senha');
+            console.error(updateError);
+            return;
+        }
+        
+        // 3️⃣ Sucesso!
+        alert('✅ Senha alterada com sucesso!');
+        
+        // Limpa campos
+        document.getElementById('senhaAtual').value = '';
+        document.getElementById('senhaNova').value = '';
+        document.getElementById('senhaConfirma').value = '';
+        
+    } catch (err) {
+        console.error('Erro:', err);
+        alert('❌ Erro ao alterar senha: ' + err.message);
     }
 }
     </script>
