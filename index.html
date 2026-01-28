@@ -456,6 +456,7 @@ const db = window.supabase.createClient(
 let CACHE_RESERVAS = null;
 let chartsAnalitica = {};
 let currentViewMode = "cards";
+let CACHE_DESPESAS = null;
 const DB_RESERVAS = "DB_RESERVAS";
 const DB_DESPESAS = "DB_DESPESAS";
 const DB_PROPRIETARIOS = "DB_PROPRIETARIOS";
@@ -488,6 +489,58 @@ function formatCurrency(valor) {
 
 
 // ===== 4️⃣ FUNÇÕES SUPABASE =====
+
+async function salvarDespesaSupabase(despesa) {
+    try {
+        console.log("💾 Salvando despesa no Supabase...", despesa);
+
+        // 1️⃣ Buscar unidade_id
+        const { data: unidade, error: errUn } = await db
+            .from("unidades")
+            .select("id")
+            .eq("nome", despesa.unidade)
+            .single();
+
+        if (errUn || !unidade) {
+            throw new Error("Unidade não encontrada: " + despesa.unidade);
+        }
+
+        // 2️⃣ Buscar categoria_id
+        const { data: categoria, error: errCat } = await db
+            .from("categorias_despesas")
+            .select("id")
+            .eq("nome", despesa.categoria)
+            .single();
+
+        if (errCat || !categoria) {
+            throw new Error("Categoria não encontrada: " + despesa.categoria);
+        }
+
+        // 3️⃣ Inserir despesa
+        const { error: errInsert } = await db
+            .from("despesas")
+            .insert({
+                unidade_id: unidade.id,
+                categoria_id: categoria.id,
+                descricao: despesa.descricao,
+                data: despesa.data,
+                valor: despesa.valor
+            });
+
+        if (errInsert) {
+            throw errInsert;
+        }
+
+        console.log("✅ Despesa salva no Supabase com sucesso");
+        return true;
+
+    } catch (err) {
+        console.error("❌ Erro ao salvar despesa no Supabase:", err);
+        return false;
+    }
+}
+
+
 async function carregarReservasSupabase() {
     try {
         console.log("🔄 Carregando do Supabase...");
@@ -500,7 +553,7 @@ async function carregarReservasSupabase() {
         while (temMais) {
             const { data, error } = await db
                 .from("reservas")
-                .select(`
+.select(`
                     id_reserva,
                     ano,
                     mes,
@@ -508,6 +561,7 @@ async function carregarReservasSupabase() {
                     receita,
                     comissao_portais,
                     comissao_short_stay,
+                    status,
                     unidades!inner (nome)
                 `)
                 .range(inicio, inicio + limite - 1);
@@ -533,7 +587,7 @@ async function carregarReservasSupabase() {
 
         console.log(`🌐 ${todasReservas.length} reservas carregadas do Supabase`);
         
-        CACHE_RESERVAS = todasReservas.map(r => ({
+CACHE_RESERVAS = todasReservas.map(r => ({
             idReserva: r.id_reserva,
             unidade: r.unidades.nome,
             ano: r.ano,
@@ -541,7 +595,9 @@ async function carregarReservasSupabase() {
             mesAno: r.mes_ano,
             receita: r.receita,
             comissao: r.comissao_portais,
-            comissaoShortStay: r.comissao_short_stay
+            comissaoShortStay: r.comissao_short_stay,
+            comissaoPortais: r.comissao_portais,
+            status: r.status || 'ativa'  // 🔥 NOVO
         }));
 
     } catch (err) {
@@ -588,7 +644,7 @@ async function salvarReservasNoSupabase(reservas) {
             if (idsExistentes.has(r.idReserva)) {
                 duplicadas.push(r);
             } else {
-                novas.push({
+novas.push({
                     id_reserva: r.idReserva,
                     unidade_id: mapaUnidades[r.unidade],
                     ano: r.ano,
@@ -596,38 +652,26 @@ async function salvarReservasNoSupabase(reservas) {
                     mes_ano: r.mesAno,
                     receita: r.receita,
                     comissao_portais: r.comissao ?? 0,
-                    comissao_short_stay: r.comissaoShortStay ?? 0
+                    comissao_short_stay: r.comissaoShortStay ?? 0,
+                    status: r.status || 'ativa'  // 🔥 NOVO
                 });
             }
         });
 
         // Remove reservas sem unidade_id
         const novasValidas = novas.filter(r => r.unidade_id);
-// 🔒 ELIMINA DUPLICATAS INTERNAS PELO id_reserva
-const mapaUnicos = new Map();
-
-novasValidas.forEach(r => {
-    if (!mapaUnicos.has(r.id_reserva)) {
-        mapaUnicos.set(r.id_reserva, r);
-    }
-});
-
-const novasSemDuplicatas = Array.from(mapaUnicos.values());
-
 
         // 5️⃣ Monta mensagem detalhada
         let mensagem = `📊 Resultado do processamento:\n\n`;
         mensagem += `Total de reservas no arquivo: ${reservas.length}\n`;
-mensagem += `✅ Novas reservas inseridas: ${novasSemDuplicatas.length}\n`;
+        mensagem += `✅ Novas reservas inseridas: ${novasValidas.length}\n`;
         mensagem += `⚠️ Reservas duplicadas (já existem): ${duplicadas.length}\n`;
 
         // 6️⃣ Insere apenas as novas
         if (novasValidas.length > 0) {
             const { error: insertErr } = await db
-.from("reservas")
-.upsert(novasSemDuplicatas, { onConflict: "id_reserva" });
-
-
+                .from("reservas")
+                .insert(novasValidas);
 
             if (insertErr) {
                 throw new Error("Erro ao inserir: " + insertErr.message);
@@ -694,6 +738,7 @@ function parseNumeroBR(valor) {
             a&&a.classList.add("active"),
         "analitica"===e&&(setupAnaliticaFilters(),renderAnalitica()),
             "despesas"===e&&renderTabelaDespesasDetalhada(),
+
             "proprietarios"===e&&renderProprietarios()
         }
 
@@ -708,7 +753,7 @@ function parseNumeroBR(valor) {
             renderViews()
         }
         
-async function processarEAdicionarDados(e) {
+  async function processarEAdicionarDados(e) {
     if (!e) return;
 
     const reader = new FileReader();
@@ -722,7 +767,7 @@ async function processarEAdicionarDados(e) {
 
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-            const dados = XLSX.utils.sheet_to_json(sheet)
+ const dados = XLSX.utils.sheet_to_json(sheet)
                 .map(linha => {
                     const idReserva = linha["Posição"];
                     if (!idReserva) return null;
@@ -734,33 +779,23 @@ async function processarEAdicionarDados(e) {
                     if (!preco || preco <= 0) return null;
 
                     const comissao = parseFloat(linha["Comissão incluída"] || 0);
-                    const unidade = (linha.Alojamento || linha.Accommodation || "N/A").trim();
-
-                    // 🔑 CHAVE ÚNICA COM UNIDADE+DATA+VALOR
-                    const dia = linha.Chegada instanceof Date 
-                        ? String(linha.Chegada.getDate()).padStart(2, '0')
-                        : '01';
                     
-                  const idBase =
-    linha["Posição"] ||
-    linha["Reservation ID"] ||
-    `${data.ano}${data.mes}${dia}_${Math.random().toString(36).slice(2,8)}`;
+                    // 🔥 DETECTA SE FOI CANCELADA (coluna "Estado")
+                    const estado = linha["Estado"] || linha["Status"] || "";
+                    const cancelada = String(estado).toLowerCase().includes("cancelad");
 
-const chaveUnica = `SMOOBU_${idBase}_${data.mesAno}`;
-
-
-return {
-    idReserva: chaveUnica,
-    unidade: unidade,
-    ano: data.ano,
-    mes: data.mes,
-    mesAno: data.mesAno,
-    receita: preco,
-    comissao: comissao,
-    comissaoPortais: comissao,
-    comissaoShortStay: 0
-};
-
+                    return {
+                        idReserva: String(idReserva).trim(),
+                        unidade: (linha.Alojamento || linha.Accommodation || "N/A").trim(),
+                        ano: data.ano,
+                        mes: data.mes,
+                        mesAno: data.mesAno,
+                        receita: preco,
+                        comissao: comissao,
+                        comissaoPortais: comissao,
+                        comissaoShortStay: 0,
+                        status: cancelada ? "cancelada" : "ativa"  // 🔥 NOVO
+                    };
                 })
                 .filter(Boolean);
 
@@ -776,26 +811,40 @@ return {
 
             // 🔄 Recarrega da nuvem
             await carregarReservasSupabase();
+await carregarDespesasSupabase(); // 👈 ESTA LINHA NÃO EXISTIA
+
             setupFilters();
-            setupAnaliticaFilters();
             renderViews();
 
         } catch (err) {
             console.error(err);
-            alert("❌ Erro ao processar arquivo: " + err.message);
+            alert("⌚ Erro ao processar arquivo");
         }
     };
 
     reader.readAsArrayBuffer(e);
 }
-        
-   function setupFilters() {
-    const dados = CACHE_RESERVAS || getDb(DB_RESERVAS);
-    
+
+function setupFilters() {
+    const reservas = CACHE_RESERVAS || [];
+    const despesas = CACHE_DESPESAS || [];
+
+    const dados = [
+        ...reservas.map(r => ({
+            mesAno: r.mesAno,
+            unidade: r.unidade
+        })),
+        ...despesas.map(d => ({
+            mesAno: d.mesAno,
+            unidade: d.unidade
+        }))
+    ];
+
     if (dados.length === 0) {
-        console.log("⚠️ Nenhuma reserva para filtros");
+        console.log("⚠️ Nenhum dado para filtros");
         return;
     }
+
 
     const anos = [...new Set(dados.map(e => e.mesAno.substring(0, 4)))].sort();
     const meses = [...new Set(dados.map(e => e.mesAno.substring(5, 7)))].sort();
@@ -871,69 +920,61 @@ return {
 }
 
         
-        function renderAnalitica(){
-            try{
-                let anosVal=$("#filtroAnaliticaAnos").val();
-                let mesesVal=$("#filtroAnaliticaMeses").val();
-                let unidadesVal=$("#filtroAnaliticaUnidades").val();
-                
-                const anos=Array.isArray(anosVal)?anosVal:(anosVal?[anosVal]:[]);
-                const meses=Array.isArray(mesesVal)?mesesVal:(mesesVal?[mesesVal]:[]);
-                const unidades=Array.isArray(unidadesVal)?unidadesVal:(unidadesVal?[unidadesVal]:[]);
-                
-                const passaNosFiltros=(registro,campoData)=>{
-                    const ano=registro[campoData].substring(0,4);
-                    const mes=registro[campoData].substring(5,7);
-                    const unidade=registro.unidade;
-                    
-                    const passaAno=(anos.length===0||anos.includes(ano));
-                    const passaMes=(meses.length===0||meses.includes(mes));
-                    const passaUnidade=(unidades.length===0||unidades.includes(unidade));
-                    
-                    return passaAno&&passaMes&&passaUnidade;
-                };
-                
-const reservas=(CACHE_RESERVAS || getDb(DB_RESERVAS))
-  .filter(e=>passaNosFiltros(e,"mesAno"));
+      function renderAnalitica() {
+    try {
+        let anosVal = $("#filtroAnaliticaAnos").val();
+        let mesesVal = $("#filtroAnaliticaMeses").val();
+        let unidadesVal = $("#filtroAnaliticaUnidades").val();
 
+        const anos = Array.isArray(anosVal) ? anosVal : (anosVal ? [anosVal] : []);
+        const meses = Array.isArray(mesesVal) ? mesesVal : (mesesVal ? [mesesVal] : []);
+        const unidades = Array.isArray(unidadesVal) ? unidadesVal : (unidadesVal ? [unidadesVal] : []);
 
+        const passaNosFiltros = (registro, campoData) => {
+            if (!registro || !registro[campoData]) return false;
+            const ano = registro[campoData].substring(0, 4);
+            const mes = registro[campoData].substring(5, 7);
+            const unidade = registro.unidade;
 
-const despesas=getDb(DB_DESPESAS)
-  .filter(e=>passaNosFiltros(e,"data"));
+            const passaAno = (anos.length === 0 || anos.includes(ano));
+            const passaMes = (meses.length === 0 || meses.includes(mes));
+            const passaUnidade = (unidades.length === 0 || unidades.includes(unidade));
 
-                
-                const receita=reservas.reduce((acc,e)=>acc+e.receita,0);
-const comissaoPortais = reservas.reduce(
-    (acc,e)=>acc + (e.comissaoPortais ?? e.comissao ?? 0),
-    0
-);
+            return passaAno && passaMes && passaUnidade;
+        };
 
-const comissaoShort = reservas.reduce(
-    (acc,e)=>acc + (e.comissaoShortStay ?? 0),
-    0
-);
+        const reservas = (CACHE_RESERVAS || []).filter(e => passaNosFiltros(e, "mesAno"));
+        const despesas = (CACHE_DESPESAS || []).filter(e => passaNosFiltros(e, "mesAno"));
+        
+        // 🔥 Separa ativas e canceladas
+        const reservasAtivas = reservas.filter(r => r.status !== 'cancelada');
+        const reservasCanceladas = reservas.filter(r => r.status === 'cancelada');
 
-const comissao = comissaoPortais + comissaoShort;
-                const despesasTotal=despesas.reduce((acc,e)=>acc+e.valor,0);
-                const lucro=receita-comissao-despesasTotal;
-                
-                document.getElementById("analitica-receita").textContent=formatCurrency(receita);
-                document.getElementById("analitica-receita").className="analitica-card-value green";
-                document.getElementById("analitica-reservas").textContent=reservas.length;
-                document.getElementById("analitica-comissao").textContent="-"+formatCurrency(comissao);
-                document.getElementById("analitica-comissao").className="analitica-card-value red";
-                document.getElementById("analitica-despesas").textContent="-"+formatCurrency(despesasTotal);
-                document.getElementById("analitica-despesas").className="analitica-card-value red";
-                document.getElementById("analitica-lucro").textContent=formatCurrency(lucro);
-                document.getElementById("analitica-lucro").className=lucro>=0?"analitica-card-value green":"analitica-card-value red";
-const ticketMedio = reservas.length > 0 ? receita / reservas.length : 0;
-document.getElementById("analitica-ticket").textContent = formatCurrency(ticketMedio);
-                
-                renderAnaliticaCharts(reservas,despesas,anos,meses,unidades);
-            }catch(err){
-                console.error("Erro em renderAnalitica:",err);
-            }
-        }
+        const receita = reservasAtivas.reduce((acc, e) => acc + e.receita, 0);
+        const comissaoPortais = reservasAtivas.reduce((acc, e) => acc + (e.comissaoPortais ?? e.comissao ?? 0), 0);
+        const comissaoShort = reservasAtivas.reduce((acc, e) => acc + (e.comissaoShortStay ?? 0), 0);
+        const comissao = comissaoPortais + comissaoShort;
+        
+        const despesasTotal = despesas.reduce((acc, e) => acc + e.valor, 0);
+        const lucro = receita - comissao - despesasTotal;
+
+        document.getElementById("analitica-receita").textContent = formatCurrency(receita);
+        document.getElementById("analitica-reservas").textContent = reservasAtivas.length;
+        document.getElementById("analitica-comissao").textContent = "-" + formatCurrency(comissao);
+        document.getElementById("analitica-despesas").textContent = "-" + formatCurrency(despesasTotal);
+        document.getElementById("analitica-lucro").textContent = formatCurrency(lucro);
+        document.getElementById("analitica-lucro").className = lucro >= 0 ? "analitica-card-value green" : "analitica-card-value red";
+        
+        const ticketMedio = reservasAtivas.length > 0 ? receita / reservasAtivas.length : 0;
+        document.getElementById("analitica-ticket").textContent = formatCurrency(ticketMedio);
+
+        renderAnaliticaCharts(reservasAtivas, despesas, anos, meses, unidades);
+
+    } catch (err) {
+        console.error("Erro em renderAnalitica:", err);
+    }
+}
+
         
         function renderAnaliticaCharts(reservas,despesas,anos,meses,unidades){
             Object.values(chartsAnalitica).forEach(chart=>{
@@ -1097,96 +1138,102 @@ labels: mesesLabels,
             });
         }
         
-        async function renderViews(){
+      async function renderViews() {
+    try {
+        let anosVal = $("#filtroAnos").val();
+        let mesesVal = $("#filtroMeses").val();
+        let unidadesVal = $("#filtroUnidades").val();
 
-            try{
-                let anosVal=$("#filtroAnos").val();
-                let mesesVal=$("#filtroMeses").val();
-                let unidadesVal=$("#filtroUnidades").val();
-                
-                const anos=Array.isArray(anosVal)?anosVal:(anosVal?[anosVal]:[]);
-                const meses=Array.isArray(mesesVal)?mesesVal:(mesesVal?[mesesVal]:[]);
-                const unidades=Array.isArray(unidadesVal)?unidadesVal:(unidadesVal?[unidadesVal]:[]);
-                
-                let anosFinais=anos;
-             
-                const passaNosFiltros=(registro,campoData)=>{
-                    const ano=registro[campoData].substring(0,4);
-                    const mes=registro[campoData].substring(5,7);
-                    const unidade=registro.unidade;
-                    
-                    const passaAno=(anosFinais.length===0||anosFinais.includes(ano));
-                    const passaMes=(meses.length===0||meses.includes(mes));
-                    const passaUnidade=(unidades.length===0||unidades.includes(unidade));
-                    
-                    return passaAno&&passaMes&&passaUnidade;
-                };
-                
-const reservas=(CACHE_RESERVAS || getDb(DB_RESERVAS))
-  .filter(e=>passaNosFiltros(e,"mesAno"));
+        const anos = Array.isArray(anosVal) ? anosVal : (anosVal ? [anosVal] : []);
+        const meses = Array.isArray(mesesVal) ? mesesVal : (mesesVal ? [mesesVal] : []);
+        const unidades = Array.isArray(unidadesVal) ? unidadesVal : (unidadesVal ? [unidadesVal] : []);
 
+        const passaNosFiltros = (registro, campoData) => {
+            if (!registro || !registro[campoData]) return false;
+            const ano = registro[campoData].substring(0, 4);
+            const mes = registro[campoData].substring(5, 7);
+            const unidade = registro.unidade;
 
+            const passaAno = (anos.length === 0 || anos.includes(ano));
+            const passaMes = (meses.length === 0 || meses.includes(mes));
+            const passaUnidade = (unidades.length === 0 || unidades.includes(unidade));
 
-const despesas=getDb(DB_DESPESAS)
-  .filter(e=>passaNosFiltros(e,"data"));
+            return passaAno && passaMes && passaUnidade;
+        };
 
-                
-                if("cards"===currentViewMode){
-                    renderCardsView(reservas,despesas);
-                }else{
-                    renderListaView(reservas,despesas,unidades,anosFinais,meses);
-                }
-            }catch(err){
-                console.error("Erro em renderViews:",err);
-                alert("Erro ao processar filtros: "+err.message);
-            }
+        // ===== CORREÇÃO PRINCIPAL AQUI =====
+        // Garante que tanto reservas quanto despesas usem o cache global atualizado
+        const reservas = (CACHE_RESERVAS || []).filter(e => passaNosFiltros(e, "mesAno"));
+        const despesas = (CACHE_DESPESAS || []).filter(e => passaNosFiltros(e, "mesAno"));
+        // =====================================
+
+        if (currentViewMode === "cards") {
+            renderCardsView(reservas, despesas);
+        } else {
+            // Para a 'lista', precisamos passar os filtros originais também
+            renderListaView(reservas, despesas, unidades, anos, meses);
         }
+    } catch (err) {
+        console.error("Erro em renderViews:", err);
+        alert("Erro ao processar filtros: " + err.message);
+    }
+}
+
+
         
-     function renderCardsView(e,a){
-  const t = e.reduce((acc,x)=>acc+x.receita,0);
+    function renderCardsView(e, a) {
+    // 🔥 Separa ativas e canceladas
+    const reservasAtivas = e.filter(r => r.status !== 'cancelada');
+    const reservasCanceladas = e.filter(r => r.status === 'cancelada');
+    
+    const t = reservasAtivas.reduce((acc, x) => acc + x.receita, 0);
 
-	    const comissaoPortais = e.reduce(
-	      (acc,x)=>acc+(x.comissaoPortais ?? x.comissao ?? 0), 0
-	  );
+    const comissaoPortais = reservasAtivas.reduce(
+        (acc, x) => acc + (x.comissaoPortais ?? x.comissao ?? 0), 0
+    );
 
-	  const comissaoShort = e.reduce(
-	      (acc,x)=>acc+(x.comissaoShortStay ?? 0), 0
-	  );
+    const comissaoShort = reservasAtivas.reduce(
+        (acc, x) => acc + (x.comissaoShortStay ?? 0), 0
+    );
 
-	  const r = a.reduce((acc,x)=>acc+x.valor,0);
-	  const o = t - comissaoPortais - comissaoShort - r;
+    const r = a.reduce((acc, x) => acc + x.valor, 0);
+    const o = t - comissaoPortais - comissaoShort - r;
 
-	  document.getElementById("indicadores-gerais").innerHTML = `
-	      <div class="indicador-card">
-	          <div class="indicador-label">Receita Total</div>
-	          <div class="indicador-valor green">${formatCurrency(t)}</div>
-	      </div>
+    document.getElementById("indicadores-gerais").innerHTML = `
+        <div class="indicador-card">
+            <div class="indicador-label">Receita Total</div>
+            <div class="indicador-valor green">${formatCurrency(t)}</div>
+        </div>
 
-	      <div class="indicador-card">
-	          <div class="indicador-label">Comissão Portais</div>
-	          <div class="indicador-valor red">-${formatCurrency(comissaoPortais)}</div>
-	      </div>
+        <div class="indicador-card">
+            <div class="indicador-label">Comissão Portais</div>
+            <div class="indicador-valor red">-${formatCurrency(comissaoPortais)}</div>
+        </div>
 
-	      <div class="indicador-card">
-	          <div class="indicador-label">Comissão Short Stay</div>
-	          <div class="indicador-valor red">-${formatCurrency(comissaoShort)}</div>
-	      </div>
+        <div class="indicador-card">
+            <div class="indicador-label">Comissão Short Stay</div>
+            <div class="indicador-valor red">-${formatCurrency(comissaoShort)}</div>
+        </div>
 
-	      <div class="indicador-card clickable"
-	           onclick="showPage('despesas', document.querySelector('.menu-item[onclick*=\\'despesas\\']'))">
-	          <div class="indicador-label">Despesas</div>
-	          <div class="indicador-valor red">-${formatCurrency(r)}</div>
-	      </div>
+        <div class="indicador-card">
+            <div class="indicador-label">Cancelamentos</div>
+            <div class="indicador-valor red">${reservasCanceladas.length}</div>
+        </div>
 
-	      <div class="indicador-card">
-	          <div class="indicador-label">Lucro Líquido</div>
-	          <div class="indicador-valor ${o>=0?'green':'red'}">
-	              ${formatCurrency(o)}
-	          </div>
-	      </div>
-	  `;
-}  // ✅ ESSA CHAVE FALTAVA
+        <div class="indicador-card clickable"
+             onclick="showPage('despesas', document.querySelector('.menu-item[onclick*=\\'despesas\\']'))">
+            <div class="indicador-label">Despesas</div>
+            <div class="indicador-valor red">-${formatCurrency(r)}</div>
+        </div>
 
+        <div class="indicador-card">
+            <div class="indicador-label">Lucro Líquido</div>
+            <div class="indicador-valor ${o >= 0 ? 'green' : 'red'}">
+                ${formatCurrency(o)}
+            </div>
+        </div>
+    `;
+}
 
         
         function renderListaView(e,a,t,s,r){
@@ -1335,8 +1382,8 @@ if (tipo === "Despesas") {
             toggle.classList.toggle('collapsed')
         }
         
-       function renderTabelaDespesasDetalhada() {
-    const despesas = getDb(DB_DESPESAS);
+async function renderTabelaDespesasDetalhada() {
+    const despesas = await carregarDespesasSupabase();
     const tabela = document.getElementById("tabela-despesas-detalhada");
 
     let html = `
@@ -1423,9 +1470,7 @@ function openDespesaModal() {
             document.getElementById("despesaModal").classList.remove("active")
         }
         
-        function salvarDespesa() {
-
-    const despesas = getDb(DB_DESPESAS);
+      async function salvarDespesa() {
 
     const valorNumerico = parseFloat(
         $("#despesaValor").val()
@@ -1434,56 +1479,62 @@ function openDespesaModal() {
             .replace(",", ".")
     );
 
- if (
-    !$("#despesaUnidade").val() ||
-    !$("#despesaDescricao").val() ||
-    !$("#despesaCategoria").val() ||
-    !$("#despesaData").val() ||
-    isNaN(valorNumerico)
-) {
-    alert("⚠️ Preencha todos os campos!");
-    return;
-}
+    if (
+        !$("#despesaUnidade").val() ||
+        !$("#despesaDescricao").val() ||
+        !$("#despesaCategoria").val() ||
+        !$("#despesaData").val() ||
+        isNaN(valorNumerico)
+    ) {
+        alert("⚠️ Preencha todos os campos!");
+        return;
+    }
 
-
-if (despesaEmEdicao !== null) {
-    // ✏️ EDITAR EXISTENTE
-    despesas[despesaEmEdicao] = {
-        ...despesas[despesaEmEdicao],
+    const novaDespesa = {
         unidade: $("#despesaUnidade").val(),
         descricao: $("#despesaDescricao").val(),
         categoria: $("#despesaCategoria").val(),
         data: $("#despesaData").val(),
         valor: valorNumerico
     };
-} else {
-    // ➕ NOVA
-    despesas.push({
-        id: `desp_${Date.now()}`,
-        unidade: $("#despesaUnidade").val(),
-        descricao: $("#despesaDescricao").val(),
-        categoria: $("#despesaCategoria").val(),
-        data: $("#despesaData").val(),
-        valor: valorNumerico
-    });
-}
 
+    // 🔹 salva no Supabase
+    const ok = await salvarDespesaSupabase(novaDespesa);
 
-    saveDb(DB_DESPESAS, despesas);
+    if (!ok) {
+        alert("❌ Erro ao salvar despesa no banco.");
+        return;
+    }
 
     despesaEmEdicao = null;
-
     closeDespesaModal();
-    renderViews();
-renderTabelaDespesasDetalhada();
 
+    // 🔥 Recarrega despesas e atualiza as telas
+    await carregarDespesasSupabase();
+    renderViews();
+    renderTabelaDespesasDetalhada();
 }
 
+
         
-        function excluirDespesa(e){
-            if(!confirm("Tem certeza?"))return;
-            saveDb(DB_DESPESAS,getDb(DB_DESPESAS).filter(a=>a.id!==e)),renderTabelaDespesasDetalhada(),renderViews()
-        }
+async function excluirDespesa(id) {
+    if (!confirm("Tem certeza que deseja excluir esta despesa?")) return;
+
+    const { error } = await db
+        .from("despesas")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        console.error("Erro ao excluir despesa:", error);
+        alert("Erro ao excluir despesa");
+        return;
+    }
+
+    await carregarDespesasSupabase();
+    renderViews();
+    renderTabelaDespesasDetalhada();
+}
         
         function zerarFinanceiro(){
             confirm("ATENÇÃO! Apagará TUDO. Deseja continuar?")&&(localStorage.removeItem(DB_RESERVAS),localStorage.removeItem(DB_DESPESAS),localStorage.removeItem(DB_PROPRIETARIOS),alert("Todos os dados foram zerados."),showPage("financeiro",document.querySelector('.menu-item[onclick*="financeiro"]')))
@@ -1727,7 +1778,8 @@ function getSmoobuExcelUrl() {
         "&filter[departureDate][to]=2027-12-31" +
         "&filter[includeIntersections]=true" +
         "&filter[excludeMockedBookings]=true" +
-        "&filter[statuses][0]=1"
+        "&filter[statuses][0]=1" +
+        "&filter[statuses][1]=2"
     );
 }
 
@@ -1814,31 +1866,24 @@ function closeCategoriaModal() {
     document.getElementById("categoriaModal").classList.remove("active");
 }
 
-function addCategoria() {
-    const input = document.getElementById("novaCategoria");
-    const nome = input.value.trim();
-    if (!nome) return;
+async function addCategoria() {
+    const nome = document.getElementById("novaCategoria").value.trim();
+    if (!nome) return alert("Informe o nome da categoria");
 
-    const categorias = getDb(DB_CATEGORIAS);
-    if (!categorias.includes(nome)) {
-        categorias.push(nome);
-        saveDb(DB_CATEGORIAS, categorias);
+    const { error } = await db
+        .from("categorias_despesas")
+        .insert({ nome });
+
+    if (error) {
+        alert("Erro ao salvar categoria");
+        console.error(error);
+        return;
     }
 
-    input.value = "";
-
-    // 🔄 atualiza lista do modal
-    renderCategorias();
-
-    // 🔄 atualiza SELECT da despesa imediatamente ✅
-    const selectCategoria = document.getElementById("despesaCategoria");
-    selectCategoria.innerHTML =
-        '<option value="">Selecione a categoria</option>' +
-        categorias.map(c => `<option value="${c}">${c}</option>`).join("");
-
-    // já seleciona a categoria recém-criada
-    selectCategoria.value = nome;
+    document.getElementById("novaCategoria").value = "";
+    await carregarCategoriasDespesa();
 }
+
 
 function renderCategorias() {
     const lista = document.getElementById("listaCategorias");
@@ -1922,14 +1967,13 @@ function abrirDespesasDetalhe(unidade, ano, mes) {
 }
 
 function toggleDespesasLinha(key, unidade, ano, mes, arrowId) {
-
     const linha = document.getElementById(key);
     const conteudo = document.getElementById(key + "_conteudo");
     const arrow = document.getElementById(arrowId);
 
     const aberta = linha.style.display === "table-row";
 
-    // fecha todas as outras
+    // Fecha todas as outras linhas de detalhe abertas
     document.querySelectorAll("tr[id^='desp_']").forEach(l => {
         l.style.display = "none";
     });
@@ -1937,6 +1981,7 @@ function toggleDespesasLinha(key, unidade, ano, mes, arrowId) {
         a.textContent = "▶";
     });
 
+    // Se a linha já estava aberta, apenas a fecha e para a execução
     if (aberta) {
         arrow.textContent = "▶";
         return;
@@ -1944,19 +1989,22 @@ function toggleDespesasLinha(key, unidade, ano, mes, arrowId) {
 
     const prefixo = `${ano}-${mes}`;
 
-    const despesas = getDb(DB_DESPESAS).filter(d =>
+    // ===== CORREÇÃO PRINCIPAL AQUI =====
+    // Busca as despesas do CACHE (memória) em vez do localStorage (getDb)
+    const despesas = (CACHE_DESPESAS || []).filter(d =>
         d.unidade === unidade &&
-        d.data.startsWith(prefixo)
+        d.mesAno === prefixo
     );
+    // =====================================
 
     let html = `
-        <table style="width:100%;border-collapse:collapse;">
-            <thead>
+        <table style="width:100%;border-collapse:collapse;background-color:#fafafa;">
+            <thead style="font-size:12px;">
                 <tr>
-                    <th>Data</th>
-                    <th>Descrição</th>
-                    <th>Categoria</th>
-                    <th style="text-align:right;">Valor</th>
+                    <th style="padding:8px 12px;">Data</th>
+                    <th style="padding:8px 12px;">Descrição</th>
+                    <th style="padding:8px 12px;">Categoria</th>
+                    <th style="padding:8px 12px;text-align:right;">Valor</th>
                 </tr>
             </thead>
             <tbody>
@@ -1965,19 +2013,19 @@ function toggleDespesasLinha(key, unidade, ano, mes, arrowId) {
     if (despesas.length === 0) {
         html += `
             <tr>
-                <td colspan="4" style="text-align:center;padding:12px;">
+                <td colspan="4" style="text-align:center;padding:16px;font-style:italic;color:#888;">
                     Nenhuma despesa cadastrada neste mês.
                 </td>
             </tr>
         `;
     } else {
-        despesas.forEach(d => {
+        despesas.sort((a, b) => new Date(a.data) - new Date(b.data)).forEach(d => {
             html += `
-                <tr>
-                    <td>${new Date(d.data).toLocaleDateString("pt-BR")}</td>
-                    <td>${d.descricao}</td>
-                    <td>${d.categoria}</td>
-                    <td style="text-align:right;">${formatCurrency(d.valor)}</td>
+                <tr style="font-size:13px;">
+                    <td style="padding:8px 12px;">${new Date(d.data).toLocaleDateString("pt-BR", {timeZone: 'UTC'})}</td>
+                    <td style="padding:8px 12px;">${d.descricao}</td>
+                    <td style="padding:8px 12px;">${d.categoria}</td>
+                    <td style="padding:8px 12px;text-align:right;color:#dc3545;">${formatCurrency(d.valor)}</td>
                 </tr>
             `;
         });
@@ -1987,7 +2035,7 @@ function toggleDespesasLinha(key, unidade, ano, mes, arrowId) {
 
     conteudo.innerHTML = html;
     linha.style.display = "table-row";
-    arrow.textContent = "▼";
+    arrow.textContent = "▼"; // Muda a seta para indicar que está aberto
 }
 
 function editarDespesa(id) {
@@ -2107,8 +2155,7 @@ function processarUploadManual(file) {
                 { type: "array", cellDates: true }
             );
 
-            console.log("📊 Processando planilha Movi...");
-
+            // 🔍 Procura pela aba "Lista de reservas Movi"
             let sheetName = workbook.SheetNames.find(name => 
                 name.includes('Lista de reservas') || name.includes('Movi')
             );
@@ -2127,13 +2174,8 @@ function processarUploadManual(file) {
             console.log(`📊 Total: ${linhas.length} linhas`);
 
             const novos = [];
-            const banco = getDb(DB_RESERVAS);
-            const idsExistentes = new Set(banco.map(r => r.idReserva));
-
             let mesAtual = null;
             let anoAtual = null;
-            let linhasIgnoradas = 0;
-            let duplicadas = 0;
 
             for (let i = 1; i < linhas.length; i++) {
                 const linha = linhas[i];
@@ -2145,6 +2187,7 @@ function processarUploadManual(file) {
 
                 if (!periodo) continue;
 
+                // 📅 Se for uma data, é o cabeçalho do mês
                 if (periodo instanceof Date) {
                     anoAtual = periodo.getFullYear().toString();
                     mesAtual = String(periodo.getMonth() + 1).padStart(2, '0');
@@ -2152,34 +2195,29 @@ function processarUploadManual(file) {
                     continue;
                 }
 
+                // 💰 Se não tem valor, pula
                 if (typeof valor !== 'number' || valor <= 0) {
-                    if (typeof valor === 'string') {
-                        console.log(`   ⏭️ ${periodo}: ${valor}`);
-                    }
-                    linhasIgnoradas++;
                     continue;
                 }
 
+                // ⚠️ Se não tem ano/mês, pula
                 if (!anoAtual || !mesAtual) {
                     console.warn(`⚠️ Reserva sem ano/mês: ${periodo}`);
-                    linhasIgnoradas++;
                     continue;
                 }
 
                 const mesAno = `${anoAtual}-${mesAtual}`;
                 const periodoStr = String(periodo);
 
-                const matchDia = periodoStr.match(/(\d{1,2})/);
-                const dia = matchDia ? matchDia[1].padStart(2, '0') : '01';
+                // 📆 Extrai os dias (ex: "24 a 25" → "24-25")
+                const matchDias = periodoStr.match(/(\d{1,2})\s*a\s*(\d{1,2})/);
+                const diaEntrada = matchDias ? matchDias[1].padStart(2, '0') : '01';
+                const diaSaida = matchDias ? matchDias[2].padStart(2, '0') : '01';
 
-                const chaveUnica = `MOVI_${anoAtual}${mesAtual}${dia}_${valor.toFixed(2)}`;
+                // 🔑 ID único
+                const chaveUnica = `MOVI_${anoAtual}${mesAtual}_${diaEntrada}-${diaSaida}_${valor.toFixed(2)}`;
 
-                if (idsExistentes.has(chaveUnica)) {
-                    console.log(`   ⚠️ ${periodo}: R$ ${valor.toFixed(2)} (duplicada)`);
-                    duplicadas++;
-                    continue;
-                }
-
+                // 💵 Valores
                 const comissaoPortais = typeof taxaApp === 'number' ? taxaApp : 0;
                 const comissaoShortStay = typeof taxaShort === 'number' ? taxaShort : 0;
 
@@ -2201,65 +2239,23 @@ function processarUploadManual(file) {
 
             console.log("\n📊 RESULTADO:");
             console.log(`   ✅ Novas: ${novos.length}`);
-            console.log(`   ⚠️ Duplicadas: ${duplicadas}`);
-            console.log(`   ⏭️ Ignoradas: ${linhasIgnoradas}`);
-
-            if (novos.length > 0) {
-                const totalReceita = novos.reduce((sum, r) => sum + r.receita, 0);
-                const por2025 = novos.filter(r => r.ano === '2025');
-                const por2026 = novos.filter(r => r.ano === '2026');
-                
-                console.log(`   💰 Total: R$ ${totalReceita.toFixed(2)}`);
-                console.log(`   📅 2025: ${por2025.length} reservas (R$ ${por2025.reduce((s,r)=>s+r.receita,0).toFixed(2)})`);
-                console.log(`   📅 2026: ${por2026.length} reservas (R$ ${por2026.reduce((s,r)=>s+r.receita,0).toFixed(2)})`);
-            }
 
             if (!novos.length) {
-                alert(`⚠️ Nenhum lançamento novo.\n\n• Duplicadas: ${duplicadas}\n• Ignoradas: ${linhasIgnoradas}`);
+                alert("⚠️ Nenhuma reserva encontrada no arquivo.");
                 return;
             }
 
-            // 🚨 NOVO: Tenta salvar no Supabase PRIMEIRO
-            try {
-                console.log("☁️ Salvando no Supabase...");
-                await salvarReservasNoSupabase(novos);
-                
-                // ✅ Sucesso no Supabase
-                console.log("✅ Salvo no Supabase!");
-                
-                // Também salva local como backup
-                banco.push(...novos);
-                saveDb(DB_RESERVAS, banco);
-                
-                closeUploadManualModal();
-                await carregarReservasSupabase();
-                setupFilters();
-                setupAnaliticaFilters();
-                renderViews();
-                
-                const total = novos.reduce((sum, r) => sum + r.receita, 0);
-                const r2026 = novos.filter(r => r.ano === '2026');
-                
-                alert(`✅ ${novos.length} reservas importadas!\n\n💰 Total: R$ ${total.toFixed(2)}\n\n📅 2026: ${r2026.length} reservas (R$ ${r2026.reduce((s,r)=>s+r.receita,0).toFixed(2)})`);
-                
-            } catch (err) {
-                // ❌ Falhou no Supabase
-                console.error("❌ Erro ao salvar no Supabase:", err);
-                
-                // Salva só no localStorage
-                banco.push(...novos);
-                saveDb(DB_RESERVAS, banco);
-                
-                closeUploadManualModal();
-                setupFilters();
-                setupAnaliticaFilters();
-                renderViews();
-                
-                const total = novos.reduce((sum, r) => sum + r.receita, 0);
-                
-                // 🚨 AVISO CLARO
-                alert(`⚠️ ATENÇÃO!\n\n${novos.length} reservas salvas APENAS LOCALMENTE.\n\nErro ao salvar na nuvem: ${err.message}\n\nEssas reservas não estarão disponíveis em outros dispositivos!\n\n💰 Total: R$ ${total.toFixed(2)}`);
-            }
+            // 🌐 Salva no Supabase
+            await salvarReservasNoSupabase(novos);
+            
+            closeUploadManualModal();
+            await carregarReservasSupabase();
+            setupFilters();
+            setupAnaliticaFilters();
+            renderViews();
+            
+            const total = novos.reduce((sum, r) => sum + r.receita, 0);
+            alert(`✅ ${novos.length} reservas importadas!\n\n💰 Total: R$ ${total.toFixed(2)}`);
 
         } catch (e) {
             console.error("❌ ERRO:", e);
@@ -2268,8 +2264,7 @@ function processarUploadManual(file) {
     };
 
     reader.readAsArrayBuffer(file);
-}
-async function syncUnidades() {
+}async function syncUnidades() {
   // unidades vindas do sistema atual (localStorage)
   const reservas = await getReservas();
 
@@ -2673,6 +2668,8 @@ async function migrarParaSupabase() {
     
     // Recarrega os dados
     await carregarReservasSupabase();
+await carregarDespesasSupabase(); // 👈 ESSENCIAL
+
     setupFilters();
     renderViews();
 
@@ -2684,35 +2681,39 @@ async function migrarParaSupabase() {
 
 
 
-// ===== 7️⃣ INICIALIZAÇÃO (ÚLTIMA COISA DO SCRIPT) =====
-$(document).ready(async function () {
+// ===== INICIALIZAÇÃO DO SISTEMA =====
+document.addEventListener("DOMContentLoaded", async () => {
+    console.log("🚀 Sistema iniciando...");
+
+    // 1. Configura os seletores (filtros)
     $("#filtroAnos, #filtroMeses, #filtroUnidades").select2({ 
         placeholder: "Filtrar", 
         allowClear: true 
     });
-    
     $("#filtroAnaliticaUnidades, #filtroAnaliticaAnos, #filtroAnaliticaMeses").select2({ 
         placeholder: "Todos", 
         allowClear: true 
     });
 
-    carregarCategoriasDespesa();
-
     try {
-        console.log("🔄 Iniciando carregamento do Supabase...");
+        // 2. Carrega todos os dados essenciais do Supabase
         await carregarReservasSupabase();
-        
+        await carregarDespesasSupabase(); // ESSENCIAL CARREGAR AQUI
+        await carregarCategoriasDespesa();
+
+        // 3. Configura os filtros com os dados carregados
         setupFilters();
         setupAnaliticaFilters();
         
+        // 4. Mostra a página inicial e renderiza as visualizações
         showPage("financeiro", document.querySelector('.menu-item[onclick*="financeiro"]'));
-        setViewMode("cards");
+        setViewMode("cards"); // Começa na visão de cards
         
         console.log("✅ Sistema inicializado com sucesso!");
         
     } catch (err) {
-        console.error("❌ Erro ao inicializar:", err);
-        alert("Erro ao carregar dados. Verifique a conexão com o Supabase.");
+        console.error("❌ Erro grave ao inicializar o sistema:", err);
+        alert("Não foi possível carregar os dados do sistema. Verifique a conexão com a internet e tente recarregar a página.");
     }
 });
 
@@ -2741,6 +2742,7 @@ $(document).ready(async function () {
     
     try {
         await carregarReservasSupabase();
+
         setupFilters();
         setupAnaliticaFilters();
         showPage("financeiro", document.querySelector('.menu-item[onclick*="financeiro"]'));
@@ -2751,19 +2753,30 @@ $(document).ready(async function () {
     }
 });
 
-function carregarCategoriasDespesa() {
+async function carregarCategoriasDespesa() {
     const select = document.getElementById("despesaCategoria");
     if (!select) return;
     
-    const categorias = getDb(DB_CATEGORIAS);
-    select.innerHTML = '<option value="">Selecione a categoria</option>';
-    
-    categorias.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c;
-        opt.textContent = c;
-        select.appendChild(opt);
-    });
+    try {
+        // 🔥 BUSCA DO SUPABASE ao invés do localStorage
+        const { data, error } = await db
+            .from("categorias_despesas")
+            .select("nome")
+            .order("nome");
+        
+        if (error) throw error;
+        
+        select.innerHTML = '<option value="">Selecione a categoria</option>';
+        
+        data.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value = c.nome;
+            opt.textContent = c.nome;
+            select.appendChild(opt);
+        });
+    } catch (err) {
+        console.error("Erro ao carregar categorias:", err);
+    }
 }
 
 // ADICIONE estas funções no seu <script>
@@ -2887,6 +2900,48 @@ function restaurarBackupExcel(file) {
     };
 
     reader.readAsArrayBuffer(file);
+}
+
+async function carregarDespesasSupabase() {
+    try {
+        const { data, error } = await db
+            .from("despesas")
+            .select(`
+                id,
+                descricao,
+                data,
+                valor,
+                unidades ( nome ),
+                categorias_despesas ( nome )
+            `)
+            .order("data", { ascending: false });
+
+        if (error) throw error;
+
+       CACHE_DESPESAS = data.map(d => {
+            const ano = d.data.substring(0,4);
+            const mes = d.data.substring(5,7);
+
+            return {
+                id: d.id,
+                descricao: d.descricao,
+                unidade: d.unidades.nome,
+                categoria: d.categorias_despesas.nome,
+                data: d.data,
+                ano: ano,
+                mes: mes,
+                mesAno: `${ano}-${mes}`,
+                valor: Number(d.valor)
+            };
+        });
+
+        return CACHE_DESPESAS;
+
+    } catch (err) {
+        console.error("Erro ao carregar despesas:", err);
+        CACHE_DESPESAS = [];
+        return [];
+    }
 }
     </script>
 </body>
