@@ -1237,7 +1237,13 @@ labels: mesesLabels,
 
         
         function renderListaView(e,a,t,s,r){
-            const o=document.getElementById("tabela-lista-financeira");
+const o=document.getElementById("tabela-lista-financeira");
+            
+            // 🔥 Separa ativas e canceladas (MESMA LÓGICA DOS CARDS)
+            const reservasAtivas = e.filter(r => r.status !== 'cancelada');
+            const reservasCanceladas = e.filter(r => r.status === 'cancelada');
+            
+            // 🏢 ORDEM PERSONALIZADA DAS UNIDADES
             
             // 🏢 ORDEM PERSONALIZADA DAS UNIDADES
             const ordemDesejada = ["103", "201", "Movi", "102", "2.7", "2.5", "104"];
@@ -1256,9 +1262,10 @@ const unidadesExistentes = [...new Set((CACHE_RESERVAS || getDb(DB_RESERVAS)).ma
                   d=r.length>0?r.sort():["01","02","03","04","05","06","07","08","09","10","11","12"],
                   i=["Receita Total","Comissão Portais","Despesas","Lucro"];
             
-            const receitaTotal=e.reduce((acc,item)=>acc+item.receita,0);
-            const comissaoPortais = e.reduce((acc,item)=>acc+(item.comissaoPortais ?? item.comissao ?? 0), 0);
-            const comissaoShort = e.reduce((acc,item)=>acc+(item.comissaoShortStay ?? 0), 0);
+// 🔥 USA APENAS RESERVAS ATIVAS (SEM CANCELADAS)
+            const receitaTotal=reservasAtivas.reduce((acc,item)=>acc+item.receita,0);
+            const comissaoPortais = reservasAtivas.reduce((acc,item)=>acc+(item.comissaoPortais ?? item.comissao ?? 0), 0);
+            const comissaoShort = reservasAtivas.reduce((acc,item)=>acc+(item.comissaoShortStay ?? 0), 0);
             const despesasTotal=a.reduce((acc,item)=>acc+item.valor,0);
             const lucroTotal=receitaTotal - comissaoPortais - comissaoShort - despesasTotal;
             
@@ -1272,8 +1279,8 @@ const unidadesExistentes = [...new Set((CACHE_RESERVAS || getDb(DB_RESERVAS)).ma
             
             let c=``;
             n.forEach(t=>{
-                // 💰 CALCULA RESUMO DA UNIDADE PARA O CABEÇALHO
-                const resUnidade = e.filter(r => r.unidade === t);
+// 💰 CALCULA RESUMO DA UNIDADE PARA O CABEÇALHO (SEM CANCELADAS)
+                const resUnidade = reservasAtivas.filter(r => r.unidade === t);
                 const despUnidade = a.filter(d => d.unidade === t);
                 const recUn = resUnidade.reduce((acc, r) => acc + r.receita, 0);
                 const comPUn = resUnidade.reduce((acc, r) => acc + (r.comissaoPortais ?? r.comissao ?? 0), 0);
@@ -1345,7 +1352,7 @@ if (tipo === "Despesas") {
 
 	    d.forEach(mes=>{
 	        const n = `${l}-${mes}`;
-	        const reservasMes = e.filter(x => x.unidade === t && x.mesAno === n);
+	        const reservasMes = reservasAtivas.filter(x => x.unidade === t && x.mesAno === n);
 	        const despesasMes = a.filter(x => x.unidade === t && x.data.startsWith(n));
 
 	        let valor = 0;
