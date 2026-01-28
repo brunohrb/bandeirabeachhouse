@@ -754,76 +754,43 @@ async function salvarReservasNoSupabase(reservas) {
         const mapaUnidades = {};
         unidades.forEach(u => { mapaUnidades[u.nome] = u.id; });
 
-        // 3️⃣ Busca reservas existentes
-        const { data: existentes, error: errRes } = await db
+        // 3️⃣ Prepara dados para inserção
+        const paraInserir = reservas.map(r => ({
+            id_reserva: r.idReserva,
+            unidade_id: mapaUnidades[r.unidade],
+            ano: r.ano,
+            mes: r.mes,
+            mes_ano: r.mesAno,
+            receita: r.receita,
+            comissao_portais: r.comissao ?? 0,
+            comissao_short_stay: r.comissaoShortStay ?? 0,
+            status: r.status || 'ativa'
+        })).filter(r => r.unidade_id);
+
+        if (paraInserir.length === 0) {
+            console.log("⚠️ Nenhuma reserva válida para inserir");
+            return;
+        }
+
+        // 4️⃣ Insere (ignora duplicadas automaticamente)
+        const { error: insertErr } = await db
             .from("reservas")
-            .select("id_reserva");
+            .upsert(paraInserir, { 
+                onConflict: 'id_reserva',
+                ignoreDuplicates: false  // atualiza se já existe
+            });
 
-        if (errRes) throw new Error("Erro ao verificar reservas: " + errRes.message);
-
-        const idsExistentes = new Set(existentes.map(r => r.id_reserva));
-
-        // 4️⃣ Separa novas de duplicadas
-        const novas = [];
-        const duplicadas = [];
-
-        reservas.forEach(r => {
-            if (idsExistentes.has(r.idReserva)) {
-                duplicadas.push(r);
-            } else {
-novas.push({
-                    id_reserva: r.idReserva,
-                    unidade_id: mapaUnidades[r.unidade],
-                    ano: r.ano,
-                    mes: r.mes,
-                    mes_ano: r.mesAno,
-                    receita: r.receita,
-                    comissao_portais: r.comissao ?? 0,
-                    comissao_short_stay: r.comissaoShortStay ?? 0,
-                    status: r.status || 'ativa'  // 🔥 NOVO
-                });
-            }
-        });
-
-        // Remove reservas sem unidade_id
-        const novasValidas = novas.filter(r => r.unidade_id);
-
-        // 5️⃣ Monta mensagem detalhada
-        let mensagem = `📊 Resultado do processamento:\n\n`;
-        mensagem += `Total de reservas no arquivo: ${reservas.length}\n`;
-        mensagem += `✅ Novas reservas inseridas: ${novasValidas.length}\n`;
-        mensagem += `⚠️ Reservas duplicadas (já existem): ${duplicadas.length}\n`;
-
-        // 6️⃣ Insere apenas as novas
-        if (novasValidas.length > 0) {
-            const { error: insertErr } = await db
-                .from("reservas")
-                .insert(novasValidas);
-
-            if (insertErr) {
-                throw new Error("Erro ao inserir: " + insertErr.message);
-            }
-
-            console.log(`✅ ${novasValidas.length} reservas inseridas com sucesso`);
-        } else {
-            mensagem += `\nℹ️ Nenhuma reserva nova para inserir.`;
+        if (insertErr) {
+            throw new Error("Erro ao inserir: " + insertErr.message);
         }
 
-        // 7️⃣ Exibe alerta detalhado
-        alert(mensagem);
-
-        // 8️⃣ Log detalhado no console (opcional)
-        if (duplicadas.length > 0) {
-            console.log("⚠️ Reservas duplicadas ignoradas:", duplicadas.map(r => r.idReserva));
-        }
+        console.log(`✅ ${paraInserir.length} reservas processadas com sucesso`);
 
     } catch (err) {
         console.error("❌ Erro ao salvar no Supabase:", err);
-        alert("❌ Erro ao salvar no Supabase:\n\n" + err.message);
         throw err;
     }
 }
-
 
 // ===== 5️⃣ FUNÇÕES DE PARSING =====
 function parseDataBR(valor) {
@@ -880,21 +847,30 @@ function parseNumeroBR(valor) {
             renderViews()
         }
         
-  async function processarEAdicionarDados(e) {
+ async function processarEAdicionarDados(e) {
     if (!e) return;
+
+    // 🔄 Mostra tela de loading
+    mostrarLoading("Lendo arquivo...");
 
     const reader = new FileReader();
 
     reader.onload = async function (evt) {
         try {
+            atualizarLoading("Processando dados do Excel...", 20);
+
             const workbook = XLSX.read(
                 new Uint8Array(evt.target.result),
                 { type: "array" }
             );
 
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const linhasExcel = XLSX.utils.sheet_to_json(sheet);
 
- const dados = XLSX.utils.sheet_to_json(sheet)
+            atualizarLoading("Analisando reservas...", 40);
+
+            // 📋 Processa dados do Excel
+            const reservasNovas = linhasExcel
                 .map(linha => {
                     const idReserva = linha["Posição"];
                     if (!idReserva) return null;
@@ -903,13 +879,11 @@ function parseNumeroBR(valor) {
                     if (!data) return null;
 
                     const preco = parseFloat(linha.Preço || linha.Price || 0);
-                    if (!preco || preco <= 0) return null;
-
                     const comissao = parseFloat(linha["Comissão incluída"] || 0);
                     
-                    // 🔥 DETECTA SE FOI CANCELADA (coluna "Estado")
-                    const estado = linha["Estado"] || linha["Status"] || "";
-                    const cancelada = String(estado).toLowerCase().includes("cancelad");
+                    // 🔥 Detecta status
+                    const estado = String(linha["Estado"] || linha["Status"] || "").toLowerCase();
+                    const cancelada = estado.includes("cancelad");
 
                     return {
                         idReserva: String(idReserva).trim(),
@@ -921,31 +895,141 @@ function parseNumeroBR(valor) {
                         comissao: comissao,
                         comissaoPortais: comissao,
                         comissaoShortStay: 0,
-                        status: cancelada ? "cancelada" : "ativa"  // 🔥 NOVO
+                        status: cancelada ? "cancelada" : "ativa"
                     };
                 })
                 .filter(Boolean);
 
-            if (dados.length === 0) {
+            if (reservasNovas.length === 0) {
+                esconderLoading();
                 alert("⚠️ Nenhuma reserva válida encontrada.");
                 return;
             }
 
-            console.log(`📊 ${dados.length} reservas processadas do Excel`);
+            atualizarLoading("Verificando reservas existentes...", 60);
 
-            // 🌐 SALVA NO SUPABASE
-            await salvarReservasNoSupabase(dados);
+            // 🔍 Busca reservas existentes no Supabase
+            const { data: existentes, error } = await db
+                .from("reservas")
+                .select("id, id_reserva, status");
 
-            // 🔄 Recarrega da nuvem
+            if (error) throw error;
+
+            // 📊 Monta mapa de reservas existentes
+            const mapaExistentes = {};
+            existentes.forEach(r => {
+                mapaExistentes[r.id_reserva] = {
+                    id: r.id,
+                    status: r.status || 'ativa'
+                };
+            });
+
+            atualizarLoading("Aplicando regras de negócio...", 80);
+
+            // 📈 Estatísticas
+            const stats = {
+                novas: 0,
+                repetidas: 0,
+                canceladas: 0,
+                atualizadas: 0
+            };
+
+            const paraInserir = [];
+            const paraAtualizar = [];
+            const detalhes = [];
+
+            // 🔥 APLICAR REGRAS
+            for (const reserva of reservasNovas) {
+                const existe = mapaExistentes[reserva.idReserva];
+
+                if (!existe) {
+                    // ✅ NOVA RESERVA - insere normalmente
+                    paraInserir.push(reserva);
+                    stats.novas++;
+                    
+                    if (reserva.status === 'cancelada') {
+                        stats.canceladas++;
+                        detalhes.push(`🔴 Nova cancelada: ${reserva.idReserva} (${reserva.unidade})`);
+                    } else {
+                        detalhes.push(`✅ Nova ativa: ${reserva.idReserva} (${reserva.unidade})`);
+                    }
+
+                } else {
+                    // 🔍 JÁ EXISTE NO SISTEMA
+                    const statusAtual = existe.status;
+                    const statusNovo = reserva.status;
+
+                    if (statusAtual === 'ativa' && statusNovo === 'ativa') {
+                        // 📋 ATIVA → ATIVA: não faz nada
+                        stats.repetidas++;
+                        detalhes.push(`⚪ Já existe (mantida): ${reserva.idReserva}`);
+
+                    } else if (statusAtual === 'ativa' && statusNovo === 'cancelada') {
+                        // ❌ ATIVA → CANCELADA: atualiza status
+                        paraAtualizar.push({
+                            id: existe.id,
+                            status: 'cancelada'
+                        });
+                        stats.canceladas++;
+                        stats.atualizadas++;
+                        detalhes.push(`🔴 Cancelada: ${reserva.idReserva} (${reserva.unidade})`);
+
+                    } else if (statusAtual === 'cancelada' && statusNovo === 'ativa') {
+                        // 🔄 CANCELADA → ATIVA: reativa
+                        paraAtualizar.push({
+                            id: existe.id,
+                            status: 'ativa',
+                            receita: reserva.receita,
+                            comissao_portais: reserva.comissaoPortais
+                        });
+                        stats.atualizadas++;
+                        detalhes.push(`🔄 Reativada: ${reserva.idReserva} (${reserva.unidade})`);
+
+                    } else {
+                        // 📋 CANCELADA → CANCELADA: não faz nada
+                        stats.repetidas++;
+                        detalhes.push(`⚪ Já cancelada: ${reserva.idReserva}`);
+                    }
+                }
+            }
+
+            atualizarLoading("Salvando no banco de dados...", 90);
+
+            // 💾 Insere novas
+            if (paraInserir.length > 0) {
+                await salvarReservasNoSupabase(paraInserir);
+            }
+
+            // 🔄 Atualiza existentes
+            if (paraAtualizar.length > 0) {
+                for (const reserva of paraAtualizar) {
+                    await db
+                        .from("reservas")
+                        .update(reserva)
+                        .eq('id', reserva.id);
+                }
+            }
+
+            atualizarLoading("Recarregando dados...", 95);
+
+            // 🔄 Recarrega do Supabase
             await carregarReservasSupabase();
-await carregarDespesasSupabase(); // 👈 ESTA LINHA NÃO EXISTIA
-
+            await carregarDespesasSupabase();
             setupFilters();
             renderViews();
 
+            atualizarLoading("Concluído!", 100);
+            
+            // 📊 Mostra relatório
+            setTimeout(() => {
+                esconderLoading();
+                mostrarRelatorio(stats, detalhes, reservasNovas.length);
+            }, 500);
+
         } catch (err) {
+            esconderLoading();
             console.error(err);
-            alert("⌚ Erro ao processar arquivo");
+            alert("❌ Erro ao processar arquivo: " + err.message);
         }
     };
 
@@ -3033,6 +3117,68 @@ function restaurarBackupExcel(file) {
     reader.readAsArrayBuffer(file);
 }
 
+function mostrarLoading(texto) {
+    const tela = document.getElementById('telaLoading');
+    const textoEl = document.getElementById('loadingTexto');
+    const barra = document.getElementById('loadingBarra');
+    
+    textoEl.textContent = texto;
+    barra.style.width = '0%';
+    tela.style.display = 'flex';
+}
+
+function atualizarLoading(texto, progresso) {
+    const textoEl = document.getElementById('loadingTexto');
+    const barra = document.getElementById('loadingBarra');
+    
+    textoEl.textContent = texto;
+    barra.style.width = progresso + '%';
+}
+
+function esconderLoading() {
+    document.getElementById('telaLoading').style.display = 'none';
+}
+
+function mostrarRelatorio(stats, detalhes, total) {
+    const html = `
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #2d7a7a; margin-bottom: 15px;">📈 Resumo da Importação</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #28a745;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">NOVAS RESERVAS</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #28a745;">${stats.novas}</div>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #ffc107;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">REPETIDAS</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #ffc107;">${stats.repetidas}</div>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #dc3545;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">CANCELADAS</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #dc3545;">${stats.canceladas}</div>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #17a2b8;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">ATUALIZADAS</div>
+                    <div style="font-size: 28px; font-weight: 700; color: #17a2b8;">${stats.atualizadas}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+            <h4 style="color: #333; margin-bottom: 10px;">📋 Detalhes (${detalhes.length} registros)</h4>
+            <div style="max-height: 300px; overflow-y: auto; background: white; padding: 15px; border-radius: 6px; font-size: 13px; line-height: 1.8;">
+                ${detalhes.join('<br>')}
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('relatorioConteudo').innerHTML = html;
+    document.getElementById('modalRelatorio').classList.add('active');
+}
+
+function fecharRelatorio() {
+    document.getElementById('modalRelatorio').classList.remove('active');
+}
+
 async function carregarDespesasSupabase() {
     try {
         const { data, error } = await db
@@ -3143,5 +3289,32 @@ async function alterarSenha() {
     }
 }
     </script>
+<!-- 🔄 TELA DE LOADING -->
+<div id="telaLoading" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+    <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; max-width: 500px;">
+        <div style="font-size: 64px; margin-bottom: 20px;">⏳</div>
+        <h2 style="color: #2d7a7a; margin-bottom: 10px;">Processando Reservas...</h2>
+        <p id="loadingTexto" style="color: #666; font-size: 14px;">Analisando arquivo do Smoobu</p>
+        <div style="margin-top: 20px; background: #f0f0f0; height: 8px; border-radius: 4px; overflow: hidden;">
+            <div id="loadingBarra" style="background: #2d7a7a; height: 100%; width: 0%; transition: width 0.3s;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 📊 MODAL DE RELATÓRIO -->
+<div id="modalRelatorio" class="modal-overlay">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="page-header">
+            <h2>📊 Relatório de Importação</h2>
+            <button style="background:none;border:none;font-size:24px;cursor:pointer;" onclick="fecharRelatorio()">×</button>
+        </div>
+        
+        <div id="relatorioConteudo" style="font-size: 15px; line-height: 1.8;"></div>
+        
+        <button class="btn btn-primary" style="width: 100%; margin-top: 20px;" onclick="fecharRelatorio()">
+            Fechar
+        </button>
+    </div>
+</div>
 </body>
 </html>
