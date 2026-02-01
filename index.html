@@ -1862,12 +1862,25 @@ async function excluirDespesa(id) {
             a.onload=function(t){
                 try{
                     const e=XLSX.read(new Uint8Array(t.target.result),{type:"array",cellDates:!0}),s=XLSX.utils.sheet_to_json(e.Sheets[e.SheetNames[0]]),r={};
-                    s.forEach(e=>{const a=e.Alojamento||e.Accommodation;a&&(r[a]||(r[a]=[]),r[a].push({hospede:e.Hóspede||e.Guest||"N/A",chegada:(new Date(e.Chegada||e["Check-in"])).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),partida:(new Date(e.Partida||e["Check-out"])).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),pessoas:parseInt(e.Adultos||0)+parseInt(e.Crianças||0)||1}))});
+                    s.forEach(e=>{const a=e.Alojamento||e.Accommodation;a&&(r[a]||(r[a]=[]),r[a].push({hospede:e.Hóspede||e.Guest||"N/A",
+
+chegada: formatarDataCurta(e.Chegada || e["Check-in"]),
+partida: formatarDataCurta(e.Partida || e["Check-out"]),
+
+
+
+pessoas:parseInt(e.Adultos||0)+parseInt(e.Crianças||0)||1}))});
+
+
                     const o=Object.values(r)[0]?.[0];
                     if(!o)return void alert("Nenhuma reserva encontrada.");
                     const[,n]=o.chegada.split("/"),l=["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"][parseInt(n)-1];
                     let d=`🟦 ${l} ${(new Date).getFullYear()}\n\n`;
-                    Object.keys(r).sort().forEach(e=>{d+=`🏢 ${e}\n\n`,r[e].forEach(e=>{d+=`${e.chegada} a ${e.partida} • ${e.hospede} • ${e.pessoas} pessoas\n`}),d+="\n"}),
+                    Object.keys(r).sort().forEach(e=>{d+=`🏢 ${e}\n\n`,r[e].forEach(e=>{
+
+d+=`${e.chegada} a ${e.partida} ${e.hospede?e.hospede.split(" ")[0]:""} ${e.pessoas}p\n`}),d+="\n"
+
+}),
                     document.getElementById("mensagemPreview").textContent=d,document.getElementById("reservasPreview").style.display="block"
                 }catch(e){alert("❌ Erro ao processar o arquivo: "+e.message)}
             },a.readAsArrayBuffer(e)
@@ -3549,6 +3562,107 @@ async function alterarSenha() {
         alert('❌ Erro ao alterar senha: ' + err.message);
     }
 }
+
+// ================================
+// 📅 FORMATAR DATA SEGURA (dd/mm)
+// ================================
+function formatarDataSegura(valor) {
+    if (!valor) return "--/--";
+
+    let data;
+
+    // Se já for Date válida
+    if (valor instanceof Date && !isNaN(valor)) {
+        data = valor;
+    }
+    // Se vier string
+    else if (typeof valor === "string") {
+        // aceita dd/mm ou dd/mm/yyyy
+        const partes = valor.split("/");
+        if (partes.length >= 2) {
+            const dia = partes[0].padStart(2, "0");
+            const mes = partes[1].padStart(2, "0");
+            return `${dia}/${mes}`;
+        }
+        return "--/--";
+    }
+    // Se vier número (Excel)
+    else if (typeof valor === "number") {
+        data = XLSX.SSF.parse_date_code(valor);
+        if (!data) return "--/--";
+        return `${String(data.d).padStart(2, "0")}/${String(data.m).padStart(2, "0")}`;
+    } else {
+        return "--/--";
+    }
+
+    if (isNaN(data)) return "--/--";
+
+    return `${String(data.getDate()).padStart(2, "0")}/${String(data.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatarReservaPadrao(reserva) {
+    const inicio = formatarDataSegura(reserva.checkin || reserva.inicio);
+    const fim = formatarDataSegura(reserva.checkout || reserva.fim);
+
+    const nomeCompleto = (reserva.nome || "").trim();
+    const primeiroNome = nomeCompleto.split(" ")[0] || "";
+
+    const pessoas = Number(reserva.pessoas) || 0;
+
+    return `${inicio} a ${fim} ${primeiroNome} ${pessoas}p`;
+}
+
+function formatarDataCurta(valor) {
+    if (!valor) return "--/--";
+
+    // Excel (número)
+    if (typeof valor === "number") {
+        const d = XLSX.SSF.parse_date_code(valor);
+        if (!d) return "--/--";
+        return `${String(d.d).padStart(2, "0")}/${String(d.m).padStart(2, "0")}`;
+    }
+
+    // String dd/mm ou dd/mm/yyyy
+    if (typeof valor === "string") {
+        const p = valor.split("/");
+        if (p.length >= 2) {
+            return `${p[0].padStart(2, "0")}/${p[1].padStart(2, "0")}`;
+        }
+    }
+
+    // Date
+    if (valor instanceof Date && !isNaN(valor)) {
+        return `${String(valor.getDate()).padStart(2, "0")}/${String(valor.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    return "--/--";
+}
+
+function primeiroNome(nome) {
+    return (nome || "").trim().split(" ")[0] || "";
+}
+
+
+function normalizarDataTexto(valor) {
+    if (!valor) return "--/--";
+
+    if (typeof valor === "string") {
+        // remove "Invalid Date"
+        if (valor.toLowerCase().includes("invalid")) return "--/--";
+
+        const p = valor.split("/");
+        if (p.length >= 2) {
+            return `${p[0].padStart(2, "0")}/${p[1].padStart(2, "0")}`;
+        }
+    }
+
+    return "--/--";
+}
+
+function nomePrimeiro(nome) {
+    return (nome || "").trim().split(" ")[0] || "";
+}
+
 
 
     </script>
