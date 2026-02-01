@@ -1462,16 +1462,28 @@ labels: mesesLabels,
         
     function renderCardsView(e, a) {
     // 🔥 Separa ativas e canceladas
-    const reservasAtivas = e.filter(r => r.status !== 'cancelada');
-    const reservasCanceladas = e.filter(r => r.status === 'cancelada');
-    
-    const t = reservasAtivas.reduce((acc, x) => acc + x.receita, 0);
+// 1️⃣ Todas as reservas ativas (inclui R$ 0 / proprietários)
+const reservasTotais = e.filter(r => r.status !== 'cancelada');
 
-    const comissaoPortais = reservasAtivas.reduce(
+// 2️⃣ Apenas reservas com valor financeiro
+const reservasValidas = reservasTotais.filter(
+    r => Number(r.receita) > 0
+);
+
+// Canceladas (mantém igual)
+const reservasCanceladas = e.filter(r => r.status === 'cancelada');
+
+    
+    const t = reservasValidas.reduce((acc, x) => acc + x.receita, 0);
+
+
+    const comissaoPortais = reservasValidas
+.reduce(
         (acc, x) => acc + (x.comissaoPortais ?? x.comissao ?? 0), 0
     );
 
-    const comissaoShort = reservasAtivas.reduce(
+    const comissaoShort = reservasValidas.reduce(
+
         (acc, x) => acc + (x.comissaoShortStay ?? 0), 0
     );
 
@@ -1483,6 +1495,17 @@ labels: mesesLabels,
             <div class="indicador-label">Receita Total</div>
             <div class="indicador-valor green">${formatCurrency(t)}</div>
         </div>
+
+<div class="indicador-card">
+    <div class="indicador-label">Reservas</div>
+    <div class="indicador-valor">
+        ${reservasValidas.length}
+    </div>
+    <div style="font-size:12px;color:#666;margin-top:4px;">
+        Total: ${reservasTotais.length}
+    </div>
+</div>
+
 
         <div class="indicador-card">
             <div class="indicador-label">Comissão Portais</div>
