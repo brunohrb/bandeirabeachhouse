@@ -386,9 +386,37 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 
 
             <div id="despesas" class="page">
-                <div class="page-header"><h2>Detalhes das Despesas</h2><button class="btn btn-primary" onclick="openDespesaModal()">+ Nova Despesa</button></div>
-                <div class="card"><div class="table-container"><table id="tabela-despesas-detalhada"></table></div></div>
-            </div>
+    <div class="page-header">
+        <h2>Detalhes das Despesas</h2>
+        <button class="btn btn-primary" onclick="openDespesaModal()">+ Nova Despesa</button>
+    </div>
+
+    <!-- 🔎 FILTRO DAS DESPESAS -->
+    <div class="card filter-bar">
+        <div class="form-group flex-1">
+            <select id="filtroDespesasAnos" class="form-select" multiple></select>
+        </div>
+
+        <div class="form-group flex-1">
+            <select id="filtroDespesasMeses" class="form-select" multiple></select>
+        </div>
+
+        <div class="form-group flex-1">
+            <select id="filtroDespesasUnidades" class="form-select" multiple></select>
+        </div>
+
+        <button class="btn btn-primary" onclick="renderTabelaDespesasDetalhada()">
+            Aplicar
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="table-container">
+            <table id="tabela-despesas-detalhada"></table>
+        </div>
+    </div>
+</div>
+
             <div id="reservas" class="page">
                 <div class="page-header"><h2>Gerador de Mensagem para Limpeza</h2></div>
                 <div class="card"><div class="upload-area" onclick="document.getElementById('reservasFileInput').click()"><input type="file" id="reservasFileInput" accept=".xlsx,.xls" onchange="processarReservasFuturas(this.files[0])"><div style="font-size: 48px; margin-bottom: 16px;">📅</div><h3>Selecione o arquivo de reservas futuras</h3></div></div>
@@ -870,7 +898,8 @@ function parseNumeroBR(valor) {
             document.getElementById(e).classList.add("active"),
             a&&a.classList.add("active"),
         "analitica"===e&&(setupAnaliticaFilters(),renderAnalitica()),
-            "despesas"===e&&renderTabelaDespesasDetalhada(),
+            "despesas"===e && (setupFiltrosDespesas(), renderTabelaDespesasDetalhada())
+,
 
             "proprietarios"===e&&renderProprietarios()
         }
@@ -1639,68 +1668,81 @@ if (tipo === "Despesas") {
             toggle.classList.toggle('collapsed')
         }
         
-async function renderTabelaDespesasDetalhada() {
-    const despesas = await carregarDespesasSupabase();
-    const tabela = document.getElementById("tabela-despesas-detalhada");
+function renderTabelaDespesasDetalhada(){
+    var tabela = document.getElementById("tabela-despesas-detalhada");
+    var despesas = CACHE_DESPESAS || [];
 
-    let html = `
-        <thead>
-            <tr>
-                <th>Descrição</th>
-                <th>Prédio</th>
-                <th>Categoria</th>
-                <th>Data</th>
-                <th>Valor</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-    `;
+    // lê filtros existentes
+   var anos = $("#filtroDespesasAnos").val() || [];
+var meses = $("#filtroDespesasMeses").val() || [];
+var unidades = $("#filtroDespesasUnidades").val() || [];
 
-    if (despesas.length === 0) {
-        html += `
-            <tr>
-                <td colspan="6" style="text-align:center;padding:20px;">
-                    Nenhuma despesa cadastrada.
-                </td>
-            </tr>
-        `;
-    } else {
-        despesas
-            .sort((a, b) => new Date(b.data) - new Date(a.data))
-            .forEach(d => {
-                html += `
-                    <tr>
-                        <td>${d.descricao}</td>
-                        <td>${d.unidade}</td>
-                        <td>${d.categoria}</td>
-                        <td>${new Date(d.data).toLocaleDateString("pt-BR")}</td>
-                        <td>${formatCurrency(d.valor)}</td>
-                        <td style="display:flex;gap:12px;align-items:center;">
-    <span 
-        style="cursor:pointer;font-size:18px;" 
-        title="Editar"
-        onclick="editarDespesa('${d.id}')">
-        ✏️
-    </span>
 
-    <span 
-        style="cursor:pointer;font-size:18px;color:#dc3545;" 
-        title="Excluir"
-        onclick="excluirDespesa('${d.id}')">
-        🗑️
-    </span>
-</td>
+    function passaFiltro(d){
+        if(!d) return false;
 
-                    </tr>
-                `;
-            });
-    }
-
-    html += "</tbody>";
-    tabela.innerHTML = html;
+if(!d.mesAno && d.data){
+    d.mesAno = d.data.substring(0,7); // 🔥 cria na hora
 }
 
+
+        var ano = d.mesAno.substring(0,4);
+        var mes = d.mesAno.substring(5,7);
+
+        if(anos.length && anos.indexOf(ano)===-1) return false;
+        if(meses.length && meses.indexOf(mes)===-1) return false;
+        if(unidades.length && unidades.indexOf(d.unidade)===-1) return false;
+
+        return true;
+    }
+
+    var filtradas = despesas.filter(passaFiltro);
+
+    if(!filtradas.length){
+        tabela.innerHTML = "<tr><td>Nenhuma despesa encontrada</td></tr>";
+        return;
+    }
+
+tabela.innerHTML = `
+    <tr>
+        <th>Data</th>
+        <th>Unidade</th>
+        <th>Categoria</th>
+        <th>Descrição</th>
+        <th>Valor</th>
+        <th>Ações</th>
+    </tr>
+`;
+
+
+filtradas.forEach(function(d){
+    tabela.innerHTML += `
+        <tr>
+            <td>${new Date(d.data).toLocaleDateString("pt-BR")}</td>
+            <td>${d.unidade}</td>
+            <td>${d.categoria}</td>
+            <td>${d.descricao}</td>
+            <td>${formatCurrency(d.valor)}</td>
+            <td style="display:flex;gap:12px;align-items:center;">
+                <span 
+                    style="cursor:pointer;font-size:18px;" 
+                    title="Editar"
+                    onclick="editarDespesa('${d.id}')">
+                    ✏️
+                </span>
+
+                <span 
+                    style="cursor:pointer;font-size:18px;color:#dc3545;" 
+                    title="Excluir"
+                    onclick="excluirDespesa('${d.id}')">
+                    🗑️
+                </span>
+            </td>
+        </tr>
+    `;
+});
+
+}
         
 function openDespesaModal(modoEdicao = false) {
     carregarUnidadesDespesa();
@@ -3663,6 +3705,36 @@ function nomePrimeiro(nome) {
     return (nome || "").trim().split(" ")[0] || "";
 }
 
+function setupFiltrosDespesas() {
+    const despesas = CACHE_DESPESAS || [];
+
+    const anos = [...new Set(despesas.map(d => d.mesAno?.substring(0,4)).filter(Boolean))].sort();
+    const meses = [...new Set(despesas.map(d => d.mesAno?.substring(5,7)).filter(Boolean))].sort();
+    const unidades = [...new Set(despesas.map(d => d.unidade))].sort();
+
+    const nomesMeses = {
+        "01":"Janeiro","02":"Fevereiro","03":"Março","04":"Abril",
+        "05":"Maio","06":"Junho","07":"Julho","08":"Agosto",
+        "09":"Setembro","10":"Outubro","11":"Novembro","12":"Dezembro"
+    };
+
+    $("#filtroDespesasAnos").html(
+        anos.map(a => `<option value="${a}">${a}</option>`).join("")
+    );
+
+    $("#filtroDespesasMeses").html(
+        meses.map(m => `<option value="${m}">${nomesMeses[m]}</option>`).join("")
+    );
+
+    $("#filtroDespesasUnidades").html(
+        unidades.map(u => `<option value="${u}">${u}</option>`).join("")
+    );
+
+    $("#filtroDespesasAnos, #filtroDespesasMeses, #filtroDespesasUnidades").select2({
+        placeholder: "Filtrar",
+        allowClear: true
+    });
+}
 
 
     </script>
