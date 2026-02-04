@@ -524,43 +524,56 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 </div>
 
 <!-- MODAL UPLOAD MANUAL -->
-    <div id="uploadManualModal" class="modal-overlay">
-        <div class="modal-content">
+<div id="uploadManualModal" class="modal-overlay">
+    <div class="modal-content">
 
-            <div class="page-header">
-                <h3>Upload Manual – Movi</h3>
-                <button style="background:none;border:none;font-size:24px;cursor:pointer;"
-                        onclick="closeUploadManualModal()">&times;</button>
-            </div>
+        <div class="page-header">
+            <h3>Upload Manual – Movi</h3>
+            <button style="background:none;border:none;font-size:24px;cursor:pointer;"
+                    onclick="closeUploadManualModal()">&times;</button>
+        </div>
 
-            <div class="form-group">
-                <label class="form-label">Unidade</label>
-                <input type="text"
-                       class="form-input"
-                       value="Movi"
-                       disabled>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Arquivo financeiro</label>
-                <div class="upload-area"
-                     onclick="document.getElementById('uploadManualFile').click()">
-
-                    <input type="file"
-                           id="uploadManualFile"
-                           accept=".xlsx,.xls,image/*"
-                           style="display:none"
-                           onchange="processarUploadManual(this.files[0])">
-
-                    <div style="font-size:48px;margin-bottom:16px;">📄</div>
-                    <h3>Selecionar arquivo</h3>
-                    <p>Arquivo mensal com Valor, Taxa App e Taxa Short Stay</p>
+        <!-- ⚠️ AVISO IMPORTANTE -->
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: start; gap: 12px;">
+                <div style="font-size: 24px;">⚠️</div>
+                <div>
+                    <strong style="color: #856404; display: block; margin-bottom: 5px;">Atenção:</strong>
+                    <p style="color: #856404; margin: 0; font-size: 14px;">
+                        Faça apenas o upload do ano <strong><span id="anoAtualMovi">2026</span></strong> completo.
+                        <br>Os dados deste ano serão substituídos pelos novos.
+                    </p>
                 </div>
             </div>
-
         </div>
-    </div>
 
+        <div class="form-group">
+            <label class="form-label">Unidade</label>
+            <input type="text"
+                   class="form-input"
+                   value="Movi"
+                   disabled>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Arquivo financeiro</label>
+            <div class="upload-area"
+                 onclick="document.getElementById('uploadManualFile').click()">
+
+                <input type="file"
+                       id="uploadManualFile"
+                       accept=".xlsx,.xls,image/*"
+                       style="display:none"
+                       onchange="processarUploadManual(this.files[0])">
+
+                <div style="font-size:48px;margin-bottom:16px;">📄</div>
+                <h3>Selecionar arquivo</h3>
+                <p>Arquivo mensal com Valor, Taxa App e Taxa Short Stay</p>
+            </div>
+        </div>
+
+    </div>
+</div>
 <script>
 // ========================================
 // 🔐 AUTENTICAÇÃO
@@ -821,7 +834,39 @@ async function salvarReservasNoSupabase(reservas) {
         const mapaUnidades = {};
         unidades.forEach(u => { mapaUnidades[u.nome] = u.id; });
 
-        // 3️⃣ Prepara dados para inserção
+        // 3️⃣ **CRÍTICO**: Apaga TODAS as reservas dessas unidades + meses
+        console.log("🗑️ Apagando reservas existentes...");
+        
+        // Agrupa por unidade + mês
+        const unidadesMeses = {};
+        reservas.forEach(r => {
+            const chave = `${r.unidade}|${r.mesAno}`;
+            if (!unidadesMeses[chave]) {
+                unidadesMeses[chave] = {
+                    unidade_id: mapaUnidades[r.unidade],
+                    mes_ano: r.mesAno
+                };
+            }
+        });
+        
+        // Apaga cada combinação unidade+mês
+        for (const chave in unidadesMeses) {
+            const { unidade_id, mes_ano } = unidadesMeses[chave];
+            
+            const { error: delErr } = await db
+                .from("reservas")
+                .delete()
+                .eq('unidade_id', unidade_id)
+                .eq('mes_ano', mes_ano);
+            
+            if (delErr) {
+                console.error(`Erro ao apagar ${chave}:`, delErr);
+            } else {
+                console.log(`✅ Apagadas reservas de ${chave}`);
+            }
+        }
+
+        // 4️⃣ Prepara dados para inserção
         const paraInserir = reservas.map(r => ({
             id_reserva: r.idReserva,
             unidade_id: mapaUnidades[r.unidade],
@@ -839,13 +884,10 @@ async function salvarReservasNoSupabase(reservas) {
             return;
         }
 
-        // 4️⃣ Insere (ignora duplicadas automaticamente)
+        // 5️⃣ Insere novas reservas
         const { error: insertErr } = await db
             .from("reservas")
-            .upsert(paraInserir, { 
-                onConflict: 'id_reserva',
-                ignoreDuplicates: false  // atualiza se já existe
-            });
+            .insert(paraInserir);
 
         if (insertErr) {
             throw new Error("Erro ao inserir: " + insertErr.message);
@@ -858,7 +900,6 @@ async function salvarReservasNoSupabase(reservas) {
         throw err;
     }
 }
-
 
 function parseNumeroBR(valor) {
     if (valor === null || valor === undefined) return 0;
@@ -940,6 +981,55 @@ function parseDataBR(valor) {
             renderViews()
         }
         
+
+// 🆕 Processa formato Bruno (planilha personalizada)
+function processarFormatoBruno(workbook) {
+    const reservas = [];
+    for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const linhas = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+        
+        let unidadeNome = sheetName.match(/Lista de reservas\s+(.+)/i)?.[1]?.trim() || sheetName;
+        let mesAnoAtual = null;
+        let contador = 0;
+        
+        for (const linha of linhas) {
+            if (!linha || !linha[0]) continue;
+            if (linha[0] === 'Período' || linha[0] === 'Periodo') continue;
+            
+            // Detecta data do mês
+            let data = linha[0] instanceof Date ? linha[0] : 
+                      typeof linha[0] === 'string' && linha[0].match(/^\d{4}-\d{2}-\d{2}/) ? new Date(linha[0]) : null;
+            
+            if (data && !isNaN(data)) {
+                mesAnoAtual = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
+                contador = 0;
+                continue;
+            }
+            
+            if (!mesAnoAtual || typeof linha[1] !== 'number' || linha[1] <= 0) continue;
+            
+            contador++;
+            const taxaApp = typeof linha[2] === 'number' ? linha[2] : 0;
+            const taxaShort = typeof linha[3] === 'string' ? linha[1] * 0.10 : (typeof linha[3] === 'number' ? linha[3] : 0);
+            
+            reservas.push({
+                idReserva: `${unidadeNome.replace(/\s+/g, '_')}_${mesAnoAtual}_${contador}`,
+                unidade: unidadeNome,
+                ano: mesAnoAtual.substring(0, 4),
+                mes: mesAnoAtual.substring(5, 7),
+                mesAno: mesAnoAtual,
+                receita: linha[1],
+                comissao: taxaApp,
+                comissaoPortais: taxaApp,
+                comissaoShortStay: taxaShort,
+                status: 'ativa'
+            });
+        }
+    }
+    return reservas;
+}
+
  async function processarEAdicionarDados(e) {
     if (!e) return;
 
@@ -957,36 +1047,37 @@ function parseDataBR(valor) {
                 { type: "array" }
             );
 
+     // 🔍 Detecta formato da planilha
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const linhasExcel = XLSX.utils.sheet_to_json(sheet);
+            
+            const primeiraLinha = linhasExcel[0] || {};
+            const colunas = Object.keys(primeiraLinha);
+            const isFormatoBruno = colunas.includes('Período') || colunas.includes('Periodo') || colunas.includes('Valor ') || colunas.includes('Valor');
 
             atualizarLoading("Analisando reservas...", 40);
 
-            // 📋 Processa dados do Excel
-            const reservasNovas = linhasExcel
-                .map(linha => {
+            let reservasNovas = [];
+            
+            if (isFormatoBruno) {
+                console.log("🔵 Formato Bruno detectado!");
+                reservasNovas = processarFormatoBruno(workbook);
+            } else {
+                console.log("🟢 Formato Smoobu detectado!");
+                reservasNovas = linhasExcel.map(linha => {
                     const idReserva = linha["Posição"];
                     if (!idReserva) return null;
-
                     const data = parseDataBR(linha.Chegada || linha["Check-in"]);
                     if (!data) return null;
-
                     const preco = parseFloat(linha.Preço || linha.Price || 0);
                     const comissao = parseFloat(linha["Comissão incluída"] || 0);
-                    
-                    // 🔥 Detecta status
                     const estado = String(linha["Estado"] || linha["Status"] || "").toLowerCase();
                     const cancelada = estado.includes("cancelad");
-
-// 🔍 DEBUG: mostra no console
-        if (cancelada) {
-            console.log(`🔴 Cancelada detectada: ${idReserva} - ${linha.Alojamento}`);
-        }
+                    if (cancelada) console.log(`🔴 Cancelada: ${idReserva} - ${linha.Alojamento}`);
                     const nomeUnidade = (linha.Alojamento || linha.Accommodation || "N/A").trim();
-
-return {
-    idReserva: String(idReserva).trim(),
-    unidade: nomeUnidade,
+                    return {
+                        idReserva: String(idReserva).trim(),
+                        unidade: nomeUnidade,
                         ano: data.ano,
                         mes: data.mes,
                         mesAno: data.mesAno,
@@ -996,9 +1087,8 @@ return {
                         comissaoShortStay: 0,
                         status: cancelada ? "cancelada" : "ativa"
                     };
-                })
-                .filter(Boolean);
-
+                }).filter(Boolean);
+            }
             if (reservasNovas.length === 0) {
                 esconderLoading();
                 alert("⚠️ Nenhuma reserva válida encontrada.");
@@ -2549,9 +2639,6 @@ function toggleMenu() {
     document.querySelector(".sidebar").classList.toggle("open");
 }
 
-function openUploadManualModal() {
-    document.getElementById("uploadManualModal").classList.add("active");
-}
 
 function closeUploadManualModal() {
     document.getElementById("uploadManualModal").classList.remove("active");
@@ -2577,227 +2664,103 @@ function parseMesAno(texto) {
 
 async function processarUploadManual(file) {
     if (!file) return;
-
-    // 🔄 Mostra tela de loading
-    mostrarLoading("Lendo arquivo Movi...");
-
-    const reader = new FileReader();
-
-    reader.onload = async function (evt) {
-        try {
-            atualizarLoading("Processando Excel...", 20);
-
-            const workbook = XLSX.read(
-                new Uint8Array(evt.target.result),
-                { type: "array", cellDates: true }
-            );
-
-            // 🔍 Procura pela aba "Lista de reservas Movi"
-            let sheetName = workbook.SheetNames.find(name => 
-                name.includes('Lista de reservas') || name.includes('Movi')
-            );
-
-            if (!sheetName) sheetName = workbook.SheetNames[0];
-
-            const sheet = workbook.Sheets[sheetName];
-            const linhas = XLSX.utils.sheet_to_json(sheet, { 
-                header: 1,
-                defval: null,
-                raw: true
-            });
-
-            atualizarLoading("Extraindo reservas...", 40);
-
-            const reservasNovas = [];
-            let mesAtual = null;
-            let anoAtual = null;
-
-            for (let i = 1; i < linhas.length; i++) {
-                const linha = linhas[i];
-                
-                const periodo = linha[0];
-                const valor = linha[1];
-                const taxaApp = linha[2];
-                const taxaShort = linha[3];
-
-                if (!periodo) continue;
-
-                // 📅 Se for uma data, é o cabeçalho do mês
-                if (periodo instanceof Date) {
-                    anoAtual = periodo.getFullYear().toString();
-                    mesAtual = String(periodo.getMonth() + 1).padStart(2, '0');
-                    continue;
-                }
-
-                // 💰 Se não tem valor, pula
-                if (typeof valor !== 'number' || valor <= 0) {
-                    continue;
-                }
-
-                // ⚠️ Se não tem ano/mês, pula
-                if (!anoAtual || !mesAtual) {
-                    continue;
-                }
-
-                const mesAno = `${anoAtual}-${mesAtual}`;
-                const periodoStr = String(periodo);
-
-                // 📆 Extrai os dias (ex: "24 a 25" → "24-25")
-                const matchDias = periodoStr.match(/(\d{1,2})\s*a\s*(\d{1,2})/);
-                const diaEntrada = matchDias ? matchDias[1].padStart(2, '0') : '01';
-                const diaSaida = matchDias ? matchDias[2].padStart(2, '0') : '01';
-
-                // 🔑 ID único
-                const chaveUnica = `MOVI_${anoAtual}${mesAtual}_${diaEntrada}-${diaSaida}_${valor.toFixed(2)}`;
-
-                // 💵 Valores
-                const comissaoPortais = typeof taxaApp === 'number' ? taxaApp : 0;
-                const comissaoShortStay = typeof taxaShort === 'number' ? taxaShort : 0;
-
-                reservasNovas.push({
-                    idReserva: chaveUnica,
-                    unidade: "Movi",
-                    ano: anoAtual,
-                    mes: mesAtual,
-                    mesAno: mesAno,
-                    receita: valor,
-                    comissao: comissaoPortais,
-                    comissaoPortais: comissaoPortais,
-                    comissaoShortStay: comissaoShortStay,
-                    status: 'ativa'
-                });
-            }
-
-            if (reservasNovas.length === 0) {
-                esconderLoading();
-                alert("⚠️ Nenhuma reserva encontrada no arquivo.");
-                return;
-            }
-
-            atualizarLoading("Verificando reservas existentes...", 60);
-
-            // 🔍 Busca reservas existentes no Supabase
-            const { data: existentes, error } = await db
+    
+    const anoAtual = new Date().getFullYear().toString(); // "2026"
+    
+    console.log(`🔵 Upload Movi - Ano atual: ${anoAtual}`);
+    
+    mostrarLoading(`Limpando dados de ${anoAtual}...`);
+    
+    try {
+        // 1️⃣ APAGA TODAS AS RESERVAS DO ANO ATUAL
+        const { data: unidadeMovi } = await db
+            .from("unidades")
+            .select("id")
+            .ilike("nome", "%Movi%")
+            .single();
+        
+        if (unidadeMovi) {
+            const { data: deletadas } = await db
                 .from("reservas")
-                .select("id, id_reserva, status");
-
-            if (error) throw error;
-
-            // 📊 Monta mapa de reservas existentes
-            const mapaExistentes = {};
-            existentes.forEach(r => {
-                mapaExistentes[r.id_reserva] = {
-                    id: r.id,
-                    status: r.status || 'ativa'
-                };
-            });
-
-            atualizarLoading("Aplicando regras...", 80);
-
-            // 📈 Estatísticas
-            const stats = {
-                novas: 0,
-                repetidas: 0,
-                canceladas: 0,
-                atualizadas: 0
-            };
-
-            const paraInserir = [];
-            const paraAtualizar = [];
-            const detalhes = [];
-
-            // 🔥 APLICAR REGRAS (mesma lógica do Smoobu)
-            for (const reserva of reservasNovas) {
-                const existe = mapaExistentes[reserva.idReserva];
-
-                if (!existe) {
-                    // ✅ NOVA RESERVA
-                    paraInserir.push(reserva);
-                    stats.novas++;
-                    detalhes.push(`✅ Nova: ${reserva.idReserva} - R$ ${reserva.receita.toFixed(2)}`);
-                } else {
-                    // 📋 JÁ EXISTE
-                    if (existe.status === 'ativa') {
-                        stats.repetidas++;
-                        detalhes.push(`⚪ Já existe: ${reserva.idReserva}`);
+                .delete()
+                .eq("unidade_id", unidadeMovi.id)
+                .eq("ano", anoAtual)
+                .select();
+            
+            console.log(`🗑️ ${deletadas?.length || 0} reservas de ${anoAtual} apagadas`);
+        }
+        
+        mostrarLoading("Processando arquivo...");
+        
+        // 2️⃣ PROCESSA O ARQUIVO
+        const reader = new FileReader();
+        reader.onload = async function(evt) {
+            try {
+                const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: "array", cellDates: true});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const linhas = XLSX.utils.sheet_to_json(sheet, {header: 1, raw: true});
+                
+                const reservas = [];
+                let mesAtual = null, anoProcessado = null;
+                
+                for (let i = 1; i < linhas.length; i++) {
+                    const [periodo, valor, taxaApp] = linhas[i];
+                    
+                    if (periodo instanceof Date) {
+                        anoProcessado = periodo.getFullYear().toString();
+                        mesAtual = String(periodo.getMonth() + 1).padStart(2, '0');
+                        continue;
                     }
+                    
+                    if (typeof valor !== 'number' || valor <= 0 || !anoProcessado) continue;
+                    
+                    const dias = String(periodo).match(/(\d{1,2})\s*a\s*(\d{1,2})/);
+                    const id = `MOVI_${anoProcessado}${mesAtual}_${dias?.[1] || '01'}-${dias?.[2] || '01'}_${valor.toFixed(2)}`;
+                    
+                    reservas.push({
+                        idReserva: id,
+                        unidade: "Movi 505",
+                        ano: anoProcessado,
+                        mes: mesAtual,
+                        mesAno: `${anoProcessado}-${mesAtual}`,
+                        receita: valor,
+                        comissao: typeof taxaApp === 'number' ? taxaApp : 0,
+                        comissaoPortais: typeof taxaApp === 'number' ? taxaApp : 0,
+                        comissaoShortStay: 0,
+                        status: 'ativa'
+                    });
                 }
-            }
-
-            atualizarLoading("Salvando no banco...", 90);
-
-            // 💾 Insere novas
-            if (paraInserir.length > 0) {
-                await salvarReservasNoSupabase(paraInserir);
-            }
-
-            // 🔄 Atualiza existentes (se houver)
-            if (paraAtualizar.length > 0) {
-                for (const reserva of paraAtualizar) {
-                    await db
-                        .from("reservas")
-                        .update(reserva)
-                        .eq('id', reserva.id);
-                }
-            }
-
-            atualizarLoading("Recarregando dados...", 95);
-
-            // 🔄 Recarrega
-            closeUploadManualModal();
-            await carregarReservasSupabase();
-            await carregarDespesasSupabase();
-            setupFilters();
-            setupAnaliticaFilters();
-            renderViews();
-
-            atualizarLoading("Concluído!", 100);
-
-            // 📊 Mostra relatório
-            setTimeout(() => {
+                
+                console.log(`✅ ${reservas.length} reservas processadas`);
+                
+                mostrarLoading("Salvando novas reservas...");
+                
+                // 3️⃣ SALVA AS NOVAS
+                await salvarReservasNoSupabase(reservas);
+                
+                // 4️⃣ RECARREGA
+                await carregarReservasSupabase();
+                closeUploadManualModal();
+                setupFilters();
+                renderViews();
                 esconderLoading();
                 
-                const totalReceita = reservasNovas.reduce((sum, r) => sum + r.receita, 0);
+                alert(`✅ ${reservas.length} reservas do Movi importadas!\n\n📅 Dados de ${anoAtual} atualizados com sucesso!`);
                 
-                const htmlRelatorio = `
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                        <h3 style="color: #2d7a7a; margin-bottom: 15px;">📈 Resumo - Movi</h3>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                            <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #28a745;">
-                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">NOVAS RESERVAS</div>
-                                <div style="font-size: 28px; font-weight: 700; color: #28a745;">${stats.novas}</div>
-                            </div>
-                            <div style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #ffc107;">
-                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">REPETIDAS</div>
-                                <div style="font-size: 28px; font-weight: 700; color: #ffc107;">${stats.repetidas}</div>
-                            </div>
-                        </div>
-                        <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px; text-align: center;">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">RECEITA TOTAL</div>
-                            <div style="font-size: 32px; font-weight: 700; color: #2d7a7a;">R$ ${totalReceita.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
-                        </div>
-                    </div>
-                    
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
-                        <h4 style="color: #333; margin-bottom: 10px;">📋 Detalhes (${detalhes.length} registros)</h4>
-                        <div style="max-height: 300px; overflow-y: auto; background: white; padding: 15px; border-radius: 6px; font-size: 13px; line-height: 1.8;">
-                            ${detalhes.join('<br>')}
-                        </div>
-                    </div>
-                `;
-                
-                document.getElementById('relatorioConteudo').innerHTML = htmlRelatorio;
-                document.getElementById('modalRelatorio').classList.add('active');
-            }, 500);
-
-        } catch (e) {
-            esconderLoading();
-            console.error("❌ ERRO:", e);
-            alert("❌ Erro: " + e.message);
-        }
-    };
-
-    reader.readAsArrayBuffer(file);
+            } catch (err) {
+                console.error("❌ Erro:", err);
+                esconderLoading();
+                alert("❌ Erro: " + err.message);
+            }
+        };
+        
+        reader.readAsArrayBuffer(file);
+        
+    } catch (err) {
+        console.error("❌ Erro:", err);
+        esconderLoading();
+        alert("❌ Erro: " + err.message);
+    }
 }async function syncUnidades() {
   // unidades vindas do sistema atual (localStorage)
   const reservas = await getReservas();
@@ -3313,6 +3276,8 @@ async function carregarCategoriasDespesa() {
     }
 }
 
+
+
 // ADICIONE estas funções no seu <script>
 
 async function fazerBackupExcel() {
@@ -3739,8 +3704,14 @@ function setupFiltrosDespesas() {
     });
 }
 
+function openUploadManualModal() {
+    const anoAtual = new Date().getFullYear();
+    document.getElementById('anoAtualMovi').textContent = anoAtual;
+    document.getElementById("uploadManualModal").classList.add("active");
+}
 
     </script>
+
 <!-- 🔄 TELA DE LOADING -->
 <div id="telaLoading" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
     <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; max-width: 500px;">
