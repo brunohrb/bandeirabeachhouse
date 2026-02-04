@@ -2714,51 +2714,7 @@ const unidadeMovi = unidadesMovi && unidadesMovi.length > 0 ? unidadesMovi[0] : 
         .eq("ano", anoAtual.toString())
         .select();
     
-    // Apaga ano próximo✅ Sistema inicializado com sucesso!
-async function testarApagamentoMovi() {
-    const anoAtual = new Date().getFullYear();
-    const anoProximo = anoAtual + 1;
-    
-    console.log("🗑️ MOVI vai apagar anos:", anoAtual, "e", anoProximo);
-    
-    // Busca unidade Movi (CORRIGIDO)
-    const { data: unidadesMovi } = await db
-        .from("unidades")
-        .select("id, nome")
-        .ilike("nome", "%Movi%");
-    
-    const unidadeMovi = unidadesMovi && unidadesMovi.length > 0 ? unidadesMovi[0] : null;
-    
-    if (!unidadeMovi) {
-        console.log("❌ Unidade Movi não encontrada");
-        return;
-    }
-    
-    console.log("📋 Unidade:", unidadeMovi.nome);
-    
-    // Conta quantas reservas seriam apagadas
-    const { data: reservasAtual } = await db
-        .from("reservas")
-        .select("id")
-        .eq("unidade_id", unidadeMovi.id)
-        .eq("ano", anoAtual.toString());
-    
-    const { data: reservasProximo } = await db
-        .from("reservas")
-        .select("id")
-        .eq("unidade_id", unidadeMovi.id)
-        .eq("ano", anoProximo.toString());
-    
-    console.log(`${anoAtual}: ${reservasAtual?.length || 0} reservas`);
-    console.log(`${anoProximo}: ${reservasProximo?.length || 0} reservas`);
-}
-
-testarApagamentoMovi();
-VM120:5 🗑️ MOVI vai apagar anos: 2026 e 2027
-Promise {<pending>}
-VM120:20 📋 Unidade: Movi 505
-VM120:35 2026: 0 reservas
-VM120:36 2027: 0 reservas
+    // Apaga ano próximo
     const { data: deletadasProximo } = await db
         .from("reservas")
         .delete()
