@@ -1033,7 +1033,6 @@ function processarFormatoBruno(workbook) {
  async function processarEAdicionarDados(e) {
     if (!e) return;
 
-    // 🔄 Mostra tela de loading
     mostrarLoading("Lendo arquivo...");
 
     const reader = new FileReader();
@@ -1047,7 +1046,6 @@ function processarFormatoBruno(workbook) {
                 { type: "array" }
             );
 
-     // 🔍 Detecta formato da planilha
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const linhasExcel = XLSX.utils.sheet_to_json(sheet);
             
@@ -1089,22 +1087,58 @@ function processarFormatoBruno(workbook) {
                     };
                 }).filter(Boolean);
             }
+            
             if (reservasNovas.length === 0) {
                 esconderLoading();
                 alert("⚠️ Nenhuma reserva válida encontrada.");
                 return;
             }
 
-            atualizarLoading("Verificando reservas existentes...", 60);
+// 🔥 APAGA ANO ATUAL + PRÓXIMO ANO (para reservas futuras)
+const anoAtual = new Date().getFullYear();
+const anoProximo = anoAtual + 1;
 
-            // 🔍 Busca reservas existentes no Supabase
+atualizarLoading(`Apagando reservas de ${anoAtual} e ${anoProximo} (exceto Movi)...`, 50);
+
+            // Busca todas as unidades que NÃO são Movi
+            const { data: unidadesNaoMovi, error: errUn } = await db
+                .from("unidades")
+                .select("id, nome")
+                .not("nome", "ilike", "%Movi%");
+
+            if (!errUn && unidadesNaoMovi) {
+                console.log(`🗑️ Apagando ${anoAtual} de ${unidadesNaoMovi.length} unidades (exceto Movi)`);
+                
+for (const unidade of unidadesNaoMovi) {
+    // Apaga ano atual
+    const { data: deletadasAtual } = await db
+        .from("reservas")
+        .delete()
+        .eq("unidade_id", unidade.id)
+        .eq("ano", anoAtual.toString())
+        .select();
+    
+    // Apaga ano próximo
+    const { data: deletadasProximo } = await db
+        .from("reservas")
+        .delete()
+        .eq("unidade_id", unidade.id)
+        .eq("ano", anoProximo.toString())
+        .select();
+    
+    const total = (deletadasAtual?.length || 0) + (deletadasProximo?.length || 0);
+    console.log(`🗑️ ${total} reservas de ${anoAtual}/${anoProximo} apagadas de ${unidade.nome}`);
+}
+            }
+
+            atualizarLoading("Verificando reservas existentes...", 70);
+
             const { data: existentes, error } = await db
                 .from("reservas")
                 .select("id, id_reserva, status");
 
             if (error) throw error;
 
-            // 📊 Monta mapa de reservas existentes
             const mapaExistentes = {};
             existentes.forEach(r => {
                 mapaExistentes[r.id_reserva] = {
@@ -1115,7 +1149,6 @@ function processarFormatoBruno(workbook) {
 
             atualizarLoading("Aplicando regras de negócio...", 80);
 
-            // 📈 Estatísticas
             const stats = {
                 novas: 0,
                 repetidas: 0,
@@ -1127,12 +1160,10 @@ function processarFormatoBruno(workbook) {
             const paraAtualizar = [];
             const detalhes = [];
 
-            // 🔥 APLICAR REGRAS
             for (const reserva of reservasNovas) {
                 const existe = mapaExistentes[reserva.idReserva];
 
                 if (!existe) {
-                    // ✅ NOVA RESERVA - insere normalmente
                     paraInserir.push(reserva);
                     stats.novas++;
                     
@@ -1144,17 +1175,14 @@ function processarFormatoBruno(workbook) {
                     }
 
                 } else {
-                    // 🔍 JÁ EXISTE NO SISTEMA
                     const statusAtual = existe.status;
                     const statusNovo = reserva.status;
 
                     if (statusAtual === 'ativa' && statusNovo === 'ativa') {
-                        // 📋 ATIVA → ATIVA: não faz nada
                         stats.repetidas++;
                         detalhes.push(`⚪ Já existe (mantida): ${reserva.idReserva}`);
 
                     } else if (statusAtual === 'ativa' && statusNovo === 'cancelada') {
-                        // ❌ ATIVA → CANCELADA: atualiza status
                         paraAtualizar.push({
                             id: existe.id,
                             status: 'cancelada'
@@ -1164,7 +1192,6 @@ function processarFormatoBruno(workbook) {
                         detalhes.push(`🔴 Cancelada: ${reserva.idReserva} (${reserva.unidade})`);
 
                     } else if (statusAtual === 'cancelada' && statusNovo === 'ativa') {
-                        // 🔄 CANCELADA → ATIVA: reativa
                         paraAtualizar.push({
                             id: existe.id,
                             status: 'ativa',
@@ -1175,7 +1202,6 @@ function processarFormatoBruno(workbook) {
                         detalhes.push(`🔄 Reativada: ${reserva.idReserva} (${reserva.unidade})`);
 
                     } else {
-                        // 📋 CANCELADA → CANCELADA: não faz nada
                         stats.repetidas++;
                         detalhes.push(`⚪ Já cancelada: ${reserva.idReserva}`);
                     }
@@ -1184,12 +1210,10 @@ function processarFormatoBruno(workbook) {
 
             atualizarLoading("Salvando no banco de dados...", 90);
 
-            // 💾 Insere novas
             if (paraInserir.length > 0) {
                 await salvarReservasNoSupabase(paraInserir);
             }
 
-            // 🔄 Atualiza existentes
             if (paraAtualizar.length > 0) {
                 for (const reserva of paraAtualizar) {
                     await db
@@ -1201,7 +1225,6 @@ function processarFormatoBruno(workbook) {
 
             atualizarLoading("Recarregando dados...", 95);
 
-            // 🔄 Recarrega do Supabase
             await carregarReservasSupabase();
             await carregarDespesasSupabase();
             setupFilters();
@@ -1209,7 +1232,6 @@ function processarFormatoBruno(workbook) {
 
             atualizarLoading("Concluído!", 100);
             
-            // 📊 Mostra relatório
             setTimeout(() => {
                 esconderLoading();
                 mostrarRelatorio(stats, detalhes, reservasNovas.length);
@@ -2299,13 +2321,16 @@ carregarReservasSupabase().then(() => {
 
 
 function getSmoobuExcelUrl() {
+    const anoAtual = new Date().getFullYear();
+    const anoProximo = anoAtual + 1;
+    
     return (
         "https://login.smoobu.com/api/v2/users/670124/bookings/exports/xlsx" +
         "?sort=arrivalDate" +
-        "&filter[arrivalDate][from]=2026-01-01" +
-        "&filter[arrivalDate][to]=2027-12-31" +
-        "&filter[departureDate][from]=2026-01-01" +
-        "&filter[departureDate][to]=2027-12-31" +
+        `&filter[arrivalDate][from]=${anoAtual}-01-01` +
+        `&filter[arrivalDate][to]=${anoProximo}-12-31` +
+        `&filter[departureDate][from]=${anoAtual}-01-01` +
+        `&filter[departureDate][to]=${anoProximo}-12-31` +
         "&filter[includeIntersections]=true" +
         "&filter[excludeMockedBookings]=true" +
         "&filter[statuses][0]=1" +
@@ -2665,30 +2690,85 @@ function parseMesAno(texto) {
 async function processarUploadManual(file) {
     if (!file) return;
     
-    const anoAtual = new Date().getFullYear().toString(); // "2026"
-    
-    console.log(`🔵 Upload Movi - Ano atual: ${anoAtual}`);
-    
-    mostrarLoading(`Limpando dados de ${anoAtual}...`);
-    
+const anoAtual = new Date().getFullYear();
+const anoProximo = anoAtual + 1;
+
+console.log(`🔵 Upload Movi - Anos: ${anoAtual} e ${anoProximo}`);
+
+mostrarLoading(`Limpando dados de ${anoAtual} e ${anoProximo}...`);    
     try {
         // 1️⃣ APAGA TODAS AS RESERVAS DO ANO ATUAL
-        const { data: unidadeMovi } = await db
-            .from("unidades")
-            .select("id")
-            .ilike("nome", "%Movi%")
-            .single();
+const { data: unidadesMovi } = await db
+    .from("unidades")
+    .select("id")
+    .ilike("nome", "%Movi%");
+
+const unidadeMovi = unidadesMovi && unidadesMovi.length > 0 ? unidadesMovi[0] : null;
         
-        if (unidadeMovi) {
-            const { data: deletadas } = await db
-                .from("reservas")
-                .delete()
-                .eq("unidade_id", unidadeMovi.id)
-                .eq("ano", anoAtual)
-                .select();
-            
-            console.log(`🗑️ ${deletadas?.length || 0} reservas de ${anoAtual} apagadas`);
-        }
+      if (unidadeMovi) {
+    // Apaga ano atual
+    const { data: deletadasAtual } = await db
+        .from("reservas")
+        .delete()
+        .eq("unidade_id", unidadeMovi.id)
+        .eq("ano", anoAtual.toString())
+        .select();
+    
+    // Apaga ano próximo✅ Sistema inicializado com sucesso!
+async function testarApagamentoMovi() {
+    const anoAtual = new Date().getFullYear();
+    const anoProximo = anoAtual + 1;
+    
+    console.log("🗑️ MOVI vai apagar anos:", anoAtual, "e", anoProximo);
+    
+    // Busca unidade Movi (CORRIGIDO)
+    const { data: unidadesMovi } = await db
+        .from("unidades")
+        .select("id, nome")
+        .ilike("nome", "%Movi%");
+    
+    const unidadeMovi = unidadesMovi && unidadesMovi.length > 0 ? unidadesMovi[0] : null;
+    
+    if (!unidadeMovi) {
+        console.log("❌ Unidade Movi não encontrada");
+        return;
+    }
+    
+    console.log("📋 Unidade:", unidadeMovi.nome);
+    
+    // Conta quantas reservas seriam apagadas
+    const { data: reservasAtual } = await db
+        .from("reservas")
+        .select("id")
+        .eq("unidade_id", unidadeMovi.id)
+        .eq("ano", anoAtual.toString());
+    
+    const { data: reservasProximo } = await db
+        .from("reservas")
+        .select("id")
+        .eq("unidade_id", unidadeMovi.id)
+        .eq("ano", anoProximo.toString());
+    
+    console.log(`${anoAtual}: ${reservasAtual?.length || 0} reservas`);
+    console.log(`${anoProximo}: ${reservasProximo?.length || 0} reservas`);
+}
+
+testarApagamentoMovi();
+VM120:5 🗑️ MOVI vai apagar anos: 2026 e 2027
+Promise {<pending>}
+VM120:20 📋 Unidade: Movi 505
+VM120:35 2026: 0 reservas
+VM120:36 2027: 0 reservas
+    const { data: deletadasProximo } = await db
+        .from("reservas")
+        .delete()
+        .eq("unidade_id", unidadeMovi.id)
+        .eq("ano", anoProximo.toString())
+        .select();
+    
+    const total = (deletadasAtual?.length || 0) + (deletadasProximo?.length || 0);
+    console.log(`🗑️ ${total} reservas de ${anoAtual}/${anoProximo} apagadas`);
+}
         
         mostrarLoading("Processando arquivo...");
         
@@ -2713,6 +2793,10 @@ async function processarUploadManual(file) {
                     }
                     
                     if (typeof valor !== 'number' || valor <= 0 || !anoProcessado) continue;
+// 🔥 Aceita APENAS ano atual e próximo
+if (anoProcessado !== anoAtual.toString() && anoProcessado !== anoProximo.toString()) {
+    continue; // Pula esta linha
+}
                     
                     const dias = String(periodo).match(/(\d{1,2})\s*a\s*(\d{1,2})/);
                     const id = `MOVI_${anoProcessado}${mesAtual}_${dias?.[1] || '01'}-${dias?.[2] || '01'}_${valor.toFixed(2)}`;
