@@ -284,14 +284,17 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 
         <div class="main">
           <div id="financeiro" class="page">
-    <div class="page-header">
-        <h2>Financeiro</h2>
-        <div style="display:flex;gap:12px;">
-            <button class="btn btn-link" onclick="fazerBackupExcel()">💾 Backup</button>
-            <button class="btn btn-link" onclick="document.getElementById('restaurarBackupInput').click()">📥 Restaurar</button>
-            <input type="file" id="restaurarBackupInput" accept=".xlsx,.xls" style="display:none" onchange="restaurarBackupExcel(this.files[0])">
-        </div>
+ <div class="page-header">
+    <h2>Gestão de Proprietários</h2>
+    <div style="display: flex; gap: 12px;">
+        <button class="btn btn-link" onclick="abrirHistoricoAnual()" style="font-size: 16px;">
+            📊 Histórico Anual
+        </button>
+        <button class="btn btn-link" onclick="abrirConfigProprietarios()" style="font-size: 24px;">
+            ⚙️ Configurar
+        </button>
     </div>
+</div>
     
     <div class="card filter-bar">
         <div class="form-group flex-1"><select id="filtroAnos" class="form-select" multiple="multiple"></select></div>
@@ -423,11 +426,13 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                 <div id="reservasPreview" style="display:none;"><div class="card"><div class="form-group"><label class="form-label">Número WhatsApp (com DDD)</label><input type="tel" id="whatsappLimpeza" class="form-input" placeholder="5585999999999"></div></div><div class="card"><h3>Preview da Mensagem</h3><pre id="mensagemPreview" style="background: #f5f5f5; padding: 20px; border-radius: 8px;"></pre><button class="btn btn-primary" style="margin-top: 16px;" onclick="enviarWhatsApp()">📱 Enviar via WhatsApp</button></div></div>
             </div>
             <div id="proprietarios" class="page">
-    <div class="page-header">
+<div class="page-header">
     <h2>Gestão de Proprietários</h2>
-    <button class="btn btn-link" onclick="abrirConfigProprietarios()" style="font-size: 24px;">
-        ⚙️ Configurar
-    </button>
+    <div style="display: flex; gap: 12px;">
+        <button class="btn btn-link" onclick="abrirConfigProprietarios()" style="font-size: 24px;">
+            ⚙️ Configurar
+        </button>
+    </div>
 </div>
     
 <!-- FILTROS -->
@@ -444,9 +449,12 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                 <option value="">Todos</option>
             </select>
         </div>
+        
+        <button class="btn btn-link" onclick="abrirHistoricoAnual()" style="font-size: 16px;">
+            📊 Histórico Anual
+        </button>
     </div>
-</div>
-    
+</div>    
     <!-- LISTA DE PROPRIETÁRIOS -->
     <div id="proprietarios-list"></div>
     
@@ -618,6 +626,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
     </div>
 </div>
 <script>
+
 // ========================================
 // 🔐 AUTENTICAÇÃO
 // ========================================
@@ -4136,6 +4145,186 @@ function fecharConfigModal() {
     if (modal) modal.remove();
 }
 
+async function abrirHistoricoAnual() {
+    // Pega o proprietário filtrado
+    const selectProp = $("#filtroProprietario");
+    const propFiltrado = selectProp.val();
+    
+    if (!propFiltrado) {
+        alert("⚠️ Selecione um proprietário primeiro!");
+        return;
+    }
+    
+    // Busca proprietários do Supabase
+    let proprietariosAgrupados = {};
+    
+    try {
+        const { data: propsSupabase, error } = await db
+            .from("proprietarios")
+            .select(`nome, unidades ( nome )`);
+        
+        if (!error && propsSupabase && propsSupabase.length > 0) {
+            propsSupabase.forEach(p => {
+                if (!p.nome || !p.unidades) return;
+                if (!proprietariosAgrupados[p.nome]) {
+                    proprietariosAgrupados[p.nome] = [];
+                }
+                proprietariosAgrupados[p.nome].push(p.unidades.nome);
+            });
+        }
+    } catch (err) {
+        console.error("Erro:", err);
+    }
+    
+    if (Object.keys(proprietariosAgrupados).length === 0) {
+        const unidades = [...new Set((CACHE_RESERVAS || []).map(r => r.unidade))];
+        unidades.forEach(u => {
+            proprietariosAgrupados[u] = [u];
+        });
+    }
+    
+    const unidadesDoProprietario = proprietariosAgrupados[propFiltrado] || [];
+    const anosDisponiveis = [...new Set((CACHE_RESERVAS || []).map(r => r.ano))].sort();
+    
+    // Calcula lucro total de todos os anos
+    let lucroTotalGeral = 0;
+    const dadosAnos = [];
+    
+    anosDisponiveis.forEach(ano => {
+        let receitaAno = 0, comissaoPortaisAno = 0, comissaoShortAno = 0, despesasAno = 0;
+        
+        unidadesDoProprietario.forEach(unidade => {
+            const reservasAno = (CACHE_RESERVAS || []).filter(r => 
+                r.unidade === unidade && 
+                r.ano === ano &&
+                r.status !== 'cancelada'
+            );
+            
+            const despesasAnoUnidade = (CACHE_DESPESAS || []).filter(d => 
+                d.unidade === unidade && 
+                d.ano === ano
+            );
+            
+            receitaAno += reservasAno.reduce((acc, r) => acc + r.receita, 0);
+            comissaoPortaisAno += reservasAno.reduce((acc, r) => acc + (r.comissaoPortais ?? r.comissao ?? 0), 0);
+            comissaoShortAno += reservasAno.reduce((acc, r) => acc + (r.comissaoShortStay ?? 0), 0);
+            despesasAno += despesasAnoUnidade.reduce((acc, d) => acc + d.valor, 0);
+        });
+        
+        const lucroAno = receitaAno - comissaoPortaisAno - comissaoShortAno - despesasAno;
+        lucroTotalGeral += lucroAno;
+        
+        dadosAnos.push({ ano, lucro: lucroAno });
+    });
+    
+    // Renderiza na tela PRINCIPAL (não em modal)
+    let html = `
+        <div class="card" style="margin-top: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid var(--border-color);">
+                <h3 style="margin: 0; color: var(--primary-dark);">
+                    📊 Histórico Anual - ${propFiltrado}
+                </h3>
+                <button class="btn btn-link" onclick="fecharHistoricoAnual()" style="color: #dc3545;">
+                    ✕ Fechar
+                </button>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px;">
+    `;
+    
+    let lucroAnoAnterior = null;
+    
+    dadosAnos.forEach(({ ano, lucro }) => {
+        let crescimento = 0;
+        let textoCrescimento = "Primeiro ano";
+        
+        if (lucroAnoAnterior !== null && lucroAnoAnterior !== 0) {
+            crescimento = ((lucro - lucroAnoAnterior) / Math.abs(lucroAnoAnterior)) * 100;
+            textoCrescimento = `${crescimento >= 0 ? '+' : ''}${crescimento.toFixed(1)}%`;
+        }
+        
+        const temDados = lucro !== 0;
+        
+        html += `
+            <div style="background: ${temDados ? (lucro >= 0 ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)') : '#f5f5f5'}; 
+                        padding: 8px; 
+                        border-radius: 8px; 
+                        text-align: center;
+                        box-shadow: ${temDados ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'};
+                        opacity: ${temDados ? '1' : '0.5'};">
+                <div style="font-size: 10px; 
+                            font-weight: 600; 
+                            color: ${temDados ? 'rgba(255,255,255,0.9)' : 'var(--text-light)'}; 
+                            margin-bottom: 4px; 
+                            letter-spacing: 1px;">
+                    ${ano}
+                </div>
+                <div style="font-size: 14px; 
+                            font-weight: 700; 
+                            color: ${temDados ? 'white' : 'var(--text-light)'};">
+                    ${formatCurrency(lucro)}
+                </div>
+                <div style="font-size: 9px; 
+                            font-weight: 600; 
+                            color: ${temDados ? 'rgba(255,255,255,0.8)' : 'var(--text-light)'}; 
+                            margin-top: 2px;">
+                    ${textoCrescimento}
+                </div>
+            </div>
+        `;
+        
+        lucroAnoAnterior = lucro;
+    });
+    
+    // Card TOTAL GERAL
+    html += `
+        <div style="background: linear-gradient(135deg, #2d7a7a 0%, #1a4d4d 100%); 
+                    padding: 8px; 
+                    border-radius: 8px; 
+                    text-align: center;
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.15);">
+            <div style="font-size: 10px; 
+                        font-weight: 700; 
+                        color: rgba(255,255,255,0.95); 
+                        margin-bottom: 4px; 
+                        letter-spacing: 1.5px;">
+                TOTAL
+            </div>
+            <div style="font-size: 15px; 
+                        font-weight: 700; 
+                        color: white;">
+                ${formatCurrency(lucroTotalGeral)}
+            </div>
+        </div>
+    `;
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    // Insere na página (depois dos cards mensais)
+    const listaProp = document.getElementById("proprietarios-list");
+    listaProp.innerHTML += html;
+    
+    // Scroll suave até o histórico
+    setTimeout(() => {
+        const historico = listaProp.lastElementChild;
+        historico.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+}
+
+function fecharHistoricoAnual() {
+    // Remove o card de histórico
+    const cards = document.querySelectorAll("#proprietarios-list .card");
+    if (cards.length > 1) {
+        cards[cards.length - 1].remove();
+    }
+}
+function fecharHistoricoAnual() {
+    document.getElementById("historicoAnualModal").classList.remove("active");
+}
+
     </script>
 
 <!-- 🔄 TELA DE LOADING -->
@@ -4163,6 +4352,19 @@ function fecharConfigModal() {
         <button class="btn btn-primary" style="width: 100%; margin-top: 20px;" onclick="fecharRelatorio()">
             Fechar
         </button>
+    </div>
+</div>
+
+<!-- MODAL HISTÓRICO ANUAL -->
+<div id="historicoAnualModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 900px;">
+        <div class="page-header">
+            <h3>📊 Histórico Anual</h3>
+            <button style="background:none;border:none;font-size:24px;cursor:pointer;"
+                    onclick="fecharHistoricoAnual()">&times;</button>
+        </div>
+        
+        <div id="historicoAnualConteudo"></div>
     </div>
 </div>
 </body>
