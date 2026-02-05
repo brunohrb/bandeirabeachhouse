@@ -423,9 +423,35 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                 <div id="reservasPreview" style="display:none;"><div class="card"><div class="form-group"><label class="form-label">Número WhatsApp (com DDD)</label><input type="tel" id="whatsappLimpeza" class="form-input" placeholder="5585999999999"></div></div><div class="card"><h3>Preview da Mensagem</h3><pre id="mensagemPreview" style="background: #f5f5f5; padding: 20px; border-radius: 8px;"></pre><button class="btn btn-primary" style="margin-top: 16px;" onclick="enviarWhatsApp()">📱 Enviar via WhatsApp</button></div></div>
             </div>
             <div id="proprietarios" class="page">
-                <div class="page-header"><h2>Gestão de Proprietários</h2></div>
-                <div class="card"><div id="proprietarios-list"></div><button class="btn btn-primary" style="margin-top: 16px;" onclick="salvarProprietarios()">Salvar Alterações</button></div>
-            </div>
+    <div class="page-header">
+    <h2>Gestão de Proprietários</h2>
+    <button class="btn btn-link" onclick="abrirConfigProprietarios()" style="font-size: 24px;">
+        ⚙️ Configurar
+    </button>
+</div>
+    
+<!-- FILTROS -->
+<div class="card">
+    <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <label style="font-weight: 600;">Ano:</label>
+            <select id="filtroAnoProprietarios" class="form-select" style="width: 120px;" onchange="renderProprietarios()"></select>
+        </div>
+        
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <label style="font-weight: 600;">Proprietário:</label>
+            <select id="filtroProprietario" class="form-select" style="width: 200px;" onchange="renderProprietarios()">
+                <option value="">Todos</option>
+            </select>
+        </div>
+    </div>
+</div>
+    
+    <!-- LISTA DE PROPRIETÁRIOS -->
+    <div id="proprietarios-list"></div>
+    
+</div>
+                            </div>
 <div id="configuracoes" class="page">
                 <div class="page-header"><h2>⚙️ Configurações</h2></div>
                 
@@ -451,6 +477,23 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                 </div>
                 
             </div>
+<div id="config-proprietarios" class="page">
+    <div class="page-header">
+        <h2>Configurar Proprietários</h2>
+    </div>
+    
+    <div class="card">
+        <p style="color: var(--text-light); margin-bottom: 20px;">
+            Vincule cada unidade ao seu proprietário. Um proprietário pode ter várias unidades.
+        </p>
+        
+        <div id="config-proprietarios-list"></div>
+        
+        <button class="btn btn-primary" style="margin-top: 16px; width: 100%;" onclick="salvarConfigProprietarios()">
+            💾 Salvar Configurações
+        </button>
+    </div>
+</div>
 <div id="upload" class="page">
     <div class="page-header"><h2>Upload de Dados</h2></div>
     
@@ -967,7 +1010,7 @@ function parseDataBR(valor) {
             "despesas"===e && (setupFiltrosDespesas(), renderTabelaDespesasDetalhada())
 ,
 
-            "proprietarios"===e&&renderProprietarios()
+            "proprietarios"===e&&(async()=>await renderProprietarios())()
         }
 
         function setViewMode(e){
@@ -1028,6 +1071,8 @@ function processarFormatoBruno(workbook) {
         }
     }
     return reservas;
+if (e === "config-proprietarios") renderConfigProprietarios();
+
 }
 
  async function processarEAdicionarDados(e) {
@@ -2114,17 +2159,215 @@ d+=`${e.chegada} a ${e.partida} ${e.hospede?e.hospede.split(" ")[0]:""} ${e.pess
             e?window.open(`https://wa.me/${e}?text=${encodeURIComponent(document.getElementById("mensagemPreview").textContent)}`,"_blank"):alert("⚠️ Digite o número do WhatsApp!")
         }
         
-        function renderProprietarios(){
-            const e=getDb(DB_PROPRIETARIOS),a=[...new Set(getDb(DB_RESERVAS).map(e=>e.unidade))].sort();
-            let t="";
-            a.forEach(a=>{const s=e.find(e=>e.unidade===a)||{};t+=`<div class="card"><div class="form-group"><label class="form-label" style="font-weight: bold;">${a}</label><input type="text" class="form-input prop-input" data-unidade="${a}" value="${s.nome||""}" placeholder="Nome do proprietário"></div></div>`}),
-            document.getElementById("proprietarios-list").innerHTML=t||"<p>Nenhuma unidade encontrada. Importe um arquivo de reservas primeiro.</p>"
+async function renderProprietarios(){
+    // 📅 Preenche filtro de anos
+    const anosDisponiveis = [...new Set((CACHE_RESERVAS || []).map(r => r.ano))].sort().reverse();
+    const selectAno = $("#filtroAnoProprietarios");
+    
+    if (selectAno.html() === '') {
+        selectAno.html(anosDisponiveis.map(a => `<option value="${a}">${a}</option>`).join(""));
+        
+        selectAno.select2({
+            placeholder: "Selecione o ano",
+            allowClear: false
+        });
+        
+        const anoAtual = new Date().getFullYear().toString();
+        if (anosDisponiveis.includes(anoAtual)) {
+            selectAno.val(anoAtual).trigger('change');
         }
         
-        function salvarProprietarios(){
-            const e=document.querySelectorAll(".prop-input"),a=Array.from(e).map(e=>({unidade:e.dataset.unidade,nome:e.value.trim()})).filter(e=>e.nome);
-            saveDb(DB_PROPRIETARIOS,a),alert("✅ Proprietários salvos com sucesso!")
-        }        
+        selectAno.on('change', async function() {
+            await renderProprietarios();
+        });
+    }
+    
+    const anoSelecionado = selectAno.val() || anosDisponiveis[0];
+    
+    // 🏠 Busca proprietários DO SUPABASE
+    let proprietariosAgrupados = {};
+    
+    try {
+        const { data: propsSupabase, error } = await db
+            .from("proprietarios")
+            .select(`
+                nome,
+                unidades ( nome )
+            `);
+        
+        if (!error && propsSupabase && propsSupabase.length > 0) {
+            propsSupabase.forEach(p => {
+                if (!p.nome || !p.unidades) return;
+                
+                if (!proprietariosAgrupados[p.nome]) {
+                    proprietariosAgrupados[p.nome] = [];
+                }
+                
+                proprietariosAgrupados[p.nome].push(p.unidades.nome);
+            });
+        }
+    } catch (err) {
+        console.error("Erro ao buscar proprietários:", err);
+    }
+    
+    // Se não houver proprietários, cria um por unidade
+    if (Object.keys(proprietariosAgrupados).length === 0) {
+        const unidades = [...new Set((CACHE_RESERVAS || []).map(r => r.unidade))];
+        unidades.forEach(u => {
+            proprietariosAgrupados[u] = [u];
+        });
+    }
+    
+    // 📋 Preenche select de proprietários
+    const selectProp = $("#filtroProprietario");
+    
+    if (selectProp.find('option').length <= 1) {
+        selectProp.html('<option value="">Todos</option>');
+        
+        Object.keys(proprietariosAgrupados).sort().forEach(nome => {
+            selectProp.append(`<option value="${nome}">${nome}</option>`);
+        });
+        
+        selectProp.select2({
+            placeholder: "Todos os proprietários",
+            allowClear: true
+        });
+        
+        const nomePadrao = Object.keys(proprietariosAgrupados).find(n => 
+            n.toLowerCase().includes('bandeira') && n.toLowerCase().includes('beach')
+        );
+        
+        if (nomePadrao) {
+            selectProp.val(nomePadrao).trigger('change');
+        }
+        
+        selectProp.on('change', async function() {
+            await renderProprietarios();
+        });
+    }
+    
+    // 🔍 Aplica filtro de proprietário
+    const propFiltrado = selectProp.val();
+    let proprietariosParaMostrar = proprietariosAgrupados;
+    
+    if (propFiltrado) {
+        proprietariosParaMostrar = { [propFiltrado]: proprietariosAgrupados[propFiltrado] };
+    }
+    
+    let html = "";
+    const meses = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+    
+    Object.keys(proprietariosParaMostrar).sort().forEach(nomeProprietario => {
+        const unidadesDoProprietario = proprietariosParaMostrar[nomeProprietario];
+        
+        const lucrosPorMes = {};
+        
+        meses.forEach(mes => {
+            let receitaMes = 0, comissaoPortaisMes = 0, comissaoShortMes = 0, despesasMes = 0;
+            
+            unidadesDoProprietario.forEach(unidade => {
+                const reservasMes = (CACHE_RESERVAS || []).filter(r => 
+                    r.unidade === unidade && 
+                    r.ano === anoSelecionado && 
+                    r.mes === mes &&
+                    r.status !== 'cancelada'
+                );
+                
+                const despesasMesUnidade = (CACHE_DESPESAS || []).filter(d => 
+                    d.unidade === unidade && 
+                    d.ano === anoSelecionado && 
+                    d.mes === mes
+                );
+                
+                receitaMes += reservasMes.reduce((acc, r) => acc + r.receita, 0);
+                comissaoPortaisMes += reservasMes.reduce((acc, r) => acc + (r.comissaoPortais ?? r.comissao ?? 0), 0);
+                comissaoShortMes += reservasMes.reduce((acc, r) => acc + (r.comissaoShortStay ?? 0), 0);
+                despesasMes += despesasMesUnidade.reduce((acc, d) => acc + d.valor, 0);
+            });
+            
+            lucrosPorMes[mes] = receitaMes - comissaoPortaisMes - comissaoShortMes - despesasMes;
+        });
+        
+        const lucroTotal = Object.values(lucrosPorMes).reduce((acc, val) => acc + val, 0);
+        
+        html += `
+    <div class="card" style="margin-bottom: 0px; padding: 8px 16px;">
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--border-color);">
+                    <div>
+                        <h3 style="margin: 0; color: var(--primary-dark); font-size: 18px;">
+                            ${nomeProprietario}
+                        </h3>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 11px; color: var(--text-light); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">
+                            Total ${anoSelecionado}
+                        </div>
+                        <div style="font-size: 28px; font-weight: 700; color: ${lucroTotal >= 0 ? 'var(--green)' : 'var(--red)'};">
+                            ${formatCurrency(lucroTotal)}
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px;">
+                    ${meses.map((mes, idx) => {
+                        const nomesMeses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+                        const lucro = lucrosPorMes[mes];
+                        const temDados = lucro !== 0;
+                        
+                        return `
+                            <div style="background: ${temDados ? (lucro >= 0 ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)') : '#f5f5f5'}; 
+                                        padding: 8px; 
+                                        border-radius: 8px; 
+                                        text-align: center;
+                                        box-shadow: ${temDados ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'};
+                                        opacity: ${temDados ? '1' : '0.5'};">
+                                <div style="font-size: 10px; 
+                                            font-weight: 600; 
+                                            color: ${temDados ? 'rgba(255,255,255,0.9)' : 'var(--text-light)'}; 
+                                            margin-bottom: 4px; 
+                                            letter-spacing: 1px;">
+                                    ${nomesMeses[idx]}
+                                </div>
+                                <div style="font-size: 14px; 
+                                            font-weight: 700; 
+                                            color: ${temDados ? 'white' : 'var(--text-light)'};">
+                                    ${formatCurrency(lucro)}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                    
+                    <div style="background: linear-gradient(135deg, #2d7a7a 0%, #1a4d4d 100%); 
+                                padding: 8px; 
+                                border-radius: 8px; 
+                                text-align: center;
+                                box-shadow: 0 3px 10px rgba(0,0,0,0.15);">
+                        <div style="font-size: 10px; 
+                                    font-weight: 700; 
+                                    color: rgba(255,255,255,0.95); 
+                                    margin-bottom: 4px; 
+                                    letter-spacing: 1.5px;">
+                            ${anoSelecionado}
+                        </div>
+                        <div style="font-size: 15px; 
+                                    font-weight: 700; 
+                                    color: white;">
+                            ${formatCurrency(lucroTotal)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    document.getElementById("proprietarios-list").innerHTML = html || 
+        "<div class='card'><p>Nenhum proprietário encontrado. Use o botão ⚙️ Configurar para vincular as unidades.</p></div>";
+}        
+function salvarProprietarios(){
+    // Esta função agora será chamada de um modal de configuração
+    alert("💡 Use a nova tela de 'Configurações' para gerenciar proprietários e suas unidades.");
+}      
 
        $(document).ready(async function () {
     // 1️⃣ Inicializa Select2
@@ -3748,6 +3991,149 @@ function openUploadManualModal() {
     const anoAtual = new Date().getFullYear();
     document.getElementById('anoAtualMovi').textContent = anoAtual;
     document.getElementById("uploadManualModal").classList.add("active");
+}
+
+function renderConfigProprietarios() {
+    const proprietarios = getDb(DB_PROPRIETARIOS);
+    const unidades = [...new Set((CACHE_RESERVAS || getDb(DB_RESERVAS)).map(e=>e.unidade))].sort();
+    
+    let html = "";
+    
+    unidades.forEach(unidade => {
+        const prop = proprietarios.find(e=>e.unidade===unidade) || {};
+        
+        html += `
+            <div class="form-group">
+                <label class="form-label" style="font-weight: bold;">
+                    ${unidade}
+                </label>
+                <input type="text" 
+                       class="form-input prop-input" 
+                       data-unidade="${unidade}" 
+                       value="${prop.nome||""}" 
+                       placeholder="Nome do proprietário">
+            </div>
+        `;
+    });
+    
+    document.getElementById("config-proprietarios-list").innerHTML = html || 
+        "<p>Nenhuma unidade encontrada. Importe um arquivo de reservas primeiro.</p>";
+}
+
+function salvarConfigProprietarios(){
+    const inputs = document.querySelectorAll(".prop-input");
+    const proprietarios = Array.from(inputs)
+        .map(input => ({
+            unidade: input.dataset.unidade,
+            nome: input.value.trim()
+        }))
+        .filter(p => p.nome);
+    
+    saveDb(DB_PROPRIETARIOS, proprietarios);
+    alert("✅ Proprietários salvos com sucesso!");
+    
+    // Volta para a tela de proprietários
+    showPage('proprietarios', document.querySelector('.menu-item[onclick*="proprietarios"]'));
+}
+
+function abrirConfigProprietarios() {
+    const proprietarios = getDb(DB_PROPRIETARIOS);
+    const unidades = [...new Set((CACHE_RESERVAS || []).map(e=>e.unidade))].sort();
+    
+    let html = `
+        <div style="background: white; padding: 30px; border-radius: 12px; max-width: 600px; margin: 0 auto;">
+            <h3 style="margin-bottom: 20px; color: var(--primary-dark);">Configurar Proprietários</h3>
+            <p style="color: #666; margin-bottom: 20px; font-size: 14px;">
+                Vincule cada unidade ao seu proprietário:
+            </p>
+    `;
+    
+    unidades.forEach(unidade => {
+        const prop = proprietarios.find(e=>e.unidade===unidade) || {};
+        html += `
+            <div class="form-group">
+                <label class="form-label" style="font-weight: 600;">${unidade}</label>
+                <input type="text" 
+                       class="form-input prop-input" 
+                       data-unidade="${unidade}" 
+                       value="${prop.nome||""}" 
+                       placeholder="Nome do proprietário">
+            </div>
+        `;
+    });
+    
+    html += `
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="salvarConfigProprietariosModal()">
+                💾 Salvar
+            </button>
+            <button class="btn btn-link" style="width: 100%; margin-top: 10px;" onclick="fecharConfigModal()">
+                Cancelar
+            </button>
+        </div>
+    `;
+    
+    const modal = document.createElement('div');
+    modal.id = 'modalConfigProp';
+    modal.className = 'modal-overlay active';
+    modal.innerHTML = `<div class="modal-content" style="max-width: 650px;">${html}</div>`;
+    document.body.appendChild(modal);
+}
+
+async function salvarConfigProprietariosModal() {
+    const inputs = document.querySelectorAll(".prop-input");
+    const proprietarios = Array.from(inputs)
+        .map(input => ({
+            unidade: input.dataset.unidade,
+            nome: input.value.trim()
+        }))
+        .filter(p => p.nome);
+    
+    try {
+        // 1️⃣ Busca IDs das unidades
+        const { data: unidades, error: errUn } = await db
+            .from("unidades")
+            .select("id, nome");
+        
+        if (errUn) throw errUn;
+        
+        const mapaUnidades = {};
+        unidades.forEach(u => { mapaUnidades[u.nome] = u.id; });
+        
+        // 2️⃣ Apaga proprietários antigos
+        await db.from("proprietarios").delete().neq('id', 0);
+        
+        // 3️⃣ Insere novos
+        const paraInserir = proprietarios
+            .map(p => ({
+                unidade_id: mapaUnidades[p.unidade],
+                nome: p.nome
+            }))
+            .filter(p => p.unidade_id);
+        
+        if (paraInserir.length > 0) {
+            const { error } = await db
+                .from("proprietarios")
+                .insert(paraInserir);
+            
+            if (error) throw error;
+        }
+        
+        // 4️⃣ Salva também no localStorage (fallback)
+        saveDb(DB_PROPRIETARIOS, proprietarios);
+        
+        fecharConfigModal();
+        renderProprietarios();
+        alert("✅ Proprietários salvos no Supabase!");
+        
+    } catch (err) {
+        console.error("Erro ao salvar:", err);
+        alert("❌ Erro ao salvar: " + err.message);
+    }
+}
+
+function fecharConfigModal() {
+    const modal = document.getElementById('modalConfigProp');
+    if (modal) modal.remove();
 }
 
     </script>
