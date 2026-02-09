@@ -1269,10 +1269,15 @@ for (const unidade of unidadesNaoMovi) {
 
             atualizarLoading("Recarregando dados...", 95);
 
-            await carregarReservasSupabase();
-            await carregarDespesasSupabase();
-            setupFilters();
-            renderViews();
+ CACHE_RESERVAS = null;
+CACHE_DESPESAS = null;
+
+await carregarReservasSupabase();
+await carregarDespesasSupabase();
+
+setupFilters();
+renderViews();
+
 
             atualizarLoading("Concluído!", 100);
             
@@ -1661,9 +1666,7 @@ labels: mesesLabels,
     });
 
     // 2️⃣ Apenas reservas com valor financeiro
-    const reservasValidas = reservasTotais.filter(
-        r => Number(r.receita) > 0
-    );
+const reservasValidas = reservasTotais;
 
     // Canceladas
     const reservasCanceladas = e.filter(r => {
