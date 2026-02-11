@@ -277,6 +277,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
             <div class="menu-item" onclick="showPage('proprietarios', this)">👤 Proprietários</div>
             <div class="menu-item" onclick="showPage('configuracoes', this)">⚙️ Configurações</div>
             <div class="menu-item" onclick="showPage('upload', this)">📤 Upload de Dados</div>
+
             <div class="menu-item" onclick="logout()" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">🚪 Sair</div>
         </div>
 
@@ -455,6 +456,8 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                 
                 <div class="card">
                     <h3 style="margin-bottom: 20px;">🔐 Alterar Senha de Acesso</h3>
+
+
                     
                     <div class="form-group">
                         <label class="form-label">Senha Atual</label>
@@ -473,8 +476,42 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                     
                     <button class="btn btn-primary" onclick="alterarSenha()">Salvar Nova Senha</button>
                 </div>
-                
+                    
+
+<div class="card">
+    <h3 style="margin-bottom: 20px;">💾 Backup e Restauração</h3>
+    
+    <p style="color: var(--text-light); margin-bottom: 20px; font-size: 14px;">
+        Faça backup de todos os dados do sistema em Excel ou restaure a partir de um backup anterior.
+    </p>
+    
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="fazerBackupExcel()">
+            📥 Baixar Backup (Excel)
+        </button>
+        
+        <button class="btn btn-secondary" onclick="document.getElementById('restaurarBackupInput').click()">
+            📤 Restaurar Backup
+        </button>
+        
+        <input type="file" 
+               id="restaurarBackupInput" 
+               accept=".xlsx" 
+               style="display: none;" 
+               onchange="restaurarBackupExcel(this.files[0])">
+    </div>
+    
+    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 6px; margin-top: 20px;">
+        <div style="display: flex; align-items: start; gap: 12px;">
+            <div style="font-size: 20px;">⚠️</div>
+            <div style="font-size: 13px; color: #856404;">
+                <strong>Importante:</strong> O backup contém todas as reservas, despesas, proprietários e categorias. 
+                Ao restaurar, todos os dados atuais serão substituídos.
             </div>
+        </div>
+    </div>
+</div>
+
 <div id="config-proprietarios" class="page">
     <div class="page-header">
         <h2>Configurar Proprietários</h2>
@@ -494,6 +531,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 </div>
 <div id="upload" class="page">
     <div class="page-header"><h2>Upload de Dados</h2></div>
+
     
     <div class="card">
         <h3 style="margin-bottom:16px;">📄 Importar Reservas (Smoobu)</h3>
@@ -1657,8 +1695,7 @@ labels: mesesLabels,
 }
 
 
-  function renderCardsView(e, a) {
-    // 🔥 Separa ativas e canceladas (CORREÇÃO DO BUG)
+function renderCardsView(e, a) {
     // 1️⃣ Todas as reservas ativas (inclui R$ 0 / proprietários)
     const reservasTotais = e.filter(r => {
         const status = (r.status || '').toLowerCase();
@@ -1666,14 +1703,17 @@ labels: mesesLabels,
     });
 
     // 2️⃣ Apenas reservas com valor financeiro
-const reservasValidas = reservasTotais;
+    const reservasValidas = reservasTotais.filter(r => r.receita > 0);
 
     // Canceladas
     const reservasCanceladas = e.filter(r => {
         const status = (r.status || '').toLowerCase();
         return status === 'cancelada' || status === 'canceled';
     });
+
+
     
+    // 💰 CÁLCULOS (usa apenas reservas válidas)
     const t = reservasValidas.reduce((acc, x) => acc + x.receita, 0);
 
     const comissaoPortais = reservasValidas.reduce(
@@ -1687,6 +1727,7 @@ const reservasValidas = reservasTotais;
     const r = a.reduce((acc, x) => acc + x.valor, 0);
     const o = t - comissaoPortais - comissaoShort - r;
 
+    // 📊 RENDERIZA OS CARDS
     document.getElementById("indicadores-gerais").innerHTML = `
         <div class="indicador-card">
             <div class="indicador-label">Receita Total</div>
