@@ -805,15 +805,17 @@ async function salvarDespesaSupabase(despesa) {
         }
 
         // 3️⃣ Inserir despesa
-        const { error: errInsert } = await db
-            .from("despesas")
-            .insert({
-                unidade_id: unidade.id,
-                categoria_id: categoria.id,
-                descricao: despesa.descricao,
-                data: despesa.data,
-                valor: despesa.valor
-            });
+     const { data, error: errInsert } = await db
+    .from("despesas")
+    .insert({
+        unidade_id: unidade.id,
+        categoria_id: categoria.id,
+        descricao: despesa.descricao,
+        data: despesa.data,
+        valor: despesa.valor
+    })
+    .select()
+    .single();
 
         if (errInsert) {
             throw errInsert;
@@ -827,6 +829,7 @@ async function salvarDespesaSupabase(despesa) {
         return false;
     }
 }
+
 
 
 async function carregarReservasSupabase() {
@@ -1997,14 +2000,14 @@ filtradas.forEach(function(d){
                 <span 
                     style="cursor:pointer;font-size:18px;" 
                     title="Editar"
-                    onclick="editarDespesa('${d.id}')">
+                    onclick='editarDespesa(${JSON.stringify(d.id)})'>
                     ✏️
                 </span>
 
                 <span 
                     style="cursor:pointer;font-size:18px;color:#dc3545;" 
                     title="Excluir"
-                    onclick="excluirDespesa('${d.id}')">
+                    onclick='excluirDespesa(${JSON.stringify(d.id)})'>
                     🗑️
                 </span>
             </td>
@@ -2040,7 +2043,6 @@ function openDespesaModal(modoEdicao = false) {
         
 function closeDespesaModal(){
     document.getElementById("despesaModal").classList.remove("active");
-    despesaEmEdicao = null; // 🔥 ADICIONE esta linha
 }
         
  async function salvarDespesa() {
@@ -2116,12 +2118,43 @@ function closeDespesaModal(){
             }
 
             console.log("✅ Despesa atualizada com sucesso");
+// 🔥 atualiza imediatamente no cache (edição instantânea)
+CACHE_DESPESAS = (CACHE_DESPESAS || []).map(d => {
+    if (String(d.id) === String(despesaEmEdicao)) {
+        return {
+            ...d,
+            unidade: dadosDespesa.unidade,
+            categoria: dadosDespesa.categoria,
+            descricao: dadosDespesa.descricao,
+            data: dadosDespesa.data,
+            ano: dadosDespesa.data.substring(0,4),
+            mes: dadosDespesa.data.substring(5,7),
+            mesAno: dadosDespesa.data.substring(0,7),
+            valor: Number(dadosDespesa.valor)
+        };
+    }
+    return d;
+});
             
         } else {
             // ===== MODO NOVA DESPESA =====
             console.log("➕ Criando nova despesa");
             
             const ok = await salvarDespesaSupabase(dadosDespesa);
+// 🔥 adiciona imediatamente no cache (sem esperar banco)
+CACHE_DESPESAS = CACHE_DESPESAS || [];
+
+CACHE_DESPESAS.unshift({
+    id: "temp_" + Date.now(),
+    descricao: dadosDespesa.descricao,
+    unidade: dadosDespesa.unidade,
+    categoria: dadosDespesa.categoria,
+    data: dadosDespesa.data,
+    ano: dadosDespesa.data.substring(0,4),
+    mes: dadosDespesa.data.substring(5,7),
+    mesAno: dadosDespesa.data.substring(0,7),
+    valor: Number(dadosDespesa.valor)
+});
 
             if (!ok) {
                 throw new Error("Erro ao salvar despesa no banco");
@@ -2129,15 +2162,22 @@ function closeDespesaModal(){
         }
 
         // Limpa variável de edição
-        despesaEmEdicao = null;
+despesaEmEdicao = null;
         
         // Fecha modal
         closeDespesaModal();
 
         // Recarrega despesas e atualiza telas
-        await carregarDespesasSupabase();
-        renderViews();
-        renderTabelaDespesasDetalhada();
+// 🔥 mostra imediatamente na tela (apenas nova despesa)
+
+
+// atualiza UI na hora
+renderTabelaDespesasDetalhada();
+renderViews();
+showPage("despesas", document.querySelector('.menu-item[onclick*="despesas"]'));
+
+// sincroniza depois com banco
+await carregarDespesasSupabase();
         
         alert("✅ Despesa salva com sucesso!");
 
@@ -2149,6 +2189,18 @@ function closeDespesaModal(){
 
       
 async function excluirDespesa(id) {
+
+    // 🔥 impede excluir item temporário
+    if (String(id).startsWith("temp_")) {
+        // remove só do cache
+        CACHE_DESPESAS = (CACHE_DESPESAS || [])
+            .filter(d => d.id !== id);
+
+        renderTabelaDespesasDetalhada();
+        renderViews();
+        return;
+    }
+
     if (!confirm("Tem certeza que deseja excluir esta despesa?")) return;
 
     const { error } = await db
@@ -2165,8 +2217,7 @@ async function excluirDespesa(id) {
     await carregarDespesasSupabase();
     renderViews();
     renderTabelaDespesasDetalhada();
-}
-        
+}        
 
         function processarReservasFuturas(e){
             if(!e)return;
@@ -2897,7 +2948,7 @@ async function editarDespesa(id) {
     console.log("✏️ Editando despesa ID:", id);
     
     const despesas = CACHE_DESPESAS || [];
-    const d = despesas.find(desp => desp.id === id);
+    const d = despesas.find(desp => String(desp.id) === String(id));
     
     if (!d) {
         console.error("❌ Despesa não encontrada:", id);
@@ -3811,7 +3862,7 @@ async function carregarDespesasSupabase() {
             const mes = d.data.substring(5,7);
 
             return {
-                id: d.id,
+                id: String(d.id),
                 descricao: d.descricao,
                 unidade: d.unidades.nome,
                 categoria: d.categorias_despesas.nome,
