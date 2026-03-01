@@ -1988,7 +1988,7 @@ tabela.innerHTML = `
 filtradas.forEach(function(d){
     tabela.innerHTML += `
         <tr>
-            <td>${new Date(d.data).toLocaleDateString("pt-BR")}</td>
+            <td>${d.data.split("-").reverse().join("/")}</td>
             <td>${d.unidade}</td>
             <td>${d.categoria}</td>
             <td>${d.descricao}</td>
