@@ -210,6 +210,28 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
     }
 }
 
+/* Select2 multi: mantém altura fixa e tag de contagem compacta */
+#filtroMesesProprietarios + .select2-container .select2-selection--multiple {
+    min-height: 38px;
+    max-height: 38px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+}
+#filtroMesesProprietarios + .select2-container .select2-selection__rendered {
+    flex-wrap: nowrap;
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 100%;
+}
+#filtroAnoProprietarios + .select2-container .select2-selection--multiple {
+    min-height: 38px;
+    max-height: 38px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+}
+
 </style>
 
 </style>
@@ -219,19 +241,32 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
     <!-- 🔐 TELA DE LOGIN -->
     <div id="telaLogin" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #2d7a7a 0%, #1a4d4d 100%);">
         <div style="background: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); width: 100%; max-width: 400px;">
-            <h2 style="text-align: center; color: #2d7a7a; margin-bottom: 10px;">🏠 Bandeira Stay</h2>
-            <p style="text-align: center; color: #666; margin-bottom: 30px; font-size: 14px;">Sistema de Gestão</p>
-            
-            <div style="margin-bottom: 30px;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Senha de Acesso</label>
-                <input type="password" id="loginSenha" placeholder="Digite a senha"
-                       style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px;"
-                       onkeypress="if(event.key==='Enter') fazerLogin()">
+            <div style="text-align: center; margin-bottom: 24px;">
+                <img src="logo.png" alt="Bandeira Stay" style="width: 160px; height: auto;">
             </div>
             
-            <button onclick="fazerLogin()" 
+            <div style="margin-bottom: 18px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Usuário</label>
+                <input type="text" id="loginUsuario" placeholder="Digite seu usuário"
+                       style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; box-sizing: border-box;"
+                       onkeypress="if(event.key==='Enter') document.getElementById('loginSenha').focus()">
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Senha</label>
+                <input type="password" id="loginSenha" placeholder="Digite a senha"
+                       style="width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; box-sizing: border-box;"
+                       onkeypress="if(event.key==='Enter') fazerLogin()">
+            </div>
+
+            <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px; cursor: pointer; font-size: 14px; color: #555;">
+                <input type="checkbox" id="lembrarLogin" style="width: 16px; height: 16px; cursor: pointer;">
+                Lembrar minha senha
+            </label>
+
+            <button onclick="fazerLogin()"
                     style="width: 100%; padding: 14px; background: #2d7a7a; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.3s;"
-                    onmouseover="this.style.background='#1a4d4d'" 
+                    onmouseover="this.style.background='#1a4d4d'"
                     onmouseout="this.style.background='#2d7a7a'">
                 Entrar
             </button>
@@ -245,35 +280,13 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
    <!-- ☰ BOTÃO MOBILE -->
     <div class="menu-toggle" onclick="toggleMenu()">☰</div>
 <div class="logo">
-    <div class="logo-mark">
-        <svg width="48" height="48" viewBox="0 0 64 64" fill="none"
-             xmlns="http://www.w3.org/2000/svg">
-            <!-- Casa -->
-            <path d="M16 30L32 18L48 30V48H16V30Z"
-                  stroke="white" stroke-width="3" fill="none"/>
-            <path d="M28 48V36H36V48"
-                  stroke="white" stroke-width="3"/>
-
-            <!-- Coqueiro -->
-            <path d="M22 18C18 10 12 8 10 8"
-                  stroke="white" stroke-width="3"
-                  stroke-linecap="round"/>
-            <path d="M22 18C16 16 12 18 10 20"
-                  stroke="white" stroke-width="3"
-                  stroke-linecap="round"/>
-        </svg>
-    </div>
-
-    <div class="logo-text">
-        <div class="logo-title">Bandeira</div>
-        <div class="logo-sub">Beach House</div>
-    </div>
+    <img src="logo.png" alt="Bandeira Stay" style="width: 140px; height: auto; display: block; margin: 0 auto;">
 </div>
             <div class="menu-item active" onclick="showPage('financeiro', this)">💰 Financeiro</div>
             <div class="menu-item" onclick="showPage('analitica', this)">📊 Analítica</div>
             <div class="menu-item" onclick="showPage('despesas', this)">💸 Despesas</div>
             <div class="menu-item" onclick="showPage('reservas', this)">🧹 Reservas Futuras</div>
-            <div class="menu-item" onclick="showPage('proprietarios', this)">👤 Proprietários</div>
+            <div class="menu-item" onclick="showPage('proprietarios', this)">🏠 Consolidado</div>
             <div class="menu-item" onclick="showPage('configuracoes', this)">⚙️ Configurações</div>
             <div class="menu-item" onclick="showPage('upload', this)">📤 Upload de Dados</div>
 
@@ -290,7 +303,6 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
         <div class="form-group flex-1"><select id="filtroAnos" class="form-select" multiple="multiple"></select></div>
         <div class="form-group flex-1"><select id="filtroMeses" class="form-select" multiple="multiple"></select></div>
         <div class="form-group flex-1"><select id="filtroUnidades" class="form-select" multiple="multiple"></select></div>
-        <button class="btn btn-primary" onclick="renderViews()">Aplicar</button>
     </div>
     
     <div class="flex gap-16" style="margin-bottom: 24px;">
@@ -314,7 +326,6 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                     <div class="form-group flex-1"><select id="filtroAnaliticaAnos" class="form-select" multiple="multiple"></select></div>
                     <div class="form-group flex-1"><select id="filtroAnaliticaMeses" class="form-select" multiple="multiple"></select></div>
                     <div class="form-group flex-1"><select id="filtroAnaliticaUnidades" class="form-select" multiple="multiple"></select></div>
-                    <button class="btn btn-primary" onclick="renderAnalitica()">Aplicar</button>
                 </div>
                 <div class="analitica-cards">
                     <div class="analitica-card">
@@ -398,9 +409,6 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
             <select id="filtroDespesasUnidades" class="form-select" multiple></select>
         </div>
 
-        <button class="btn btn-primary" onclick="renderTabelaDespesasDetalhada()">
-            Aplicar
-        </button>
     </div>
 
     <div class="card">
@@ -417,7 +425,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
             </div>
             <div id="proprietarios" class="page">
 <div class="page-header">
-    <h2>Gestão de Proprietários</h2>
+    <h2>Consolidado</h2>
     <div style="display: flex; gap: 12px;">
         <button class="btn btn-link" onclick="abrirConfigProprietarios()" style="font-size: 24px;">
             ⚙️ Configurar
@@ -426,20 +434,38 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 </div>
     
 <!-- FILTROS -->
-<div class="card">
-    <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+<div class="card filter-bar">
+    <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; width: 100%;">
         <div style="display: flex; gap: 10px; align-items: center;">
-            <label style="font-weight: 600;">Ano:</label>
-            <select id="filtroAnoProprietarios" class="form-select" style="width: 120px;" onchange="renderProprietarios()"></select>
+            <label style="font-weight: 600; white-space: nowrap;">Ano:</label>
+            <select id="filtroAnoProprietarios" class="form-select" multiple style="min-width: 130px;"></select>
         </div>
-        
+
         <div style="display: flex; gap: 10px; align-items: center;">
-            <label style="font-weight: 600;">Proprietário:</label>
-            <select id="filtroProprietario" class="form-select" style="width: 200px;" onchange="renderProprietarios()">
+            <label style="font-weight: 600; white-space: nowrap;">Mês:</label>
+            <select id="filtroMesesProprietarios" class="form-select" multiple style="min-width: 180px;">
+                <option value="01">Janeiro</option>
+                <option value="02">Fevereiro</option>
+                <option value="03">Março</option>
+                <option value="04">Abril</option>
+                <option value="05">Maio</option>
+                <option value="06">Junho</option>
+                <option value="07">Julho</option>
+                <option value="08">Agosto</option>
+                <option value="09">Setembro</option>
+                <option value="10">Outubro</option>
+                <option value="11">Novembro</option>
+                <option value="12">Dezembro</option>
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <label style="font-weight: 600; white-space: nowrap;">Proprietário:</label>
+            <select id="filtroProprietario" class="form-select" style="min-width: 200px;">
                 <option value="">Todos</option>
             </select>
         </div>
-        
+
         <button class="btn btn-link" onclick="abrirHistoricoAnual()" style="font-size: 16px;">
             📊 Histórico Anual
         </button>
@@ -503,12 +529,25 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
         <div style="display: flex; align-items: start; gap: 12px;">
             <div style="font-size: 20px;">⚠️</div>
             <div style="font-size: 13px; color: #856404;">
-                <strong>Importante:</strong> O backup contém todas as reservas, despesas, proprietários e categorias. 
+                <strong>Importante:</strong> O backup contém todas as reservas, despesas, proprietários e categorias.
                 Ao restaurar, todos os dados atuais serão substituídos.
             </div>
         </div>
     </div>
     </div>
+
+    <div id="card-gerenciar-usuarios" class="card">
+        <h3 style="margin-bottom: 20px;">👥 Gerenciar Usuários</h3>
+        <p style="color: var(--text-light); margin-bottom: 16px; font-size: 14px;">
+            Gerencie os usuários de visualização e defina quais unidades cada um pode ver.
+        </p>
+        <div id="usuarios-list" style="margin-bottom: 16px;">
+            <p style="color: var(--text-light);">Carregando usuários...</p>
+        </div>
+        <button class="btn btn-secondary" onclick="abrirModalNovoUsuario()" style="margin-right: 8px;">➕ Novo Usuário</button>
+        <button class="btn btn-link" onclick="carregarUsuarios()">🔄 Atualizar</button>
+    </div>
+
 </div>
 
 <div id="config-proprietarios" class="page">
@@ -660,46 +699,77 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 // 🔐 AUTENTICAÇÃO
 // ========================================
 
-// Verifica se já está logado
+// Verifica se já está logado (sessionStorage ou localStorage se "lembrar")
 window.addEventListener('load', () => {
-    const logado = sessionStorage.getItem('autenticado');
+    const logado = sessionStorage.getItem('autenticado') || localStorage.getItem('autenticado');
     if (logado === 'true') {
+        // Copia do localStorage para sessionStorage se necessário
+        ['autenticado','tipoUsuario','nomeUsuario','unidadesPermitidas'].forEach(k => {
+            if (!sessionStorage.getItem(k) && localStorage.getItem(k)) {
+                sessionStorage.setItem(k, localStorage.getItem(k));
+            }
+        });
+        // Preenche campos de login se salvos
+        const usuarioSalvo = localStorage.getItem('loginUsuario');
+        if (usuarioSalvo) {
+            document.getElementById('loginUsuario').value = usuarioSalvo;
+            document.getElementById('lembrarLogin').checked = true;
+        }
         mostrarSistema();
+    } else {
+        // Preenche campos salvos mesmo sem estar logado
+        const usuarioSalvo = localStorage.getItem('loginUsuario');
+        if (usuarioSalvo) {
+            document.getElementById('loginUsuario').value = usuarioSalvo;
+            document.getElementById('lembrarLogin').checked = true;
+        }
     }
 });
 
 async function fazerLogin() {
+    const usuario = document.getElementById('loginUsuario').value.trim();
     const senha = document.getElementById('loginSenha').value;
-    
-    if (!senha) {
-        mostrarErro('Digite a senha');
+
+    if (!usuario || !senha) {
+        mostrarErro('Digite usuário e senha');
         return;
     }
-    
+
     try {
-        // Busca senha do banco
         const { data, error } = await db
-            .from('configuracao')
-            .select('senha_hash')
-            .eq('id', 1)
+            .from('usuarios')
+            .select('id, usuario, senha, tipo, unidades_permitidas, ativo')
+            .eq('usuario', usuario)
+            .eq('senha', senha)
+            .eq('ativo', true)
             .single();
-        
-        if (error) {
-            console.error('Erro ao buscar senha:', error);
-            mostrarErro('Erro ao verificar senha');
-            return;
-        }
-        
-        // Compara senha
-        if (senha === data.senha_hash) {
-            sessionStorage.setItem('autenticado', 'true');
-            mostrarSistema();
-        } else {
-            mostrarErro('Senha incorreta');
+
+        if (error || !data) {
+            mostrarErro('Usuário ou senha incorretos');
             document.getElementById('loginSenha').value = '';
             document.getElementById('loginSenha').focus();
+            return;
         }
-        
+
+        const lembrar = document.getElementById('lembrarLogin')?.checked;
+        const storage = lembrar ? localStorage : sessionStorage;
+        // Limpa o outro storage primeiro
+        [localStorage, sessionStorage].forEach(s => {
+            s.removeItem('autenticado'); s.removeItem('tipoUsuario');
+            s.removeItem('nomeUsuario'); s.removeItem('unidadesPermitidas');
+        });
+        storage.setItem('autenticado', 'true');
+        storage.setItem('tipoUsuario', data.tipo);
+        storage.setItem('nomeUsuario', data.usuario);
+        storage.setItem('unidadesPermitidas', JSON.stringify(data.unidades_permitidas));
+        sessionStorage.setItem('autenticado', 'true');
+        sessionStorage.setItem('tipoUsuario', data.tipo);
+        sessionStorage.setItem('nomeUsuario', data.usuario);
+        sessionStorage.setItem('unidadesPermitidas', JSON.stringify(data.unidades_permitidas));
+        if (lembrar) localStorage.setItem('loginUsuario', data.usuario);
+        else localStorage.removeItem('loginUsuario');
+        mostrarSistema();
+
     } catch (err) {
         console.error('Erro no login:', err);
         mostrarErro('Erro ao fazer login');
@@ -715,21 +785,58 @@ function mostrarErro(msg) {
     }, 3000);
 }
 
+// Aplica filtro de unidades para viewers — chame após qualquer carga de dados
+function aplicarFiltroViewer() {
+    const tipo = sessionStorage.getItem('tipoUsuario');
+    if (tipo !== 'viewer') return;
+    const unidadesPermitidas = JSON.parse(sessionStorage.getItem('unidadesPermitidas') || 'null');
+    if (!Array.isArray(unidadesPermitidas) || unidadesPermitidas.length === 0) return;
+    CACHE_RESERVAS = (CACHE_RESERVAS || []).filter(r => unidadesPermitidas.includes(r.unidade));
+    CACHE_DESPESAS = (CACHE_DESPESAS || []).filter(d => unidadesPermitidas.includes(d.unidade));
+}
+
 function mostrarSistema() {
     document.getElementById('telaLogin').style.display = 'none';
     document.getElementById('sistemaCompleto').style.display = 'flex';
-    
-    // Carrega sistema normalmente
+
+    const tipo = sessionStorage.getItem('tipoUsuario') || 'admin';
+    const nome = sessionStorage.getItem('nomeUsuario') || '';
+
+    const elNome = document.getElementById('nomeUsuarioLogado');
+    if (elNome) elNome.textContent = nome;
+
+    // Viewer: ocultar abas e seções de admin
+    if (tipo === 'viewer') {
+        ['configuracoes', 'upload', 'reservas'].forEach(id => {
+            const menuItem = document.querySelector(`.menu-item[onclick*="'${id}'"]`);
+            if (menuItem) menuItem.style.display = 'none';
+        });
+        const btnConfig = document.querySelector(`button[onclick="abrirConfigProprietarios()"]`);
+        if (btnConfig) btnConfig.style.display = 'none';
+        // Ocultar card de gerenciar usuários
+        const cardGU = document.getElementById('card-gerenciar-usuarios');
+        if (cardGU) cardGU.style.display = 'none';
+    }
+
     carregarReservasSupabase().then(() => {
+        aplicarFiltroViewer();
+        setupFilters();
+        setupAnaliticaFilters();
+
         showPage("financeiro", document.querySelector('.menu-item[onclick*="financeiro"]'));
         setViewMode("cards");
-        
-        // 🔄 VERIFICA SE PRECISA ATUALIZAR DO SMOOBU
-        verificarAtualizacaoAutomatica();
+
+        const isMobile = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
+        if (tipo !== 'viewer' && !isMobile) {
+            verificarAtualizacaoAutomatica();
+        }
     });
 }
 function logout() {
-    sessionStorage.removeItem('autenticado');
+    ['autenticado','tipoUsuario','nomeUsuario','unidadesPermitidas'].forEach(k => {
+        sessionStorage.removeItem(k);
+        localStorage.removeItem(k);
+    });
     location.reload();
 }
 
@@ -1051,7 +1158,8 @@ function parseDataBR(valor) {
             "despesas"===e && (setupFiltrosDespesas(), renderTabelaDespesasDetalhada())
 ,
 
-            "proprietarios"===e&&(async()=>await renderProprietarios())()
+            "proprietarios"===e&&(async()=>await renderProprietarios())(),
+            "configuracoes"===e&&carregarUsuarios()
         }
 
         function setViewMode(e){
@@ -1384,6 +1492,11 @@ function setupFilters() {
         $("#filtroAnos").val([anoAtual]);
     }
 
+    // Auto-filtro: atualiza ao mudar qualquer seleção
+    $("#filtroAnos, #filtroMeses, #filtroUnidades").off('change.autofilter').on('change.autofilter', function() {
+        renderViews();
+    });
+
     $("#filtroAnos").trigger("change");
     $("#filtroMeses").trigger("change");
     $("#filtroUnidades").trigger("change");
@@ -1430,6 +1543,11 @@ function setupFilters() {
     if (anos.includes(anoAtual)) {
         $("#filtroAnaliticaAnos").val([anoAtual]).trigger("change");
     }
+
+    // Auto-filtro: atualiza ao mudar qualquer seleção
+    $("#filtroAnaliticaAnos, #filtroAnaliticaMeses, #filtroAnaliticaUnidades").off('change.autofilter').on('change.autofilter', function() {
+        renderAnalitica();
+    });
 }
 
         
@@ -2254,215 +2372,442 @@ d+=`${e.chegada} a ${e.partida} ${e.hospede?e.hospede.split(" ")[0]:""} ${e.pess
             e?window.open(`https://wa.me/${e}?text=${encodeURIComponent(document.getElementById("mensagemPreview").textContent)}`,"_blank"):alert("⚠️ Digite o número do WhatsApp!")
         }
         
-async function renderProprietarios(){
-    // 📅 Preenche filtro de anos
+// ── Helpers de cálculo ──────────────────────────────────────────────────────
+function calcularLucroMensal(unidades, anos, mesesFiltro) {
+    const todosMeses = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+    const mesesAtivos = mesesFiltro && mesesFiltro.length > 0 ? mesesFiltro : todosMeses;
+    const result = {};
+    mesesAtivos.forEach(mes => {
+        let r = 0, cp = 0, cs = 0, d = 0;
+        anos.forEach(ano => {
+            unidades.forEach(unidade => {
+                (CACHE_RESERVAS || []).filter(x => x.unidade === unidade && x.ano === ano && x.mes === mes && x.status !== 'cancelada')
+                    .forEach(x => { r += x.receita; cp += (x.comissaoPortais ?? x.comissao ?? 0); cs += (x.comissaoShortStay ?? 0); });
+                (CACHE_DESPESAS || []).filter(x => x.unidade === unidade && x.ano === ano && x.mes === mes)
+                    .forEach(x => { d += x.valor; });
+            });
+        });
+        result[mes] = r - cp - cs - d;
+    });
+    return result;
+}
+
+function buildGridMeses(lucrosPorMes, labelTotal, corLabel) {
+    const nomesMeses = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+    const todosMeses = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+    const mesesVisiveis = todosMeses.filter(m => m in lucrosPorMes);
+    const lucroTotal = Object.values(lucrosPorMes).reduce((a, v) => a + v, 0);
+
+    const cols = mesesVisiveis.map(mes => {
+        const idx = todosMeses.indexOf(mes);
+        const lucro = lucrosPorMes[mes];
+        const temDados = lucro !== 0;
+        return `<div style="background:${temDados ? (lucro >= 0 ? 'linear-gradient(135deg,#28a745 0%,#20c997 100%)' : 'linear-gradient(135deg,#dc3545 0%,#c82333 100%)') : '#f5f5f5'};padding:8px;border-radius:8px;text-align:center;box-shadow:${temDados ? '0 2px 8px rgba(0,0,0,.1)' : 'none'};opacity:${temDados ? '1' : '.5'}">
+            <div style="font-size:10px;font-weight:600;color:${temDados ? 'rgba(255,255,255,.9)' : 'var(--text-light)'};margin-bottom:4px;letter-spacing:1px">${nomesMeses[idx]}</div>
+            <div style="font-size:14px;font-weight:700;color:${temDados ? 'white' : 'var(--text-light)'}">${formatCurrency(lucro)}</div>
+        </div>`;
+    }).join('');
+
+    const cardTotal = `<div style="background:linear-gradient(135deg,${corLabel || '#2d7a7a'} 0%,#1a4d4d 100%);padding:8px;border-radius:8px;text-align:center;box-shadow:0 3px 10px rgba(0,0,0,.15)">
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.95);margin-bottom:4px;letter-spacing:1.5px">${labelTotal}</div>
+        <div style="font-size:15px;font-weight:700;color:white">${formatCurrency(lucroTotal)}</div>
+    </div>`;
+
+    return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px">${cols}${cardTotal}</div>`;
+}
+
+// ── renderProprietarios principal ────────────────────────────────────────────
+let _renderPropBusy = false;
+
+async function renderProprietarios() {
+    if (_renderPropBusy) return;
+    _renderPropBusy = true;
+    try {
+        await _renderProprietariosImpl();
+    } finally {
+        _renderPropBusy = false;
+    }
+}
+
+async function _renderProprietariosImpl() {
+    // 📅 Filtro de anos (multi-select) — inicializa só uma vez
     const anosDisponiveis = [...new Set((CACHE_RESERVAS || []).map(r => r.ano))].sort().reverse();
     const selectAno = $("#filtroAnoProprietarios");
-    
-    if (selectAno.html() === '') {
+
+    if (!selectAno.hasClass('select2-hidden-accessible')) {
         selectAno.html(anosDisponiveis.map(a => `<option value="${a}">${a}</option>`).join(""));
-        
         selectAno.select2({
-            placeholder: "Selecione o ano",
-            allowClear: false
+            placeholder: "Selecione o(s) ano(s)",
+            allowClear: false,
+            closeOnSelect: false
         });
-        
         const anoAtual = new Date().getFullYear().toString();
-        if (anosDisponiveis.includes(anoAtual)) {
-            selectAno.val(anoAtual).trigger('change');
-        }
-        
-        selectAno.on('change', async function() {
-            await renderProprietarios();
-        });
+        const valInicial = anosDisponiveis.includes(anoAtual) ? [anoAtual] : [anosDisponiveis[0]];
+        // trigger('change') atualiza UI do select2; guard evita re-entrada
+        selectAno.val(valInicial).trigger('change');
+        selectAno.on('change', () => renderProprietarios());
     }
-    
-    const anoSelecionado = selectAno.val() || anosDisponiveis[0];
-    
-    // 🏠 Busca proprietários DO SUPABASE
+
+    // 📆 Filtro de meses — inicializa só uma vez
+    const selectMes = $("#filtroMesesProprietarios");
+    if (!selectMes.hasClass('select2-hidden-accessible')) {
+        selectMes.select2({
+            placeholder: "Todos os meses",
+            allowClear: true,
+            closeOnSelect: false  // mantém dropdown aberto para selecionar múltiplos sem reabrir
+        });
+        selectMes.on('change', () => renderProprietarios());
+    }
+
+    // 🏠 Busca proprietários do Supabase
     let proprietariosAgrupados = {};
-    
     try {
-        const { data: propsSupabase, error } = await db
-            .from("proprietarios")
-            .select(`
-                nome,
-                unidades ( nome )
-            `);
-        
-        if (!error && propsSupabase && propsSupabase.length > 0) {
-            propsSupabase.forEach(p => {
+        const { data, error } = await db.from("proprietarios").select("nome, unidades(nome)");
+        if (!error && data && data.length > 0) {
+            data.forEach(p => {
                 if (!p.nome || !p.unidades) return;
-                
-                if (!proprietariosAgrupados[p.nome]) {
-                    proprietariosAgrupados[p.nome] = [];
-                }
-                
+                if (!proprietariosAgrupados[p.nome]) proprietariosAgrupados[p.nome] = [];
                 proprietariosAgrupados[p.nome].push(p.unidades.nome);
             });
         }
-    } catch (err) {
-        console.error("Erro ao buscar proprietários:", err);
-    }
-    
-    // Se não houver proprietários, cria um por unidade
+    } catch (err) { console.error("Erro ao buscar proprietários:", err); }
+
     if (Object.keys(proprietariosAgrupados).length === 0) {
-        const unidades = [...new Set((CACHE_RESERVAS || []).map(r => r.unidade))];
-        unidades.forEach(u => {
-            proprietariosAgrupados[u] = [u];
-        });
+        [...new Set((CACHE_RESERVAS || []).map(r => r.unidade))].forEach(u => { proprietariosAgrupados[u] = [u]; });
     }
-    
-    // 📋 Preenche select de proprietários
+
+    // Filtra proprietários pelas unidades no cache (respeita viewer)
+    const unidadesNoCache = new Set((CACHE_RESERVAS || []).map(r => r.unidade));
+    Object.keys(proprietariosAgrupados).forEach(nome => {
+        const filtradas = proprietariosAgrupados[nome].filter(u => unidadesNoCache.has(u));
+        if (filtradas.length === 0) delete proprietariosAgrupados[nome];
+        else proprietariosAgrupados[nome] = filtradas;
+    });
+
+    // 📋 Preenche select de proprietários — inicializa só uma vez, atualiza opções se mudou
     const selectProp = $("#filtroProprietario");
-    
-    if (selectProp.find('option').length <= 1) {
+    const nomesAtuais = Object.keys(proprietariosAgrupados).sort().join('|');
+
+    if (!selectProp.hasClass('select2-hidden-accessible')) {
+        // Primeira vez: cria do zero
         selectProp.html('<option value="">Todos</option>');
-        
-        Object.keys(proprietariosAgrupados).sort().forEach(nome => {
-            selectProp.append(`<option value="${nome}">${nome}</option>`);
-        });
-        
-        selectProp.select2({
-            placeholder: "Todos os proprietários",
-            allowClear: true
-        });
-        
-        const nomePadrao = Object.keys(proprietariosAgrupados).find(n => 
-            n.toLowerCase().includes('bandeira') && n.toLowerCase().includes('beach')
-        );
-        
-        if (nomePadrao) {
-            selectProp.val(nomePadrao).trigger('change');
-        }
-        
-        selectProp.on('change', async function() {
-            await renderProprietarios();
-        });
+        Object.keys(proprietariosAgrupados).sort().forEach(n => selectProp.append(`<option value="${n}">${n}</option>`));
+        selectProp.select2({ placeholder: "Todos os proprietários", allowClear: true });
+        selectProp.data('nomes', nomesAtuais);
+        selectProp.on('change', () => renderProprietarios());
+        // Seleciona padrão
+        const padrao = Object.keys(proprietariosAgrupados).find(n => n.toLowerCase().includes('bandeira') && n.toLowerCase().includes('beach'));
+        if (padrao) selectProp.val(padrao).trigger('change.select2'); // só atualiza UI, não dispara change
+    } else if (selectProp.data('nomes') !== nomesAtuais) {
+        // Lista mudou: atualiza opções preservando seleção atual
+        const selAtual = selectProp.val();
+        selectProp.html('<option value="">Todos</option>');
+        Object.keys(proprietariosAgrupados).sort().forEach(n => selectProp.append(`<option value="${n}">${n}</option>`));
+        selectProp.data('nomes', nomesAtuais);
+        if (selAtual && proprietariosAgrupados[selAtual]) selectProp.val(selAtual).trigger('change.select2');
     }
-    
-    // 🔍 Aplica filtro de proprietário
+
+    // Lê valores dos filtros (sem disparar eventos)
+    const anosVal = selectAno.val() || [];
+    const anos = Array.isArray(anosVal) ? anosVal : [anosVal];
+    const mesesVal = selectMes.val() || [];
+    const mesesFiltro = Array.isArray(mesesVal) ? mesesVal : (mesesVal ? [mesesVal] : []);
     const propFiltrado = selectProp.val();
+
     let proprietariosParaMostrar = proprietariosAgrupados;
-    
-    if (propFiltrado) {
+    if (propFiltrado && proprietariosAgrupados[propFiltrado]) {
         proprietariosParaMostrar = { [propFiltrado]: proprietariosAgrupados[propFiltrado] };
     }
-    
-    let html = "";
-    const meses = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
-    
-    Object.keys(proprietariosParaMostrar).sort().forEach(nomeProprietario => {
-        const unidadesDoProprietario = proprietariosParaMostrar[nomeProprietario];
-        
-        const lucrosPorMes = {};
-        
-        meses.forEach(mes => {
-            let receitaMes = 0, comissaoPortaisMes = 0, comissaoShortMes = 0, despesasMes = 0;
-            
-            unidadesDoProprietario.forEach(unidade => {
-                const reservasMes = (CACHE_RESERVAS || []).filter(r => 
-                    r.unidade === unidade && 
-                    r.ano === anoSelecionado && 
-                    r.mes === mes &&
-                    r.status !== 'cancelada'
-                );
-                
-                const despesasMesUnidade = (CACHE_DESPESAS || []).filter(d => 
-                    d.unidade === unidade && 
-                    d.ano === anoSelecionado && 
-                    d.mes === mes
-                );
-                
-                receitaMes += reservasMes.reduce((acc, r) => acc + r.receita, 0);
-                comissaoPortaisMes += reservasMes.reduce((acc, r) => acc + (r.comissaoPortais ?? r.comissao ?? 0), 0);
-                comissaoShortMes += reservasMes.reduce((acc, r) => acc + (r.comissaoShortStay ?? 0), 0);
-                despesasMes += despesasMesUnidade.reduce((acc, d) => acc + d.valor, 0);
-            });
-            
-            lucrosPorMes[mes] = receitaMes - comissaoPortaisMes - comissaoShortMes - despesasMes;
-        });
-        
-        const lucroTotal = Object.values(lucrosPorMes).reduce((acc, val) => acc + val, 0);
-        
-        html += `
-    <div class="card" style="margin-bottom: 0px; padding: 8px 16px;">
 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--border-color);">
-                    <div>
-                        <h3 style="margin: 0; color: var(--primary-dark); font-size: 18px;">
-                            ${nomeProprietario}
-                        </h3>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-size: 11px; color: var(--text-light); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">
-                            Total ${anoSelecionado}
-                        </div>
-                        <div style="font-size: 28px; font-weight: 700; color: ${lucroTotal >= 0 ? 'var(--green)' : 'var(--red)'};">
-                            ${formatCurrency(lucroTotal)}
-                        </div>
-                    </div>
+    const labelPeriodo = anos.length > 0 ? anos.join('/') : '—';
+    let html = "";
+
+    Object.keys(proprietariosParaMostrar).sort().forEach(nomeProprietario => {
+        const unidades = proprietariosParaMostrar[nomeProprietario] || [];
+        const temMultiplas = unidades.length > 1;
+        const chave = nomeProprietario.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+
+        const lucrosPorMes = calcularLucroMensal(unidades, anos, mesesFiltro);
+        const lucroTotal = Object.values(lucrosPorMes).reduce((a, v) => a + v, 0);
+        const gridConsolidado = buildGridMeses(lucrosPorMes, labelPeriodo, '#2d7a7a');
+
+        const btnBreakdown = temMultiplas
+            ? `<button onclick="toggleBreakdownUnidade('${chave}')" id="btn-bd-${chave}"
+                style="background:none;border:1px solid var(--border-color);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--primary-dark);margin-left:8px">
+                ▶ Ver por unidade
+               </button>`
+            : '';
+
+        html += `<div class="card" style="margin-bottom:0;padding:8px 16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--border-color)">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <h3 style="margin:0;color:var(--primary-dark);font-size:18px">${nomeProprietario}</h3>
+                    ${btnBreakdown}
                 </div>
-                
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px;">
-                    ${meses.map((mes, idx) => {
-                        const nomesMeses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-                        const lucro = lucrosPorMes[mes];
-                        const temDados = lucro !== 0;
-                        
-                        return `
-                            <div style="background: ${temDados ? (lucro >= 0 ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)') : '#f5f5f5'}; 
-                                        padding: 8px; 
-                                        border-radius: 8px; 
-                                        text-align: center;
-                                        box-shadow: ${temDados ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'};
-                                        opacity: ${temDados ? '1' : '0.5'};">
-                                <div style="font-size: 10px; 
-                                            font-weight: 600; 
-                                            color: ${temDados ? 'rgba(255,255,255,0.9)' : 'var(--text-light)'}; 
-                                            margin-bottom: 4px; 
-                                            letter-spacing: 1px;">
-                                    ${nomesMeses[idx]}
-                                </div>
-                                <div style="font-size: 14px; 
-                                            font-weight: 700; 
-                                            color: ${temDados ? 'white' : 'var(--text-light)'};">
-                                    ${formatCurrency(lucro)}
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                    
-                    <div style="background: linear-gradient(135deg, #2d7a7a 0%, #1a4d4d 100%); 
-                                padding: 8px; 
-                                border-radius: 8px; 
-                                text-align: center;
-                                box-shadow: 0 3px 10px rgba(0,0,0,0.15);">
-                        <div style="font-size: 10px; 
-                                    font-weight: 700; 
-                                    color: rgba(255,255,255,0.95); 
-                                    margin-bottom: 4px; 
-                                    letter-spacing: 1.5px;">
-                            ${anoSelecionado}
-                        </div>
-                        <div style="font-size: 15px; 
-                                    font-weight: 700; 
-                                    color: white;">
-                            ${formatCurrency(lucroTotal)}
-                        </div>
-                    </div>
+                <div style="text-align:right">
+                    <div style="font-size:11px;color:var(--text-light);text-transform:uppercase;font-weight:600;margin-bottom:4px">Total ${labelPeriodo}</div>
+                    <div style="font-size:28px;font-weight:700;color:${lucroTotal >= 0 ? 'var(--green)' : 'var(--red)'}">${formatCurrency(lucroTotal)}</div>
                 </div>
             </div>
-        `;
+            ${gridConsolidado}
+            <div id="breakdown-${chave}" style="display:none;margin-top:16px;border-top:1px dashed var(--border-color);padding-top:12px"></div>
+        </div>`;
     });
-    
-    document.getElementById("proprietarios-list").innerHTML = html || 
-        "<div class='card'><p>Nenhum proprietário encontrado. Use o botão ⚙️ Configurar para vincular as unidades.</p></div>";
+
+    document.getElementById("proprietarios-list").innerHTML = html ||
+        "<div class='card'><p>Nenhum proprietário encontrado. Use ⚙️ Configurar para vincular unidades.</p></div>";
+}
+
+// ── Breakdown expandível por unidade ────────────────────────────────────────
+function toggleBreakdownUnidade(chave) {
+    const container = document.getElementById(`breakdown-${chave}`);
+    const btn = document.getElementById(`btn-bd-${chave}`);
+    if (!container || !btn) return;
+
+    if (container.style.display !== 'none') {
+        container.style.display = 'none';
+        btn.textContent = '▶ Ver por unidade';
+        return;
+    }
+
+    // Lê os filtros atuais
+    const anosVal = $("#filtroAnoProprietarios").val() || [];
+    const anos = Array.isArray(anosVal) ? anosVal : [anosVal];
+    const mesesVal = $("#filtroMesesProprietarios").val() || [];
+    const mesesFiltro = Array.isArray(mesesVal) ? mesesVal : (mesesVal ? [mesesVal] : []);
+    const labelPeriodo = anos.length > 0 ? anos.join('/') : '—';
+
+    // Descobre as unidades do proprietário pelo chave → nome do proprietário
+    const propNome = [...document.querySelectorAll(`#proprietarios-list .card h3`)].find(el => el.textContent.trim() && el.closest('.card').querySelector(`#breakdown-${chave}`) !== null)?.textContent.trim();
+
+    // Busca unidades do supabase (já em CACHE via renderProprietarios)
+    // Reutiliza o DOM para encontrar as unidades — busca via id do botão
+    const card = document.getElementById(`breakdown-${chave}`).closest('.card');
+    const nomeH3 = card.querySelector('h3')?.textContent.trim();
+
+    // Busca proprietariosAgrupados no supabase de forma assíncrona
+    (async () => {
+        let proprietariosAgrupados = {};
+        try {
+            const { data, error } = await db.from("proprietarios").select("nome, unidades(nome)");
+            if (!error && data) {
+                data.forEach(p => {
+                    if (!p.nome || !p.unidades) return;
+                    if (!proprietariosAgrupados[p.nome]) proprietariosAgrupados[p.nome] = [];
+                    proprietariosAgrupados[p.nome].push(p.unidades.nome);
+                });
+            }
+        } catch (e) {}
+
+        const unidades = proprietariosAgrupados[nomeH3] || [];
+        if (unidades.length === 0) return;
+
+        let bdHtml = '';
+        unidades.sort().forEach(unidade => {
+            const lucros = calcularLucroMensal([unidade], anos, mesesFiltro);
+            const lucroTotal = Object.values(lucros).reduce((a, v) => a + v, 0);
+            const grid = buildGridMeses(lucros, labelPeriodo, '#4a9e9e');
+            bdHtml += `<div style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <span style="font-weight:600;color:var(--primary-dark);font-size:14px">📍 ${unidade}</span>
+                    <span style="font-size:16px;font-weight:700;color:${lucroTotal >= 0 ? 'var(--green)' : 'var(--red)'}">${formatCurrency(lucroTotal)}</span>
+                </div>
+                ${grid}
+            </div>`;
+        });
+
+        container.innerHTML = bdHtml;
+        container.style.display = 'block';
+        btn.textContent = '▼ Ocultar por unidade';
+    })();
 }        
 function salvarProprietarios(){
-    // Esta função agora será chamada de um modal de configuração
     alert("💡 Use a nova tela de 'Configurações' para gerenciar proprietários e suas unidades.");
+}
+
+// ── Gerenciamento de Usuários ────────────────────────────────────────────────
+async function carregarUsuarios() {
+    const el = document.getElementById('usuarios-list');
+    if (!el) return;
+    el.innerHTML = '<p style="color:var(--text-light)">Carregando...</p>';
+
+    const { data, error } = await db.from('usuarios').select('id, usuario, tipo, unidades_permitidas, ativo').order('tipo').order('usuario');
+    if (error) { el.innerHTML = '<p style="color:red">Erro ao carregar usuários.</p>'; return; }
+
+    // Busca unidades disponíveis
+    const todasUnidades = [...new Set((CACHE_RESERVAS || []).map(r => r.unidade))].sort();
+
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:14px">';
+    html += '<thead><tr style="background:#f5f5f5"><th style="padding:8px;text-align:left">Usuário</th><th style="padding:8px;text-align:left">Tipo</th><th style="padding:8px;text-align:left">Unidades permitidas</th><th style="padding:8px;text-align:left">Ativo</th><th style="padding:8px">Ações</th></tr></thead><tbody>';
+
+    data.forEach(u => {
+        const unidadesLabel = u.tipo === 'admin' ? '<em style="color:#888">Todas</em>'
+            : (Array.isArray(u.unidades_permitidas) && u.unidades_permitidas.length > 0)
+                ? u.unidades_permitidas.join(', ')
+                : '<em style="color:#888">Todas</em>';
+        const ativoLabel = u.ativo ? '<span style="color:var(--green);font-weight:600">✔ Sim</span>' : '<span style="color:var(--red)">✘ Não</span>';
+        const btnEditar = u.tipo !== 'admin' ? `<button class="btn btn-link" onclick="editarUsuario('${u.id}')" style="font-size:12px">✏️ Editar</button>` : '';
+        html += `<tr style="border-bottom:1px solid var(--border-color)">
+            <td style="padding:8px;font-weight:600">${u.usuario}</td>
+            <td style="padding:8px"><span style="background:${u.tipo === 'admin' ? '#2d7a7a' : '#6c757d'};color:white;padding:2px 8px;border-radius:12px;font-size:11px">${u.tipo}</span></td>
+            <td style="padding:8px">${unidadesLabel}</td>
+            <td style="padding:8px">${ativoLabel}</td>
+            <td style="padding:8px;text-align:center">${btnEditar}</td>
+        </tr>`;
+    });
+
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+async function editarUsuario(id) {
+    const { data: u, error } = await db.from('usuarios').select('*').eq('id', id).single();
+    if (error || !u) { alert('Erro ao carregar usuário'); return; }
+
+    const todasUnidades = [...new Set((CACHE_RESERVAS || []).map(r => r.unidade))].sort();
+    const permitidas = Array.isArray(u.unidades_permitidas) ? u.unidades_permitidas : [];
+
+    const checkboxes = todasUnidades.map(un => `
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer">
+            <input type="checkbox" value="${un}" ${permitidas.includes(un) ? 'checked' : ''} style="width:16px;height:16px">
+            ${un}
+        </label>`).join('');
+
+    const modal = document.createElement('div');
+    modal.id = 'modalEditarUsuario';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    modal.innerHTML = `<div style="background:white;padding:30px;border-radius:12px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto">
+        <h3 style="margin-bottom:20px;color:var(--primary-dark)">Editar Usuário: ${u.usuario}</h3>
+        <div class="form-group">
+            <label class="form-label">Nova Senha (deixe vazio para manter)</label>
+            <input type="password" id="editSenha" class="form-input" placeholder="Nova senha">
+        </div>
+        <div class="form-group">
+            <label class="form-label" style="margin-bottom:8px">Unidades Permitidas <span style="color:#888;font-size:12px">(vazio = todas)</span></label>
+            <div style="border:1px solid var(--border-color);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto">${checkboxes}</div>
+        </div>
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="editAtivo" ${u.ativo ? 'checked' : ''} style="width:16px;height:16px">
+                <span class="form-label" style="margin:0">Usuário ativo</span>
+            </label>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:20px">
+            <button class="btn btn-primary" onclick="salvarEdicaoUsuario('${id}')" style="flex:1">💾 Salvar</button>
+            <button class="btn btn-link" onclick="document.getElementById('modalEditarUsuario').remove()">Cancelar</button>
+        </div>
+        <div style="margin-top:12px;border-top:1px solid var(--border-color);padding-top:12px">
+            <button onclick="excluirUsuario('${id}')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:13px">🗑️ Excluir este usuário</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+}
+
+async function excluirUsuario(id) {
+    if (!confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) return;
+    const { error } = await db.from('usuarios').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    document.getElementById('modalEditarUsuario')?.remove();
+    alert('✅ Usuário excluído!');
+    carregarUsuarios();
+}
+
+async function salvarEdicaoUsuario(id) {
+    const modal = document.getElementById('modalEditarUsuario');
+    const novaSenha = document.getElementById('editSenha').value.trim();
+    const ativo = document.getElementById('editAtivo').checked;
+    const checkboxes = modal.querySelectorAll('input[type="checkbox"][value]');
+    const unidadesSelecionadas = [...checkboxes].filter(c => c.checked).map(c => c.value);
+
+    const updates = {
+        ativo,
+        unidades_permitidas: unidadesSelecionadas.length > 0 ? unidadesSelecionadas : null
+    };
+    if (novaSenha) updates.senha = novaSenha;
+
+    const { error } = await db.from('usuarios').update(updates).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+
+    modal.remove();
+    alert('✅ Usuário atualizado!');
+    carregarUsuarios();
+}
+
+function abrirModalNovoUsuario() {
+    const todasUnidades = [...new Set((CACHE_RESERVAS || []).map(r => r.unidade))].sort();
+    const checkboxes = todasUnidades.map(un => `
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer">
+            <input type="checkbox" value="${un}" style="width:16px;height:16px"> ${un}
+        </label>`).join('');
+
+    const modal = document.createElement('div');
+    modal.id = 'modalNovoUsuario';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    modal.innerHTML = `<div style="background:white;padding:30px;border-radius:12px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto">
+        <h3 style="margin-bottom:20px;color:var(--primary-dark)">Novo Usuário</h3>
+        <div class="form-group">
+            <label class="form-label">Usuário</label>
+            <input type="text" id="novoLogin" class="form-input" placeholder="Nome de usuário">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Senha</label>
+            <input type="password" id="novaSenhaUser" class="form-input" placeholder="Senha">
+        </div>
+        <div class="form-group">
+            <label class="form-label" style="margin-bottom:8px">Unidades Permitidas <span style="color:#888;font-size:12px">(vazio = todas)</span></label>
+            <div style="border:1px solid var(--border-color);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto">${checkboxes}</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:20px">
+            <button class="btn btn-primary" onclick="criarNovoUsuario()" style="flex:1">➕ Criar</button>
+            <button class="btn btn-link" onclick="document.getElementById('modalNovoUsuario').remove()">Cancelar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+}
+
+async function criarNovoUsuario() {
+    const modal = document.getElementById('modalNovoUsuario');
+    const login = document.getElementById('novoLogin').value.trim();
+    const senha = document.getElementById('novaSenhaUser').value.trim();
+    const checkboxes = modal.querySelectorAll('input[type="checkbox"][value]');
+    const unidades = [...checkboxes].filter(c => c.checked).map(c => c.value);
+
+    if (!login || !senha) { alert('Preencha usuário e senha'); return; }
+
+    const { error } = await db.from('usuarios').insert({
+        usuario: login,
+        senha,
+        tipo: 'viewer',
+        unidades_permitidas: unidades.length > 0 ? unidades : null,
+        ativo: true
+    });
+
+    if (error) { alert('Erro ao criar: ' + error.message); return; }
+    modal.remove();
+    alert('✅ Usuário criado!');
+    carregarUsuarios();
 }      
+
+// Substitui múltiplas tags de mês por um único badge compacto
+function atualizarTagsMeses() {
+    const $sel = $('#filtroMesesProprietarios');
+    if (!$sel.hasClass('select2-hidden-accessible')) return;
+    const vals = $sel.val() || [];
+    const $container = $sel.next('.select2-container');
+    const $choices = $container.find('.select2-selection__choice');
+    if (vals.length > 1 && $choices.length > 1) {
+        $choices.not(':first').hide();
+        const $first = $choices.first();
+        $first.find('.select2-selection__choice__display').text('📅 ' + vals.length + ' meses');
+        $first.show().css('max-width', '160px');
+    } else if (vals.length <= 1) {
+        $choices.show();
+    }
+}
+// Observa mudanças nos meses para atualizar badge
+$(document).on('change', '#filtroMesesProprietarios', function() {
+    setTimeout(atualizarTagsMeses, 10);
+});
 
        $(document).ready(async function () {
     // 1️⃣ Inicializa Select2
@@ -3874,6 +4219,7 @@ async function carregarDespesasSupabase() {
             };
         });
 
+        aplicarFiltroViewer();
         return CACHE_DESPESAS;
 
     } catch (err) {
@@ -4080,6 +4426,11 @@ function setupFiltrosDespesas() {
         placeholder: "Filtrar",
         allowClear: true
     });
+
+    // Auto-filtro: atualiza ao mudar qualquer seleção
+    $("#filtroDespesasAnos, #filtroDespesasMeses, #filtroDespesasUnidades").off('change.autofilter').on('change.autofilter', function() {
+        renderTabelaDespesasDetalhada();
+    });
 }
 
 function openUploadManualModal() {
@@ -4195,8 +4546,9 @@ async function salvarConfigProprietariosModal() {
         unidades.forEach(u => { mapaUnidades[u.nome] = u.id; });
         
         // 2️⃣ Apaga proprietários antigos
-        await db.from("proprietarios").delete().neq('id', 0);
-        
+        const { error: errDel } = await db.from("proprietarios").delete().not('id', 'is', null);
+        if (errDel) throw errDel;
+
         // 3️⃣ Insere novos
         const paraInserir = proprietarios
             .map(p => ({
@@ -4204,12 +4556,12 @@ async function salvarConfigProprietariosModal() {
                 nome: p.nome
             }))
             .filter(p => p.unidade_id);
-        
+
         if (paraInserir.length > 0) {
             const { error } = await db
                 .from("proprietarios")
-                .insert(paraInserir);
-            
+                .upsert(paraInserir, { onConflict: 'unidade_id' });
+
             if (error) throw error;
         }
         
