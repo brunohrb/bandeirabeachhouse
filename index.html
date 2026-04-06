@@ -845,8 +845,8 @@ function logout() {
 // ========================================
 // ===== 1️⃣ CONFIGURAÇÃO SUPABASE =====
 const db = window.supabase.createClient(
-    "https://daozgmiytfrwomxznjln.supabase.co",
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb3pnbWl5dGZyd29teHpuamxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMDY4NzMsImV4cCI6MjA5MDU4Mjg3M30.evEDpNDP5nFaxCDPqyhyWg2uxM9TvjsVKP0ujNqfQWs"
+    "https://vzdxhxbevewmbdnmetrj.supabase.co",
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6ZHhoeGJldmV3bWJkbm1ldHJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwOTI4MTgsImV4cCI6MjA4MzY2ODgxOH0.XRWZ66NkqYFM8qWPwBQD5D1veokAuNaWMSwjbG1a5RE"
 );
 
 // ===== 2️⃣ VARIÁVEIS GLOBAIS =====
@@ -1061,6 +1061,7 @@ async function salvarReservasNoSupabase(reservas) {
 
         // 4️⃣ Prepara dados para inserção
         const paraInserir = reservas.map(r => ({
+            id: crypto.randomUUID(),
             id_reserva: r.idReserva,
             unidade_id: mapaUnidades[r.unidade],
             ano: r.ano,
@@ -2964,6 +2965,7 @@ async function syncReservas() {
   const novas = reservasLocal
     .filter(r => !idsExistentes.has(r.idReserva))
     .map(r => ({
+      id: crypto.randomUUID(),
       id_reserva: r.idReserva,
       unidade_id: mapaUnidades[r.unidade],
       ano: r.ano,
@@ -3565,6 +3567,7 @@ async function syncReservas() {
   const novas = reservasLocal
     .filter(r => !idsExistentes.has(r.idReserva))
     .map(r => ({
+      id: crypto.randomUUID(),
       id_reserva: r.idReserva,
       unidade_id: mapaUnidades[r.unidade],
       ano: r.ano,
@@ -3843,6 +3846,7 @@ async function migrarParaSupabase() {
     // 3️⃣ Migra reservas
     console.log("💰 Migrando reservas...");
     const reservasParaInserir = reservasLocal.map(r => ({
+      id: crypto.randomUUID(),
       id_reserva: r.idReserva,
       unidade_id: mapaUnidades[r.unidade],
       ano: r.ano,
