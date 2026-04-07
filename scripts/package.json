@@ -1,0 +1,16 @@
+{
+  "name": "smoobu-sync",
+  "version": "1.0.0",
+  "description": "Daily Smoobu → Supabase sync for Bandeira Beach House",
+  "main": "smoobu-sync.js",
+  "scripts": {
+    "start": "node smoobu-sync.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
