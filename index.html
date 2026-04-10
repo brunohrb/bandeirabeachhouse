@@ -2416,12 +2416,28 @@ async function gerarMensagemLimpezaAuto() {
         anoProx = String(anoProx);
 
         // Buscar reservas do Supabase com dados detalhados
-        const { data: reservas, error } = await db
+        let reservas;
+        let { data: res1, error: err1 } = await db
             .from('reservas')
             .select('hospede, chegada, partida, num_hospedes, status, unidades!inner(nome)')
             .or(`and(ano.eq.${anoAtual},mes.eq.${mesAtual}),and(ano.eq.${anoProx},mes.eq.${mesProx})`);
 
-        if (error) throw new Error('Erro ao buscar: ' + error.message);
+        if (err1 && err1.message && err1.message.includes('column')) {
+            // Colunas extras ainda não existem — orientar o usuário
+            alert('⚠️ As colunas de detalhe (hospede, chegada, partida) ainda não existem no Supabase.\n\n' +
+                'Para ativar essa função, abra o Supabase → SQL Editor e execute:\n\n' +
+                'ALTER TABLE reservas ADD COLUMN IF NOT EXISTS hospede TEXT;\n' +
+                'ALTER TABLE reservas ADD COLUMN IF NOT EXISTS chegada DATE;\n' +
+                'ALTER TABLE reservas ADD COLUMN IF NOT EXISTS partida DATE;\n' +
+                'ALTER TABLE reservas ADD COLUMN IF NOT EXISTS num_hospedes INTEGER DEFAULT 1;\n\n' +
+                'Depois rode o "Run workflow" no GitHub Actions e tente novamente.');
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            return;
+        }
+
+        if (err1) throw new Error('Erro ao buscar: ' + err1.message);
+        reservas = res1;
 
         // Filtrar só ativas e com dados de limpeza
         const ativas = (reservas || []).filter(r =>
@@ -2429,7 +2445,9 @@ async function gerarMensagemLimpezaAuto() {
         );
 
         if (ativas.length === 0) {
-            alert('⚠️ Nenhuma reserva encontrada para o período.\n\nVerifique se o sync já rodou com as novas colunas (hospede, chegada, partida, num_hospedes).');
+            alert('⚠️ Nenhuma reserva encontrada com dados de limpeza.\n\n' +
+                'Verifique se o sync já rodou depois de criar as colunas no Supabase.\n' +
+                'Rode o "Run workflow" no GitHub Actions e tente novamente.');
             btn.innerHTML = textoOriginal;
             btn.disabled = false;
             return;
