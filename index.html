@@ -454,14 +454,9 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                             <input type="tel" id="whatsappLimpeza" class="form-input" placeholder="5585999999999">
                         </div>
                     </div>
-                    <div class="card">
-                        <h3>Preview da Mensagem</h3>
-                        <pre id="mensagemPreview" style="background: #f5f5f5; padding: 20px; border-radius: 8px; white-space: pre-wrap; font-size: 14px;"></pre>
-                        <div style="display: flex; gap: 12px; margin-top: 16px;">
-                            <button class="btn btn-primary" onclick="enviarWhatsApp()">📱 Enviar via WhatsApp</button>
-                            <button class="btn btn-outline" onclick="copiarMensagem()">📋 Copiar Texto</button>
-                        </div>
-                    </div>
+
+                    <!-- Container onde serão criados os cards de cada mês -->
+                    <div id="mensagensPorMes"></div>
                 </div>
 
                 <details style="margin-top: 16px;">
@@ -2470,17 +2465,25 @@ async function gerarMensagemLimpezaAuto() {
             porMes[chaveMes][unidade].push(r);
         });
 
+        // Garantir que os dois meses solicitados apareçam mesmo que vazios
+        if (!porMes[mesAnoAtual]) porMes[mesAnoAtual] = {};
+        if (!porMes[mesAnoProx])  porMes[mesAnoProx]  = {};
+
         // Ordenar meses
         const mesesOrdenados = Object.keys(porMes).sort();
 
         // Ordem das unidades
         const ordemUnidades = ["103", "201", "102", "2.7", "2.5", "104"];
 
-        let msg = '';
-        mesesOrdenados.forEach(chaveMes => {
+        // Construir uma mensagem SEPARADA por mês e criar um card para cada
+        const container = document.getElementById('mensagensPorMes');
+        container.innerHTML = '';
+
+        mesesOrdenados.forEach((chaveMes, idx) => {
             const [ano, mes] = chaveMes.split('-');
             const nomeMes = mesesNomes[parseInt(mes) - 1] || mes;
-            msg += `🟦 ${nomeMes} ${ano}\n\n`;
+
+            let msg = `🟦 ${nomeMes} ${ano}\n\n`;
 
             const unidades = Object.keys(porMes[chaveMes]).sort((a, b) => {
                 const idxA = ordemUnidades.findIndex(o => a.includes(o));
@@ -2491,24 +2494,48 @@ async function gerarMensagemLimpezaAuto() {
                 return a.localeCompare(b);
             });
 
-            unidades.forEach(unidade => {
-                msg += `🏢 ${unidade}\n\n`;
-
-                // Ordenar por data de chegada
-                porMes[chaveMes][unidade].sort((a, b) => (a.chegada || '').localeCompare(b.chegada || ''));
-
-                porMes[chaveMes][unidade].forEach(r => {
-                    const chegDia = r.chegada ? r.chegada.substring(8, 10) + '/' + r.chegada.substring(5, 7) : '--/--';
-                    const partDia = r.partida ? r.partida.substring(8, 10) + '/' + r.partida.substring(5, 7) : '--/--';
-                    const nome = r.hospede ? r.hospede.split(' ')[0] : '---';
-                    const pessoas = r.num_hospedes || 1;
-                    msg += `${chegDia} a ${partDia} ${nome} ${pessoas}p\n`;
+            if (unidades.length === 0) {
+                msg += '(sem reservas)\n';
+            } else {
+                unidades.forEach(unidade => {
+                    msg += `🏢 ${unidade}\n\n`;
+                    porMes[chaveMes][unidade].sort((a, b) => (a.chegada || '').localeCompare(b.chegada || ''));
+                    porMes[chaveMes][unidade].forEach(r => {
+                        const chegDia = r.chegada ? r.chegada.substring(8, 10) + '/' + r.chegada.substring(5, 7) : '--/--';
+                        const partDia = r.partida ? r.partida.substring(8, 10) + '/' + r.partida.substring(5, 7) : '--/--';
+                        const nome = r.hospede ? r.hospede.split(' ')[0] : '---';
+                        const pessoas = r.num_hospedes || 1;
+                        msg += `${chegDia} a ${partDia} ${nome} ${pessoas}p\n`;
+                    });
+                    msg += '\n';
                 });
-                msg += '\n';
-            });
+            }
+
+            const msgFinal = msg.trim();
+            const idArea = `msg-${chaveMes}`;
+
+            // Criar card do mês
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <h3 style="margin-bottom: 12px;">🟦 ${nomeMes} ${ano}</h3>
+                <pre id="${idArea}" style="background: #f5f5f5; padding: 20px; border-radius: 8px; white-space: pre-wrap; font-size: 14px; margin: 0;"></pre>
+                <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" data-msgid="${idArea}">📱 Enviar via WhatsApp</button>
+                    <button class="btn btn-outline" data-msgid="${idArea}">📋 Copiar Texto</button>
+                </div>
+            `;
+            container.appendChild(card);
+
+            // Preencher texto (textContent evita injeção HTML)
+            document.getElementById(idArea).textContent = msgFinal;
+
+            // Ligar botões
+            const [btnWhats, btnCopy] = card.querySelectorAll('button');
+            btnWhats.onclick = () => enviarWhatsAppTexto(msgFinal);
+            btnCopy.onclick  = () => copiarTexto(msgFinal);
         });
 
-        document.getElementById('mensagemPreview').textContent = msg.trim();
         document.getElementById('reservasPreview').style.display = 'block';
 
         btn.innerHTML = textoOriginal;
@@ -2520,6 +2547,26 @@ async function gerarMensagemLimpezaAuto() {
         btn.innerHTML = textoOriginal;
         btn.disabled = false;
     }
+}
+
+function enviarWhatsAppTexto(texto) {
+    const numero = document.getElementById('whatsappLimpeza').value;
+    if (!numero) { alert('⚠️ Digite o número do WhatsApp!'); return; }
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
+}
+
+function copiarTexto(texto) {
+    navigator.clipboard.writeText(texto).then(() => {
+        alert('✅ Mensagem copiada!');
+    }).catch(() => {
+        const el = document.createElement('textarea');
+        el.value = texto;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        alert('✅ Mensagem copiada!');
+    });
 }
 
 function copiarMensagem() {
