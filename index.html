@@ -2416,11 +2416,15 @@ async function gerarMensagemLimpezaAuto() {
         anoProx = String(anoProx);
 
         // Buscar reservas do Supabase com dados detalhados
+        // Usa mes_ano (formato YYYY-MM) para filtrar mês atual + próximo mês
+        const mesAnoAtual = `${anoAtual}-${mesAtual}`;
+        const mesAnoProx  = `${anoProx}-${mesProx}`;
+
         let reservas;
         let { data: res1, error: err1 } = await db
             .from('reservas')
             .select('hospede, chegada, partida, num_hospedes, status, unidades!inner(nome)')
-            .or(`and(ano.eq.${anoAtual},mes.eq.${mesAtual}),and(ano.eq.${anoProx},mes.eq.${mesProx})`);
+            .in('mes_ano', [mesAnoAtual, mesAnoProx]);
 
         if (err1 && err1.message && err1.message.includes('column')) {
             // Colunas extras ainda não existem — orientar o usuário
