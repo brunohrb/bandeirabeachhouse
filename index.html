@@ -436,9 +436,44 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 </div>
 
             <div id="reservas" class="page">
-                <div class="page-header"><h2>Gerador de Mensagem para Limpeza</h2></div>
-                <div class="card"><div class="upload-area" onclick="document.getElementById('reservasFileInput').click()"><input type="file" id="reservasFileInput" accept=".xlsx,.xls" onchange="processarReservasFuturas(this.files[0])"><div style="font-size: 48px; margin-bottom: 16px;">📅</div><h3>Selecione o arquivo de reservas futuras</h3></div></div>
-                <div id="reservasPreview" style="display:none;"><div class="card"><div class="form-group"><label class="form-label">Número WhatsApp (com DDD)</label><input type="tel" id="whatsappLimpeza" class="form-input" placeholder="5585999999999"></div></div><div class="card"><h3>Preview da Mensagem</h3><pre id="mensagemPreview" style="background: #f5f5f5; padding: 20px; border-radius: 8px;"></pre><button class="btn btn-primary" style="margin-top: 16px;" onclick="enviarWhatsApp()">📱 Enviar via WhatsApp</button></div></div>
+                <div class="page-header"><h2>🧹 Gerador de Mensagem para Limpeza</h2></div>
+
+                <div class="card">
+                    <p style="color: var(--text-light); margin-bottom: 16px; font-size: 14px;">
+                        Gera automaticamente a lista de reservas do mês atual e próximo mês para enviar à equipe de limpeza via WhatsApp.
+                    </p>
+                    <button class="btn btn-primary" id="btnGerarLimpeza" onclick="gerarMensagemLimpezaAuto()" style="font-size: 16px; padding: 14px 28px;">
+                        🧹 Gerar Mensagem de Limpeza
+                    </button>
+                </div>
+
+                <div id="reservasPreview" style="display:none;">
+                    <div class="card">
+                        <div class="form-group">
+                            <label class="form-label">Número WhatsApp (com DDD)</label>
+                            <input type="tel" id="whatsappLimpeza" class="form-input" placeholder="5585999999999">
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Preview da Mensagem</h3>
+                        <pre id="mensagemPreview" style="background: #f5f5f5; padding: 20px; border-radius: 8px; white-space: pre-wrap; font-size: 14px;"></pre>
+                        <div style="display: flex; gap: 12px; margin-top: 16px;">
+                            <button class="btn btn-primary" onclick="enviarWhatsApp()">📱 Enviar via WhatsApp</button>
+                            <button class="btn btn-outline" onclick="copiarMensagem()">📋 Copiar Texto</button>
+                        </div>
+                    </div>
+                </div>
+
+                <details style="margin-top: 16px;">
+                    <summary style="cursor: pointer; color: var(--text-light); font-size: 13px;">📁 Upload manual (Excel) — opção antiga</summary>
+                    <div class="card" style="margin-top: 12px;">
+                        <div class="upload-area" onclick="document.getElementById('reservasFileInput').click()">
+                            <input type="file" id="reservasFileInput" accept=".xlsx,.xls" onchange="processarReservasFuturas(this.files[0])">
+                            <div style="font-size: 48px; margin-bottom: 16px;">📅</div>
+                            <h3>Selecione o arquivo de reservas futuras</h3>
+                        </div>
+                    </div>
+                </details>
             </div>
             <div id="proprietarios" class="page">
 <div class="page-header">
@@ -2360,6 +2395,126 @@ async function excluirDespesa(id) {
     renderViews();
     renderTabelaDespesasDetalhada();
 }        
+
+async function gerarMensagemLimpezaAuto() {
+    const btn = document.getElementById('btnGerarLimpeza');
+    const textoOriginal = btn.innerHTML;
+
+    try {
+        btn.innerHTML = '⏳ Buscando reservas...';
+        btn.disabled = true;
+
+        // Mês atual e próximo
+        const hoje = new Date();
+        const mesAtual = String(hoje.getMonth() + 1).padStart(2, '0');
+        const anoAtual = String(hoje.getFullYear());
+
+        let mesProx = hoje.getMonth() + 2;
+        let anoProx = hoje.getFullYear();
+        if (mesProx > 12) { mesProx = 1; anoProx++; }
+        mesProx = String(mesProx).padStart(2, '0');
+        anoProx = String(anoProx);
+
+        // Buscar reservas do Supabase com dados detalhados
+        const { data: reservas, error } = await db
+            .from('reservas')
+            .select('hospede, chegada, partida, num_hospedes, status, unidades!inner(nome)')
+            .or(`and(ano.eq.${anoAtual},mes.eq.${mesAtual}),and(ano.eq.${anoProx},mes.eq.${mesProx})`);
+
+        if (error) throw new Error('Erro ao buscar: ' + error.message);
+
+        // Filtrar só ativas e com dados de limpeza
+        const ativas = (reservas || []).filter(r =>
+            r.status !== 'cancelada' && r.status !== 'canceled' && r.chegada
+        );
+
+        if (ativas.length === 0) {
+            alert('⚠️ Nenhuma reserva encontrada para o período.\n\nVerifique se o sync já rodou com as novas colunas (hospede, chegada, partida, num_hospedes).');
+            btn.innerHTML = textoOriginal;
+            btn.disabled = false;
+            return;
+        }
+
+        // Agrupar por mês e depois por unidade
+        const mesesNomes = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+        const porMes = {};
+
+        ativas.forEach(r => {
+            const [aCheg, mCheg] = r.chegada.split('-');
+            const chaveMes = `${aCheg}-${mCheg}`;
+            if (!porMes[chaveMes]) porMes[chaveMes] = {};
+            const unidade = r.unidades.nome;
+            if (!porMes[chaveMes][unidade]) porMes[chaveMes][unidade] = [];
+            porMes[chaveMes][unidade].push(r);
+        });
+
+        // Ordenar meses
+        const mesesOrdenados = Object.keys(porMes).sort();
+
+        // Ordem das unidades
+        const ordemUnidades = ["103", "201", "102", "2.7", "2.5", "104"];
+
+        let msg = '';
+        mesesOrdenados.forEach(chaveMes => {
+            const [ano, mes] = chaveMes.split('-');
+            const nomeMes = mesesNomes[parseInt(mes) - 1] || mes;
+            msg += `🟦 ${nomeMes} ${ano}\n\n`;
+
+            const unidades = Object.keys(porMes[chaveMes]).sort((a, b) => {
+                const idxA = ordemUnidades.findIndex(o => a.includes(o));
+                const idxB = ordemUnidades.findIndex(o => b.includes(o));
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            unidades.forEach(unidade => {
+                msg += `🏢 ${unidade}\n\n`;
+
+                // Ordenar por data de chegada
+                porMes[chaveMes][unidade].sort((a, b) => (a.chegada || '').localeCompare(b.chegada || ''));
+
+                porMes[chaveMes][unidade].forEach(r => {
+                    const chegDia = r.chegada ? r.chegada.substring(8, 10) + '/' + r.chegada.substring(5, 7) : '--/--';
+                    const partDia = r.partida ? r.partida.substring(8, 10) + '/' + r.partida.substring(5, 7) : '--/--';
+                    const nome = r.hospede ? r.hospede.split(' ')[0] : '---';
+                    const pessoas = r.num_hospedes || 1;
+                    msg += `${chegDia} a ${partDia} ${nome} ${pessoas}p\n`;
+                });
+                msg += '\n';
+            });
+        });
+
+        document.getElementById('mensagemPreview').textContent = msg.trim();
+        document.getElementById('reservasPreview').style.display = 'block';
+
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+
+    } catch (err) {
+        console.error('Erro gerar mensagem:', err);
+        alert('❌ Erro: ' + err.message);
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+    }
+}
+
+function copiarMensagem() {
+    const texto = document.getElementById('mensagemPreview').textContent;
+    navigator.clipboard.writeText(texto).then(() => {
+        alert('✅ Mensagem copiada!');
+    }).catch(() => {
+        // Fallback para navegadores sem clipboard API
+        const el = document.createElement('textarea');
+        el.value = texto;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        alert('✅ Mensagem copiada!');
+    });
+}
 
         function processarReservasFuturas(e){
             if(!e)return;

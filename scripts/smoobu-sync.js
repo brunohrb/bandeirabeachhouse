@@ -173,11 +173,20 @@ function processReservation(r) {
     const comissao = parseFloat(r.commission ?? r.channelCommission ?? r['commission-amount'] ?? 0) || 0;
     const nomeUnidade = (r.apartment?.name ?? r.unit?.name ?? r.property?.name ?? 'N/A').trim();
 
+    // Dados extras para reservas futuras / mensagem de limpeza
+    const hospede = (r['guest-name'] ?? r.guestName ?? r.guest_name ?? r.firstname ?? '').trim() || null;
+    const chegada = arrivalStr || null; // YYYY-MM-DD
+    const partida = (r.departure ?? r['check-out'] ?? r.checkOut ?? '').trim() || null;
+    const adultos = parseInt(r.adults ?? r.adultos ?? 0) || 0;
+    const criancas = parseInt(r.children ?? r.criancas ?? 0) || 0;
+    const numHospedes = (adultos + criancas) || 1;
+
     return {
         idReserva: String(r.id).trim(), unidade: nomeUnidade,
         ano, mes, mesAno: `${ano}-${mes}`,
         receita, comissao, comissaoPortais: comissao, comissaoShortStay: 0,
-        status: isCancelled ? 'cancelada' : 'ativa'
+        status: isCancelled ? 'cancelada' : 'ativa',
+        hospede, chegada, partida, numHospedes
     };
 }
 
@@ -224,7 +233,9 @@ async function main() {
             unidade_id: encontrarUnidadeId(r.unidade, mapaExato, mapaNormalizado, unidades),
             ano: r.ano, mes: r.mes, mes_ano: r.mesAno,
             receita: r.receita, comissao_portais: r.comissao ?? 0,
-            comissao_short_stay: r.comissaoShortStay ?? 0, status: r.status ?? 'ativa'
+            comissao_short_stay: r.comissaoShortStay ?? 0, status: r.status ?? 'ativa',
+            hospede: r.hospede, chegada: r.chegada, partida: r.partida,
+            num_hospedes: r.numHospedes
         }))
         .filter(r => r.unidade_id);
 
