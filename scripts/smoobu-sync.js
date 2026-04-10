@@ -129,9 +129,15 @@ async function fetchSmoobuReservations() {
             totalPages = data.page_count ?? 1;
             console.log(`📊 ${data.total_items ?? '?'} reservas (${totalPages} página(s))`);
 
+            // Se a API retorna um campo diferente de "reservations"
+            if (!data.reservations && data.bookings) {
+                console.log('⚠️ API retornou "bookings" em vez de "reservations" — usando bookings');
+            }
+
             // Log detalhado da primeira reserva para debug de campos
-            if (data.reservations?.length > 0) {
-                const sample = data.reservations[0];
+            const items0 = data.reservations ?? data.bookings ?? [];
+            if (items0.length > 0) {
+                const sample = items0[0];
                 console.log('🔍 Campos da API:', Object.keys(sample).join(', '));
                 console.log('🔍 Exemplo — id:', sample.id,
                     '| arrival:', sample.arrival,
@@ -139,11 +145,6 @@ async function fetchSmoobuReservations() {
                     '| price:', sample.price,
                     '| commission:', sample.commission,
                     '| apartment:', JSON.stringify(sample.apartment));
-            }
-
-            // Se a API retorna um campo diferente de "reservations"
-            if (!data.reservations && data.bookings) {
-                console.log('⚠️ API retornou "bookings" em vez de "reservations" — usando bookings');
             }
         }
 
