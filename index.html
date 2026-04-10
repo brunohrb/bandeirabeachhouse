@@ -325,9 +325,8 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
     <div class="flex gap-16" style="margin-bottom: 24px;">
         <button class="btn btn-primary" id="btn-view-cards" onclick="setViewMode('cards')">📊 Cards</button>
         <button class="btn btn-secondary" id="btn-view-lista" onclick="setViewMode('lista')">📄 Lista</button>
-        <button class="btn btn-outline" onclick="atualizarDoSmoobuViaDownload()">🔄 Smoobu</button>
         <button class="btn btn-outline-secondary" onclick="openUploadManualModal()">Movi</button>
-        <button class="btn btn-outline" id="btnSyncSmoobu" onclick="sincronizarSmoobuAgora()" style="background:#e8f5e9;border:1px solid #28a745;color:#28a745;">🔄 Sincronizar</button>
+        <button class="btn btn-outline" id="btnSyncSmoobu" onclick="sincronizarSmoobuAgora()" style="background:#e8f5e9;border:1px solid #28a745;color:#28a745;">🔄 Sincronizar Smoobu</button>
     </div>
     
     <div id="view-cards"><div id="indicadores-gerais" class="indicadores-grid"></div></div>
@@ -552,6 +551,15 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
             </div>
         </div>
     </div>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom: 20px;">🔄 Importação Manual Smoobu</h3>
+        <p style="color: var(--text-light); margin-bottom: 20px; font-size: 14px;">
+            O sistema sincroniza automaticamente com o Smoobu de hora em hora (8h às 20h).
+            Use o botão abaixo apenas se precisar baixar o arquivo Excel do Smoobu manualmente.
+        </p>
+        <button class="btn btn-outline" onclick="atualizarDoSmoobuViaDownload()">📥 Baixar Excel do Smoobu</button>
     </div>
 
     <div id="card-gerenciar-usuarios" class="card">
@@ -844,10 +852,7 @@ function mostrarSistema() {
         showPage("financeiro", document.querySelector('.menu-item[onclick*="financeiro"]'));
         setViewMode("cards");
 
-        const isMobile = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
-        if (tipo !== 'viewer' && !isMobile) {
-            verificarAtualizacaoAutomatica();
-        }
+        // Sync automático agora é feito via GitHub Actions (de hora em hora)
     });
 }
 function logout() {
