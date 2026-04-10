@@ -2,19 +2,7 @@ name: Smoobu Daily Sync
 
 on:
   schedule:
-    - cron: '0 11 * * *'  #  8h São Paulo
-    - cron: '0 12 * * *'  #  9h São Paulo
-    - cron: '0 13 * * *'  # 10h São Paulo
-    - cron: '0 14 * * *'  # 11h São Paulo
-    - cron: '0 15 * * *'  # 12h São Paulo
-    - cron: '0 16 * * *'  # 13h São Paulo
-    - cron: '0 17 * * *'  # 14h São Paulo
-    - cron: '0 18 * * *'  # 15h São Paulo
-    - cron: '0 19 * * *'  # 16h São Paulo
-    - cron: '0 20 * * *'  # 17h São Paulo
-    - cron: '0 21 * * *'  # 18h São Paulo
-    - cron: '0 22 * * *'  # 19h São Paulo
-    - cron: '0 23 * * *'  # 20h São Paulo
+    - cron: '0 11-23 * * *'  # A cada hora das 8h às 20h São Paulo (11h-23h UTC)
   workflow_dispatch:  # Permite rodar manualmente pela interface do GitHub
 
 jobs:
