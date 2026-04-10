@@ -227,16 +227,26 @@ async function main() {
     console.log(`🏠 Unidades Smoobu (${nomesSmoobu.length}): ${nomesSmoobu.join(', ')}`);
 
     // 3. Preparar dados para inserção (antes de deletar!)
-    const paraInserir = reservasNovas
-        .map(r => ({
+    function montarRegistro(r, comDetalhes) {
+        const base = {
             id: randomUUID(), id_reserva: r.idReserva,
             unidade_id: encontrarUnidadeId(r.unidade, mapaExato, mapaNormalizado, unidades),
             ano: r.ano, mes: r.mes, mes_ano: r.mesAno,
             receita: r.receita, comissao_portais: r.comissao ?? 0,
-            comissao_short_stay: r.comissaoShortStay ?? 0, status: r.status ?? 'ativa',
-            hospede: r.hospede, chegada: r.chegada, partida: r.partida,
-            num_hospedes: r.numHospedes
-        }))
+            comissao_short_stay: r.comissaoShortStay ?? 0, status: r.status ?? 'ativa'
+        };
+        if (comDetalhes) {
+            base.hospede = r.hospede;
+            base.chegada = r.chegada;
+            base.partida = r.partida;
+            base.num_hospedes = r.numHospedes;
+        }
+        return base;
+    }
+
+    let usarDetalhes = true;
+    const paraInserir = reservasNovas
+        .map(r => montarRegistro(r, true))
         .filter(r => r.unidade_id);
 
     const ignoradas = reservasNovas.length - paraInserir.length;
@@ -267,13 +277,30 @@ async function main() {
         if (t > 0) console.log(`  🗑️ ${t} apagadas de "${u.nome}"`);
     }
 
-    // 5. Inserir em lotes
+    // 5. Inserir em lotes (tenta com detalhes, se falhar tenta sem)
     console.log(`📝 ${paraInserir.length} para inserir`);
-    for (let i = 0; i < paraInserir.length; i += 500) {
-        const lote = paraInserir.slice(i, i + 500);
-        const { error: e } = await db.from('reservas').insert(lote);
-        if (e) throw new Error('Erro inserir lote: ' + e.message);
-        console.log(`  ✅ ${Math.min(i + 500, paraInserir.length)}/${paraInserir.length}`);
+
+    async function inserirLotes(dados) {
+        for (let i = 0; i < dados.length; i += 500) {
+            const lote = dados.slice(i, i + 500);
+            const { error: e } = await db.from('reservas').insert(lote);
+            if (e) throw e;
+            console.log(`  ✅ ${Math.min(i + 500, dados.length)}/${dados.length}`);
+        }
+    }
+
+    try {
+        await inserirLotes(paraInserir);
+    } catch (e) {
+        if (e.message && e.message.includes('column') && usarDetalhes) {
+            console.log('⚠️ Colunas extras (hospede/chegada/partida) não existem no Supabase. Inserindo sem elas...');
+            const semDetalhes = reservasNovas
+                .map(r => montarRegistro(r, false))
+                .filter(r => r.unidade_id);
+            await inserirLotes(semDetalhes);
+        } else {
+            throw new Error('Erro inserir lote: ' + e.message);
+        }
     }
 
     console.log(`🎉 Concluído! ${paraInserir.length} reservas sincronizadas.`);
