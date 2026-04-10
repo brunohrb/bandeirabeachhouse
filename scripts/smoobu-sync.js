@@ -24,6 +24,50 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 /**
+ * Normaliza nome de unidade para comparação flexível.
+ * Ex: "apto 104 -G" → "apto 104-g"
+ *     "Apto 103-F"  → "apto 103-f"
+ *     "Casa 2.7"    → "casa 2.7"
+ */
+function normalizarNome(nome) {
+    return (nome || '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')   // múltiplos espaços → 1
+        .replace(/\s*-\s*/g, '-') // espaço ao redor de traço
+        .trim();
+}
+
+/**
+ * Encontra o unidade_id no Supabase que melhor corresponde ao nome do Smoobu.
+ * 1) Tenta match exato
+ * 2) Tenta match normalizado (case-insensitive, espaços)
+ * 3) Tenta match pelo número da unidade (ex: "103" contido no nome)
+ */
+function encontrarUnidadeId(nomeSmoobu, mapaExato, mapaNormalizado, unidades) {
+    // 1) Exato
+    if (mapaExato[nomeSmoobu]) return mapaExato[nomeSmoobu];
+
+    // 2) Normalizado
+    const norm = normalizarNome(nomeSmoobu);
+    if (mapaNormalizado[norm]) return mapaNormalizado[norm];
+
+    // 3) Extrair número/identificador e tentar match parcial
+    // "Apto 103-F" → procura unidade que contenha "103"
+    // "Casa 2.7"   → procura unidade que contenha "2.7"
+    const numMatch = nomeSmoobu.match(/(\d+(?:\.\d+)?)/);
+    if (numMatch) {
+        const num = numMatch[1];
+        const found = unidades.find(u => {
+            const uNum = u.nome.match(/(\d+(?:\.\d+)?)/);
+            return uNum && uNum[1] === num;
+        });
+        if (found) return found.id;
+    }
+
+    return null;
+}
+
+/**
  * Fetch com retry + exponential backoff.
  * Tenta até `retries` vezes com delays de 2s, 4s, 8s…
  */
@@ -159,15 +203,24 @@ async function main() {
         .from('unidades').select('id, nome').not('nome', 'ilike', '%Movi%');
     if (errUn) throw new Error('Erro unidades: ' + errUn.message);
 
-    const mapaUnidades = {};
-    unidades.forEach(u => { mapaUnidades[u.nome] = u.id; });
-    console.log(`🏠 Unidades (${unidades.length}): ${unidades.map(u => u.nome).join(', ')}`);
+    // Mapas para matching flexível de nomes
+    const mapaExato = {};
+    const mapaNormalizado = {};
+    unidades.forEach(u => {
+        mapaExato[u.nome] = u.id;
+        mapaNormalizado[normalizarNome(u.nome)] = u.id;
+    });
+    console.log(`🏠 Unidades Supabase (${unidades.length}): ${unidades.map(u => u.nome).join(', ')}`);
+
+    // Log dos nomes Smoobu para comparação
+    const nomesSmoobu = [...new Set(reservasNovas.map(r => r.unidade))];
+    console.log(`🏠 Unidades Smoobu (${nomesSmoobu.length}): ${nomesSmoobu.join(', ')}`);
 
     // 3. Preparar dados para inserção (antes de deletar!)
     const paraInserir = reservasNovas
         .map(r => ({
             id: randomUUID(), id_reserva: r.idReserva,
-            unidade_id: mapaUnidades[r.unidade],
+            unidade_id: encontrarUnidadeId(r.unidade, mapaExato, mapaNormalizado, unidades),
             ano: r.ano, mes: r.mes, mes_ano: r.mesAno,
             receita: r.receita, comissao_portais: r.comissao ?? 0,
             comissao_short_stay: r.comissaoShortStay ?? 0, status: r.status ?? 'ativa'
@@ -176,7 +229,9 @@ async function main() {
 
     const ignoradas = reservasNovas.length - paraInserir.length;
     if (ignoradas > 0) {
-        const nomes = [...new Set(reservasNovas.filter(r => !mapaUnidades[r.unidade]).map(r => r.unidade))];
+        const nomes = [...new Set(reservasNovas.filter(r =>
+            !encontrarUnidadeId(r.unidade, mapaExato, mapaNormalizado, unidades)
+        ).map(r => r.unidade))];
         console.log(`⚠️ ${ignoradas} ignoradas (sem mapeamento): ${nomes.join(', ')}`);
     }
 
