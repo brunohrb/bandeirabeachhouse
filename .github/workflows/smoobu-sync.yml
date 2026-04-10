@@ -2,12 +2,14 @@ name: Smoobu Daily Sync
 
 on:
   schedule:
-    - cron: '0 9 * * *'  # 9h UTC = 6h São Paulo (horário de verão) / 9h (horário padrão)
+    - cron: '0 9 * * *'   # 9h UTC = 6h São Paulo (verão) / 6h (padrão)
+    - cron: '0 21 * * *'  # 21h UTC — segunda sync diária para pegar atualizações do dia
   workflow_dispatch:  # Permite rodar manualmente pela interface do GitHub
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository

@@ -2,8 +2,26 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Bandeira Stay Manager</title>
+    <meta name="description" content="Bandeira Stay - Sistema de gestão de reservas">
+    <meta name="theme-color" content="#2d7a7a">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- iOS Safari — atalho na home screen com ícone Bandeira Stay -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Bandeira Stay">
+    <link rel="apple-touch-icon" href="logo-nobg.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="logo-nobg.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="logo-nobg.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="logo-nobg.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="logo-nobg.png">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
@@ -233,10 +251,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 }
 
 </style>
-
-</style>
 </head>
-<body>
 <body>
     <!-- 🔐 TELA DE LOGIN -->
     <div id="telaLogin" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #2d7a7a 0%, #1a4d4d 100%);">
@@ -4811,5 +4826,16 @@ function fecharHistoricoAnual() {
         <div id="historicoAnualConteudo"></div>
     </div>
 </div>
+
+<!-- Service Worker para PWA -->
+<script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('service-worker.js')
+            .then(function(reg) { console.log('SW registrado:', reg.scope); })
+            .catch(function(err) { console.log('SW erro:', err); });
+    });
+}
+</script>
 </body>
 </html>
