@@ -327,6 +327,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
         <button class="btn btn-secondary" id="btn-view-lista" onclick="setViewMode('lista')">📄 Lista</button>
         <button class="btn btn-outline" onclick="atualizarDoSmoobuViaDownload()">🔄 Smoobu</button>
         <button class="btn btn-outline-secondary" onclick="openUploadManualModal()">Movi</button>
+        <button class="btn btn-outline" id="btnSyncSmoobu" onclick="sincronizarSmoobuAgora()" style="background:#e8f5e9;border:1px solid #28a745;color:#28a745;">🔄 Sincronizar</button>
     </div>
     
     <div id="view-cards"><div id="indicadores-gerais" class="indicadores-grid"></div></div>
@@ -3102,6 +3103,53 @@ function verificarAtualizacaoAutomatica() {
     }
 }
 
+
+async function sincronizarSmoobuAgora() {
+    const btn = document.getElementById('btnSyncSmoobu');
+    const textoOriginal = btn.innerHTML;
+
+    try {
+        // 1. Mostrar loading
+        btn.innerHTML = '⏳ Sincronizando...';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+
+        // 2. Recarregar dados do Supabase
+        await carregarReservasSupabase();
+
+        // 3. Re-renderizar a tela
+        await renderViews();
+
+        // 4. Mostrar sucesso
+        const agora = new Date();
+        const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        btn.innerHTML = `✅ Atualizado ${hora}`;
+        btn.style.background = '#d4edda';
+        btn.style.color = '#155724';
+
+        setTimeout(() => {
+            btn.innerHTML = textoOriginal;
+            btn.style.background = '#e8f5e9';
+            btn.style.color = '#28a745';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }, 3000);
+
+    } catch (err) {
+        console.error('Erro ao sincronizar:', err);
+        btn.innerHTML = '❌ Erro - tente novamente';
+        btn.style.background = '#f8d7da';
+        btn.style.color = '#721c24';
+
+        setTimeout(() => {
+            btn.innerHTML = textoOriginal;
+            btn.style.background = '#e8f5e9';
+            btn.style.color = '#28a745';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }, 3000);
+    }
+}
 
 function atualizarDoSmoobuViaDownload(motivo = "manual") {
 
