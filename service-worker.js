@@ -45,6 +45,52 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
+// Push: receber notificação quando app está fechado
+self.addEventListener('push', (event) => {
+    const data = event.data ? event.data.json() : {};
+    const title = data.title || 'Bandeira Stay';
+    const options = {
+        body: data.body || '',
+        icon: '/logo-nobg.png',
+        badge: '/logo-nobg.png',
+        tag: data.tag || 'bandeira-notif',
+        renotify: true,
+        data: data.payload || {},
+        actions: data.type === 'message' ? [
+            { action: 'reply', title: '↩ Responder' },
+            { action: 'dismiss', title: 'Fechar' }
+        ] : []
+    };
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Clique na notificação → abrir app na tab correta
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const payload = event.notification.data || {};
+    const action = event.action;
+
+    if (action === 'dismiss') return;
+
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            const existing = clientList.find(c => c.url && c.url.includes(self.location.origin));
+            if (existing) {
+                existing.focus();
+                if (payload.type === 'message') {
+                    existing.postMessage({ type: 'MSG_CLICK', dados: payload });
+                }
+            } else {
+                self.clients.openWindow('/').then(win => {
+                    if (win && payload.type === 'message') {
+                        setTimeout(() => win.postMessage({ type: 'MSG_CLICK', dados: payload }), 1500);
+                    }
+                });
+            }
+        })
+    );
+});
+
 // Fetch: network-first para API, cache-first para assets
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);

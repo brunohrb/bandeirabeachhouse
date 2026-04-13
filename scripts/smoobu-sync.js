@@ -181,12 +181,15 @@ function processReservation(r) {
     const criancas = parseInt(r.children ?? r.criancas ?? 0) || 0;
     const numHospedes = (adultos + criancas) || 1;
 
+    // Canal/portal de origem (Booking.com, Airbnb, etc.)
+    const canal = (r.channel?.name ?? r['channel-name'] ?? r.channelName ?? '').trim() || 'Direto';
+
     return {
         idReserva: String(r.id).trim(), unidade: nomeUnidade,
         ano, mes, mesAno: `${ano}-${mes}`,
         receita, comissao, comissaoPortais: comissao, comissaoShortStay: 0,
         status: isCancelled ? 'cancelada' : 'ativa',
-        hospede, chegada, partida, numHospedes
+        hospede, chegada, partida, numHospedes, canal
     };
 }
 
@@ -240,6 +243,7 @@ async function main() {
             base.chegada = r.chegada;
             base.partida = r.partida;
             base.num_hospedes = r.numHospedes;
+            base.canal = r.canal;
         }
         return base;
     }
@@ -269,9 +273,10 @@ async function main() {
     console.log(`🗑️ Apagando reservas de ${anoAtual} e ${anoProximo}...`);
 
     for (const u of unidades) {
+        // Preservar reservas manuais/bloqueios (id_reserva começa com 'manual-')
         const [{ data: d1 }, { data: d2 }] = await Promise.all([
-            db.from('reservas').delete().eq('unidade_id', u.id).eq('ano', String(anoAtual)).select(),
-            db.from('reservas').delete().eq('unidade_id', u.id).eq('ano', String(anoProximo)).select()
+            db.from('reservas').delete().eq('unidade_id', u.id).eq('ano', String(anoAtual)).not('id_reserva', 'like', 'manual-%').select(),
+            db.from('reservas').delete().eq('unidade_id', u.id).eq('ano', String(anoProximo)).not('id_reserva', 'like', 'manual-%').select()
         ]);
         const t = (d1?.length ?? 0) + (d2?.length ?? 0);
         if (t > 0) console.log(`  🗑️ ${t} apagadas de "${u.nome}"`);
