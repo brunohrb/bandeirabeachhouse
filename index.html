@@ -1138,9 +1138,21 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
             <span class="contatos-filtro-chip" onclick="contatoFiltro('mes-atual')">📊 Todos do mes</span>
             <span class="contatos-filtro-chip" onclick="contatoFiltro('recorrentes')">🔄 Recorrentes (2+)</span>
             <span class="contatos-filtro-chip" onclick="contatoFiltro('inativos')">💤 Inativos (+6 meses)</span>
-            <span class="contatos-filtro-chip canal-booking" onclick="contatoFiltro('booking')">Booking</span>
-            <span class="contatos-filtro-chip canal-airbnb" onclick="contatoFiltro('airbnb')">Airbnb</span>
-            <span class="contatos-filtro-chip canal-direto" onclick="contatoFiltro('direto')">Direto</span>
+            <span class="contatos-filtro-chip canal-booking" data-canal="booking" onclick="contatoToggleCanal(this,'booking')">Booking</span>
+            <span class="contatos-filtro-chip canal-airbnb" data-canal="airbnb" onclick="contatoToggleCanal(this,'airbnb')">Airbnb</span>
+            <span class="contatos-filtro-chip canal-direto" data-canal="direto" onclick="contatoToggleCanal(this,'direto')">Direto</span>
+            <span style="color:#aaa;font-size:11px;padding:5px 4px;">|</span>
+            <select id="contatoFiltroMes" onchange="contatoFiltroPeriodo()" style="padding:5px 8px;border:1.5px solid #e0e0e0;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;outline:none;color:#555;background:#fff;">
+                <option value="">📅 Mes...</option>
+                <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Marco</option>
+                <option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option>
+                <option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option>
+                <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+            </select>
+            <select id="contatoFiltroAno" onchange="contatoFiltroPeriodo()" style="padding:5px 8px;border:1.5px solid #e0e0e0;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;outline:none;color:#555;background:#fff;">
+                <option value="">📆 Ano...</option>
+                <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+            </select>
         </div>
 
         <!-- Barra de envio em massa -->
@@ -7512,6 +7524,7 @@ function fecharHistoricoAnual() {
     let contatoMenuAberto = null; // índice do menu aberto
     let contatosSelecionados = new Set(); // indices selecionados para envio em massa
     let contatoFiltroAtual = 'todos';
+    let contatoCanaisSelecionados = new Set(); // canais multi-seleção
 
     const AVATAR_CORES = ['#1976D2','#E53935','#43A047','#FB8C00','#8E24AA','#00ACC1','#F4511E','#6D4C41'];
 
@@ -7535,59 +7548,93 @@ function fecharHistoricoAnual() {
 
     window.carregarContatos = async function() {
         const lista = document.getElementById('contatosLista');
-        lista.innerHTML = '<div style="padding:40px;text-align:center;color:#999;font-size:13px;">⏳ Carregando contatos do Smoobu...</div>';
+        lista.innerHTML = '<div style="padding:40px;text-align:center;color:#999;font-size:13px;">⏳ Carregando contatos...</div>';
         document.getElementById('contatosCount').textContent = '';
         fecharContatoDetalhe();
 
         try {
-            const anoAtual = new Date().getFullYear();
-            const from = (anoAtual - 2) + '-01-01';
-            const to   = (anoAtual + 1) + '-12-31';
-
-            // Buscar todas as páginas
+            // ===== PASSO 1: Carregar TUDO do Supabase (rapido, tem dados historicos) =====
             let todasReservas = [];
-            let page = 1, totalPages = 1;
+            let offset = 0, batchSize = 1000, batch;
             do {
-                const res = await chamarEdgeFunction({ action: 'getReservations', from, to, page });
-                totalPages = res.pageCount || 1;
-                todasReservas = todasReservas.concat(res.reservas || []);
-                page++;
-            } while (page <= totalPages);
+                const { data } = await db.from('reservas')
+                    .select('id_reserva, hospede, chegada, partida, receita, canal, status, mes_ano, unidades(nome)')
+                    .order('mes_ano', { ascending: false })
+                    .range(offset, offset + batchSize - 1);
+                batch = data || [];
+                todasReservas = todasReservas.concat(batch);
+                offset += batchSize;
+            } while (batch.length === batchSize);
+            console.log('[Contatos] Supabase:', todasReservas.length, 'reservas');
 
-            // Construir mapa de contatos únicos (por nome, case-insensitive)
+            // ===== PASSO 2: Construir mapa de contatos unicos =====
             const mapa = {};
             todasReservas.forEach(r => {
                 const nome = (r.hospede || '').trim();
-                if (!nome || ['bloqueio','sistema','block'].includes(nome.toLowerCase())) return;
+                if (!nome) return;
+                if (['bloqueio','sistema','block','bloqueio sistema'].includes(nome.toLowerCase())) return;
+                if (nome.toLowerCase().startsWith('movi_')) return;
+
                 const key = nome.toLowerCase();
                 if (!mapa[key]) {
-                    mapa[key] = {
-                        nome,
-                        email: r.email || '',
-                        telefone: r.telefone || '',
-                        stays: [],
-                    };
-                } else {
-                    // Preencher email/telefone se ainda não tem
-                    if (!mapa[key].email && r.email) mapa[key].email = r.email;
-                    if (!mapa[key].telefone && r.telefone) mapa[key].telefone = r.telefone;
+                    mapa[key] = { nome, email: '', telefone: '', stays: [] };
                 }
+
+                // Gerar datas a partir de mes_ano se chegada/partida vazios
+                let chegada = r.chegada || '';
+                let partida = r.partida || '';
+                if (!chegada && r.mes_ano) {
+                    chegada = r.mes_ano + '-01';
+                    partida = partida || r.mes_ano + '-28';
+                }
+
+                const unidadeNome = (r.unidades && r.unidades.nome) || '';
                 mapa[key].stays.push({
-                    id: r.id,
-                    unidade: r.unidade || '',
+                    id: r.id_reserva || '',
+                    unidade: unidadeNome,
                     canal: r.canal || 'Direto',
-                    chegada: r.chegada || '',
-                    partida: r.partida || '',
+                    chegada: chegada,
+                    partida: partida,
                     receita: r.receita || 0,
                     status: r.status || 'ativa',
                 });
             });
 
-            // Ordenar: mais estadias → depois alfabético
+            // ===== PASSO 3: Enriquecer com email/telefone do Smoobu (em background, nao trava) =====
+            const enrichPromise = (async () => {
+                try {
+                    const anoAtual = new Date().getFullYear();
+                    const res = await chamarEdgeFunction({ action: 'getReservations', from: (anoAtual-1)+'-01-01', to: (anoAtual+1)+'-12-31', page: 1 });
+                    (res.reservas || []).forEach(r => {
+                        const key = (r.hospede || '').trim().toLowerCase();
+                        if (key && mapa[key]) {
+                            if (!mapa[key].email && r.email) mapa[key].email = r.email;
+                            if (!mapa[key].telefone && r.telefone) mapa[key].telefone = r.telefone;
+                        }
+                    });
+                    // Re-renderizar com email/tel atualizados
+                    contatosTodos = Object.values(mapa).sort((a, b) => {
+                        if (b.stays.length !== a.stays.length) return b.stays.length - a.stays.length;
+                        return a.nome.localeCompare(b.nome, 'pt-BR');
+                    });
+                    renderContatos(contatoFiltroAtual === 'todos' ? contatosTodos : contatosFiltrados);
+                    console.log('[Contatos] Email/telefone enriquecido via Smoobu');
+                } catch(e) { console.warn('[Contatos] Enriquecimento Smoobu falhou:', e); }
+            })();
+
+            // ===== PASSO 4: Renderizar imediatamente (sem esperar Smoobu) =====
             contatosTodos = Object.values(mapa).sort((a, b) => {
                 if (b.stays.length !== a.stays.length) return b.stays.length - a.stays.length;
                 return a.nome.localeCompare(b.nome, 'pt-BR');
             });
+
+            console.log('[Contatos] Total contatos unicos:', contatosTodos.length);
+            // Debug anos
+            var anosPresentes = {};
+            contatosTodos.forEach(c => c.stays.forEach(s => {
+                var a = (s.chegada || '').substring(0,4); if (a) anosPresentes[a] = (anosPresentes[a]||0)+1;
+            }));
+            console.log('[Contatos] Anos presentes:', anosPresentes);
 
             document.getElementById('contatosSearch').value = '';
             renderContatos(contatosTodos);
@@ -7746,108 +7793,173 @@ function fecharHistoricoAnual() {
     //  CONTATOS: Filtros inteligentes
     // ========================================================
     window.contatoFiltro = function(filtro) {
-        contatoFiltroAtual = filtro;
-        contatosSelecionados.clear();
-        document.getElementById('contatosSearch').value = '';
+        // Canais são tratados separadamente via contatoToggleCanal
+        if (['booking','airbnb','direto'].includes(filtro)) return;
 
-        // Atualizar chips visuais
-        document.querySelectorAll('.contatos-filtro-chip').forEach(function(c) { c.classList.remove('active'); });
-        var chips = document.querySelectorAll('.contatos-filtro-chip');
+        contatoFiltroAtual = filtro;
+
+        // Atualizar chips visuais (apenas chips de período, não canais)
+        document.querySelectorAll('.contatos-filtro-chip:not([data-canal])').forEach(function(c) { c.classList.remove('active'); });
+        var chipMap = {
+            'todos': 'Todos', 'checkin-hoje': 'Check-in hoje', 'checkin-amanha': 'Check-in amanha',
+            'checkout-hoje': 'Check-out hoje', 'checkout-amanha': 'Check-out amanha',
+            'hospedados': 'Hospedados agora', 'mes-atual': 'Todos do mes',
+            'recorrentes': 'Recorrentes', 'inativos': 'Inativos'
+        };
+        var chips = document.querySelectorAll('.contatos-filtro-chip:not([data-canal])');
         for (var i = 0; i < chips.length; i++) {
-            if (chips[i].textContent.toLowerCase().includes(filtro === 'todos' ? 'todos' :
-                filtro === 'checkin-hoje' ? 'check-in hoje' :
-                filtro === 'checkin-amanha' ? 'check-in amanha' :
-                filtro === 'checkout-hoje' ? 'check-out hoje' :
-                filtro === 'checkout-amanha' ? 'check-out amanha' :
-                filtro === 'hospedados' ? 'hospedados' :
-                filtro === 'mes-atual' ? 'todos do mes' :
-                filtro === 'recorrentes' ? 'recorrentes' :
-                filtro === 'inativos' ? 'inativos' :
-                filtro === 'booking' ? 'booking' :
-                filtro === 'airbnb' ? 'airbnb' :
-                filtro === 'direto' ? 'direto' : '---')) {
+            if (chipMap[filtro] && chips[i].textContent.includes(chipMap[filtro])) {
                 chips[i].classList.add('active');
                 break;
             }
         }
 
-        var hoje = new Date().toISOString().slice(0, 10);
-        var amanha = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-        var mesAtual = hoje.slice(0, 7); // YYYY-MM
-        var seisMesesAtras = new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 10);
-
-        var resultado;
+        // Limpar tudo se clicou "Todos"
         if (filtro === 'todos') {
-            resultado = contatosTodos;
-        } else if (filtro === 'checkin-hoje') {
-            resultado = contatosTodos.filter(function(c) {
-                return c.stays.some(function(s) { return s.chegada === hoje && s.status !== 'cancelada'; });
-            });
-        } else if (filtro === 'checkin-amanha') {
-            resultado = contatosTodos.filter(function(c) {
-                return c.stays.some(function(s) { return s.chegada === amanha && s.status !== 'cancelada'; });
-            });
-        } else if (filtro === 'checkout-hoje') {
-            resultado = contatosTodos.filter(function(c) {
-                return c.stays.some(function(s) { return s.partida === hoje && s.status !== 'cancelada'; });
-            });
-        } else if (filtro === 'checkout-amanha') {
-            resultado = contatosTodos.filter(function(c) {
-                return c.stays.some(function(s) { return s.partida === amanha && s.status !== 'cancelada'; });
-            });
-        } else if (filtro === 'hospedados') {
-            resultado = contatosTodos.filter(function(c) {
-                return c.stays.some(function(s) {
-                    return s.status !== 'cancelada' && s.chegada <= hoje && s.partida >= hoje;
-                });
-            });
-        } else if (filtro === 'mes-atual') {
-            resultado = contatosTodos.filter(function(c) {
-                return c.stays.some(function(s) {
-                    return s.status !== 'cancelada' && (
-                        (s.chegada && s.chegada.slice(0, 7) === mesAtual) ||
-                        (s.partida && s.partida.slice(0, 7) === mesAtual)
-                    );
-                });
-            });
-        } else if (filtro === 'recorrentes') {
-            resultado = contatosTodos.filter(function(c) {
-                return c.stays.filter(function(s) { return s.status !== 'cancelada'; }).length >= 2;
-            });
-        } else if (filtro === 'inativos') {
-            resultado = contatosTodos.filter(function(c) {
-                var staysAtivas = c.stays.filter(function(s) { return s.status !== 'cancelada'; });
-                if (staysAtivas.length === 0) return false;
-                var ultima = staysAtivas.sort(function(a, b) { return (b.partida || '').localeCompare(a.partida || ''); })[0];
-                return ultima.partida && ultima.partida < seisMesesAtras;
-            });
-        } else if (filtro === 'booking') {
-            resultado = contatosTodos.filter(function(c) {
-                return c.stays.some(function(s) { return s.canal && s.canal.toLowerCase().includes('booking'); });
-            });
-        } else if (filtro === 'airbnb') {
-            resultado = contatosTodos.filter(function(c) {
-                return c.stays.some(function(s) { return s.canal && s.canal.toLowerCase().includes('airbnb'); });
-            });
-        } else if (filtro === 'direto') {
-            resultado = contatosTodos.filter(function(c) {
-                return c.stays.some(function(s) {
-                    var canal = (s.canal || '').toLowerCase();
-                    return canal === 'direto' || canal === '' || canal.includes('direct');
-                });
-            });
-        } else {
-            resultado = contatosTodos;
+            document.getElementById('contatoFiltroMes').value = '';
+            document.getElementById('contatoFiltroAno').value = '';
+            contatoCanaisSelecionados.clear();
+            document.querySelectorAll('.contatos-filtro-chip[data-canal]').forEach(function(c) { c.classList.remove('active'); });
         }
 
+        contatoAplicarFiltrosCombinados();
+    };
+
+    // Toggle de canal (multi-seleção)
+    window.contatoToggleCanal = function(el, canal) {
+        if (contatoCanaisSelecionados.has(canal)) {
+            contatoCanaisSelecionados.delete(canal);
+            el.classList.remove('active');
+        } else {
+            contatoCanaisSelecionados.add(canal);
+            el.classList.add('active');
+        }
+        // Se selecionou algum canal e o chip ativo é "todos", manter "todos" pra não conflitar
+        contatoAplicarFiltrosCombinados();
+    };
+
+    // ========================================================
+    //  CONTATOS: Filtro por mes/ano
+    // ========================================================
+    window.contatoFiltroPeriodo = function() {
+        // Re-renderizar a lista filtrada do zero (não usar lista anterior)
+        contatosFiltrados = [];
+        contatosSelecionados.clear();
+        contatoAplicarFiltrosCombinados();
+    };
+
+    // ========================================================
+    //  CONTATOS: Filtro combinado (chip + mes + ano)
+    // ========================================================
+    function contatoAplicarFiltrosCombinados() {
+        var mes = document.getElementById('contatoFiltroMes').value;
+        var ano = document.getElementById('contatoFiltroAno').value;
+        var chip = contatoFiltroAtual;
+        var canais = contatoCanaisSelecionados;
+
+        contatosSelecionados.clear();
+        document.getElementById('contatosSearch').value = '';
+
+        var hoje = new Date().toISOString().slice(0, 10);
+        var amanha = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+        var mesAtual = hoje.slice(0, 7);
+        var seisMesesAtras = new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 10);
+
+        var temFiltroPeriodo = !!(mes || ano);
+        var temFiltroCanal = canais.size > 0;
+        var temFiltroChip = chip !== 'todos';
+
+        // SEMPRE filtrar a partir do array original, nunca do filtrado anterior
+        var baseContatos = contatosTodos;
+
+        console.log('[Filtro] chip:', chip, 'canais:', Array.from(canais), 'mes:', mes, 'ano:', ano, 'total contatos:', baseContatos.length);
+        // Debug: mostrar amostra de datas dos contatos
+        if (contatosTodos.length > 0) {
+            var amostra = contatosTodos.slice(0, 5).map(function(c) {
+                return c.nome + ': ' + c.stays.map(function(s) { return s.chegada + '→' + s.partida + ' (' + s.canal + ')'; }).join(', ');
+            });
+            console.log('[Filtro] Amostra datas:', amostra);
+        }
+
+        var resultado = baseContatos.filter(function(c) {
+            var staysAtivas = c.stays.filter(function(s) { return s.status !== 'cancelada'; });
+            if (staysAtivas.length === 0) return false;
+
+            // PASSO 1: Filtrar stays por CANAL (se algum canal selecionado)
+            var staysFiltradas = staysAtivas;
+            if (temFiltroCanal) {
+                staysFiltradas = staysFiltradas.filter(function(s) {
+                    var canalLower = (s.canal || '').toLowerCase();
+                    if (canais.has('booking') && (canalLower.includes('booking'))) return true;
+                    if (canais.has('airbnb') && (canalLower.includes('airbnb'))) return true;
+                    if (canais.has('direto') && (canalLower === 'direto' || canalLower === '' || canalLower.includes('direct') || canalLower.includes('website') || canalLower === 'manual')) return true;
+                    return false;
+                });
+                if (staysFiltradas.length === 0) return false;
+            }
+
+            // PASSO 2: Filtrar stays por PERÍODO (mês/ano dropdowns)
+            if (temFiltroPeriodo) {
+                staysFiltradas = staysFiltradas.filter(function(s) {
+                    var cheg = (s.chegada || '').substring(0, 10);
+                    var part = (s.partida || '').substring(0, 10);
+                    if (!cheg && !part) return false;
+
+                    if (ano && mes) {
+                        // Verificar se estadia toca o mês/ano
+                        var inicioMes = ano + '-' + mes + '-01';
+                        var fimMes = ano + '-' + mes + '-31';
+                        return (cheg <= fimMes && part >= inicioMes);
+                    } else if (ano) {
+                        // Verificar se estadia toca o ano
+                        var inicioAno = ano + '-01-01';
+                        var fimAno = ano + '-12-31';
+                        return (cheg <= fimAno && part >= inicioAno);
+                    } else if (mes) {
+                        // Qualquer ano, mas o mês específico
+                        var chegMes = cheg.substring(5, 7);
+                        var partMes = part.substring(5, 7);
+                        return chegMes === mes || partMes === mes;
+                    }
+                    return true;
+                });
+                if (staysFiltradas.length === 0) return false;
+            }
+
+            // PASSO 3: Filtrar por CHIP (período especial)
+            if (temFiltroChip) {
+                if (chip === 'checkin-hoje') return staysFiltradas.some(function(s) { return s.chegada && s.chegada.substring(0,10) === hoje; });
+                if (chip === 'checkin-amanha') return staysFiltradas.some(function(s) { return s.chegada && s.chegada.substring(0,10) === amanha; });
+                if (chip === 'checkout-hoje') return staysFiltradas.some(function(s) { return s.partida && s.partida.substring(0,10) === hoje; });
+                if (chip === 'checkout-amanha') return staysFiltradas.some(function(s) { return s.partida && s.partida.substring(0,10) === amanha; });
+                if (chip === 'hospedados') return staysFiltradas.some(function(s) {
+                    return s.chegada && s.partida && s.chegada.substring(0,10) <= hoje && s.partida.substring(0,10) >= hoje;
+                });
+                if (chip === 'mes-atual') return staysFiltradas.some(function(s) {
+                    return (s.chegada && s.chegada.substring(0, 7) === mesAtual) || (s.partida && s.partida.substring(0, 7) === mesAtual);
+                });
+                if (chip === 'recorrentes') return staysFiltradas.length >= 2;
+                if (chip === 'inativos') {
+                    var ultima = [...staysFiltradas].sort(function(a, b) { return (b.partida || '').localeCompare(a.partida || ''); })[0];
+                    return ultima && ultima.partida && ultima.partida.substring(0,10) < seisMesesAtras;
+                }
+            }
+
+            // Se passou todos os filtros
+            return staysFiltradas.length > 0;
+        });
+
+        console.log('[Filtro] resultado:', resultado.length, 'contatos');
+
         contatosFiltrados = resultado;
+        console.log('[Filtro] Renderizando', resultado.length, 'contatos. Primeiro:', resultado[0] ? resultado[0].nome : 'nenhum');
         renderContatos(resultado);
 
-        // Mostrar barra de massa se tem filtro ativo (exceto "todos")
         var bar = document.getElementById('contatosMassaBar');
-        bar.classList.toggle('active', filtro !== 'todos');
+        var temQualquerFiltro = temFiltroChip || temFiltroPeriodo || temFiltroCanal;
+        bar.classList.toggle('active', temQualquerFiltro);
         contatoAtualizarSelecao();
-    };
+    }
 
     // ========================================================
     //  CONTATOS: Selecao em massa
@@ -7920,7 +8032,7 @@ function fecharHistoricoAnual() {
         waTplContato = destinatarios[0]; // usar primeiro pra preview
 
         var staysAtivas = (waTplContato.stays || []).filter(function(s) { return s.status !== 'cancelada'; });
-        var stayOrd = staysAtivas.sort(function(a, b) { return (b.chegada || '').localeCompare(a.chegada || ''); });
+        var stayOrd = [...staysAtivas].sort(function(a, b) { return (b.chegada || '').localeCompare(a.chegada || ''); });
 
         document.getElementById('waTplDest').textContent = '📢 Envio em massa: ' + destinatarios.length + ' contato' + (destinatarios.length > 1 ? 's' : '');
 
@@ -7969,7 +8081,7 @@ function fecharHistoricoAnual() {
 
             // Personalizar texto com dados do contato
             var staysAtivas = (c.stays || []).filter(function(s) { return s.status !== 'cancelada'; });
-            var stayOrd = staysAtivas.sort(function(a, b) { return (b.chegada || '').localeCompare(a.chegada || ''); });
+            var stayOrd = [...staysAtivas].sort(function(a, b) { return (b.chegada || '').localeCompare(a.chegada || ''); });
             var ultimaStay = stayOrd[0] || {};
 
             var textoPersonalizado = waPreencher(texto, c.nome, ultimaStay);
@@ -8805,7 +8917,7 @@ function fecharHistoricoAnual() {
 
         // Buscar estadia mais recente do contato
         const staysAtivas = (contato.stays || []).filter(function(s) { return s.status !== 'cancelada'; });
-        const stayOrd = staysAtivas.sort(function(a, b) { return (b.chegada || '').localeCompare(a.chegada || ''); });
+        const stayOrd = [...staysAtivas].sort(function(a, b) { return (b.chegada || '').localeCompare(a.chegada || ''); });
         const ultimaStay = stayOrd[0] || {};
 
         document.getElementById('waTplDest').textContent = 'Para: ' + contato.nome + ' (' + contato.telefone + ')';
@@ -8838,7 +8950,7 @@ function fecharHistoricoAnual() {
         if (!tpl || !waTplContato) return;
 
         const staysAtivas = (waTplContato.stays || []).filter(function(s) { return s.status !== 'cancelada'; });
-        const stayOrd = staysAtivas.sort(function(a, b) { return (b.chegada || '').localeCompare(a.chegada || ''); });
+        const stayOrd = [...staysAtivas].sort(function(a, b) { return (b.chegada || '').localeCompare(a.chegada || ''); });
         const ultimaStay = stayOrd[0] || {};
 
         const texto = waPreencher(tpl.texto, waTplContato.nome, ultimaStay);
@@ -9038,14 +9150,17 @@ function fecharHistoricoAnual() {
     let isFirstMsgCheck = true;
     let notifCheckInterval = null;
 
-    // ─── Solicitar permissão ───────────────────────────────────────
+    // ─── Solicitar permissão (só pede 1 vez) ────────────────────────
     async function solicitarPermissao() {
         if (!('Notification' in window)) return;
         if (Notification.permission === 'granted') {
             notifPermission = 'granted';
             return;
         }
+        // Se já pediu antes e o usuário negou/dispensou, não perguntar de novo
+        if (localStorage.getItem('notifJaPediu') === 'sim') return;
         if (Notification.permission !== 'denied') {
+            localStorage.setItem('notifJaPediu', 'sim');
             const perm = await Notification.requestPermission();
             notifPermission = perm;
         }
