@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Movi 505 — Reservas</title>
+<link rel="manifest" href="manifest.webmanifest">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: linear-gradient(135deg, #2d7a7a 0%, #1a4d4d 100%); min-height: 100vh; color: #333; }
+    .container { max-width: 640px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border-radius: 16px; padding: 22px; margin-bottom: 14px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+    .header { display: flex; align-items: center; gap: 12px; padding: 12px 4px 20px; color: #fff; }
+    .header-title { font-size: 20px; font-weight: 700; flex: 1; }
+    .header-subtitle { font-size: 12px; opacity: .85; }
+    h2 { margin: 0 0 14px; font-size: 17px; color: #1a4d4d; }
+    label { display: block; margin-top: 12px; font-size: 13px; font-weight: 600; color: #555; }
+    input, textarea, button { font: inherit; }
+    input[type="text"], input[type="number"], input[type="date"], textarea {
+        width: 100%; padding: 12px 14px; margin-top: 6px; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 15px; outline: none; transition: border-color .2s;
+    }
+    input:focus, textarea:focus { border-color: #2d7a7a; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .row > div { flex: 1; min-width: 140px; }
+    button.primary { background: #28a745; color: #fff; border: none; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 20px; transition: background .2s; }
+    button.primary:hover:not(:disabled) { background: #1e7e34; }
+    button.primary:disabled { opacity: .55; cursor: not-allowed; }
+    button.ghost { background: transparent; color: #555; border: 1.5px solid #ddd; padding: 10px 14px; border-radius: 10px; font-size: 13px; cursor: pointer; }
+    button.danger { background: #e53935; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: 600; }
+    .lista-vazia { text-align: center; padding: 30px 10px; color: #999; font-size: 13px; }
+    .reserva-item {
+        border: 1px solid #eee; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: #fafafa;
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .reserva-item .ri-head { display:flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ri-datas { font-weight: 700; color: #1a4d4d; font-size: 14px; }
+    .ri-valor { font-weight: 700; color: #28a745; }
+    .ri-coment { font-size: 13px; color: #555; }
+    .ri-taxas { font-size: 11px; color: #888; }
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #323232; color: #fff; padding: 12px 22px; border-radius: 10px; font-size: 14px; z-index: 999; opacity: 0; transition: opacity .3s; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+    .toast.show { opacity: 1; }
+    .toast.ok { background: #28a745; }
+    .toast.err { background: #e53935; }
+    .filtro-mes { display:flex; gap:8px; align-items:center; margin-bottom: 10px; }
+    .filtro-mes select { padding: 8px 10px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 13px; flex: 1; }
+    .logo { width: 40px; height: 40px; background: #fff; border-radius: 10px; padding: 4px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo">🏠</div>
+        <div>
+            <div class="header-title">Movi 505</div>
+            <div class="header-subtitle">Preenchimento de reservas</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>➕ Nova reserva</h2>
+        <label>💬 Comentário</label>
+        <input type="text" id="comentario" placeholder="Ex: Reserva proprietário, nome do hóspede...">
+
+        <div class="row">
+            <div>
+                <label>📅 Check-in</label>
+                <input type="date" id="checkin">
+            </div>
+            <div>
+                <label>📅 Check-out</label>
+                <input type="date" id="checkout">
+            </div>
+        </div>
+
+        <label>💰 Valor (R$)</label>
+        <input type="number" id="valor" min="0" step="0.01" placeholder="0.00">
+
+        <div class="row">
+            <div>
+                <label>📱 Taxa App (R$)</label>
+                <input type="number" id="taxaApp" min="0" step="0.01" placeholder="0.00">
+            </div>
+            <div>
+                <label>🏢 Taxa Short Stay (R$)</label>
+                <input type="number" id="taxaShort" min="0" step="0.01" placeholder="0.00">
+            </div>
+        </div>
+
+        <button class="primary" id="btnSalvar" onclick="salvar()">✅ Salvar reserva</button>
+    </div>
+
+    <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; gap:8px; flex-wrap: wrap;">
+            <h2 style="margin:0;">📋 Reservas cadastradas</h2>
+            <button class="ghost" onclick="carregarLista()">🔄 Atualizar</button>
+        </div>
+        <div class="filtro-mes">
+            <span style="font-size:12px;color:#555;">Período:</span>
+            <select id="filtroAno"></select>
+        </div>
+        <div id="lista"><div class="lista-vazia">Carregando...</div></div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const SUPABASE_URL = "https://daozgmiytfrwomxznjln.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb3pnbWl5dGZyd29teHpuamxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMDY4NzMsImV4cCI6MjA5MDU4Mjg3M30.evEDpNDP5nFaxCDPqyhyWg2uxM9TvjsVKP0ujNqfQWs";
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let unidadeMoviId = null;
+
+function toast(msg, tipo) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (tipo || '');
+    setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+async function carregarUnidadeMovi() {
+    const { data, error } = await db.from('unidades').select('id, nome').ilike('nome', '%movi%');
+    if (error || !data || data.length === 0) {
+        toast('Unidade Movi não encontrada.', 'err');
+        return null;
+    }
+    unidadeMoviId = data[0].id;
+    return unidadeMoviId;
+}
+
+function popularFiltroAno() {
+    const sel = document.getElementById('filtroAno');
+    const hoje = new Date();
+    const anos = [hoje.getFullYear() - 1, hoje.getFullYear(), hoje.getFullYear() + 1];
+    sel.innerHTML = anos.map(a => `<option value="${a}" ${a === hoje.getFullYear() ? 'selected' : ''}>${a}</option>`).join('');
+    sel.onchange = carregarLista;
+}
+
+async function carregarLista() {
+    if (!unidadeMoviId) await carregarUnidadeMovi();
+    if (!unidadeMoviId) return;
+    const ano = document.getElementById('filtroAno').value;
+    const lista = document.getElementById('lista');
+    lista.innerHTML = '<div class="lista-vazia">Carregando...</div>';
+    const { data, error } = await db.from('reservas')
+        .select('id, id_reserva, hospede, chegada, partida, receita, comissao_portais, comissao_short_stay, ano, mes, mes_ano')
+        .eq('unidade_id', unidadeMoviId)
+        .eq('ano', String(ano))
+        .order('chegada', { ascending: true });
+
+    if (error) { lista.innerHTML = '<div class="lista-vazia">Erro ao carregar: ' + error.message + '</div>'; return; }
+    if (!data || data.length === 0) { lista.innerHTML = '<div class="lista-vazia">Nenhuma reserva em ' + ano + '.</div>'; return; }
+
+    lista.innerHTML = data.map(r => {
+        const valor = Number(r.receita || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const taxaA = Number(r.comissao_portais || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const taxaS = Number(r.comissao_short_stay || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const chegada = r.chegada ? formatarData(r.chegada) : '—';
+        const partida = r.partida ? formatarData(r.partida) : '—';
+        return `
+            <div class="reserva-item">
+                <div class="ri-head">
+                    <span class="ri-datas">${chegada} → ${partida}</span>
+                    <span class="ri-valor">${valor}</span>
+                </div>
+                ${r.hospede ? `<div class="ri-coment">💬 ${escapeHtml(r.hospede)}</div>` : ''}
+                <div class="ri-taxas">Taxa App: ${taxaA} • Short Stay: ${taxaS}</div>
+                <div style="display:flex;gap:6px;margin-top:6px;">
+                    <button class="danger" onclick="excluir('${r.id_reserva}')">🗑️ Excluir</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function formatarData(iso) {
+    const [a, m, d] = iso.split('-');
+    return `${d}/${m}/${a}`;
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function salvar() {
+    const comentario = document.getElementById('comentario').value.trim();
+    const checkin = document.getElementById('checkin').value;
+    const checkout = document.getElementById('checkout').value;
+    const valor = parseFloat(document.getElementById('valor').value) || 0;
+    const taxaApp = parseFloat(document.getElementById('taxaApp').value) || 0;
+    const taxaShort = parseFloat(document.getElementById('taxaShort').value) || 0;
+
+    if (!checkin || !checkout) { toast('Preencha check-in e check-out', 'err'); return; }
+    if (new Date(checkout) <= new Date(checkin)) { toast('Check-out deve ser depois do check-in', 'err'); return; }
+
+    if (!unidadeMoviId) await carregarUnidadeMovi();
+    if (!unidadeMoviId) return;
+
+    const ano = checkin.slice(0, 4);
+    const mes = checkin.slice(5, 7);
+    const mesAno = `${ano}-${mes}`;
+    const d1 = checkin.slice(8, 10);
+    const d2 = checkout.slice(8, 10);
+    const idReserva = `MOVI_${ano}${mes}_${d1}-${d2}_${valor.toFixed(2)}`;
+
+    const btn = document.getElementById('btnSalvar');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+
+    const { error } = await db.from('reservas').insert({
+        id: crypto.randomUUID(),
+        id_reserva: idReserva,
+        unidade_id: unidadeMoviId,
+        hospede: comentario || null,
+        chegada: checkin, partida: checkout,
+        ano, mes, mes_ano: mesAno,
+        receita: valor,
+        comissao_portais: taxaApp,
+        comissao_short_stay: taxaShort,
+        canal: 'Movi',
+        status: 'ativa'
+    });
+
+    btn.disabled = false; btn.textContent = '✅ Salvar reserva';
+
+    if (error) { toast('Erro: ' + error.message, 'err'); return; }
+
+    toast('✅ Reserva salva!', 'ok');
+    // Limpar
+    document.getElementById('comentario').value = '';
+    document.getElementById('valor').value = '';
+    document.getElementById('taxaApp').value = '';
+    document.getElementById('taxaShort').value = '';
+    document.getElementById('checkin').value = '';
+    document.getElementById('checkout').value = '';
+    carregarLista();
+}
+
+async function excluir(idReserva) {
+    if (!confirm('Excluir esta reserva?')) return;
+    const { error } = await db.from('reservas').delete().eq('id_reserva', idReserva);
+    if (error) { toast('Erro ao excluir: ' + error.message, 'err'); return; }
+    toast('Reserva excluída', 'ok');
+    carregarLista();
+}
+
+window.addEventListener('load', async () => {
+    popularFiltroAno();
+    await carregarUnidadeMovi();
+    carregarLista();
+});
+</script>
+</body>
+</html>

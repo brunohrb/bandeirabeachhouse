@@ -627,23 +627,54 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 }
 
 @media (max-width: 768px) {
-    .cal-header { flex-direction: column; align-items: flex-start; }
-    .cal-actions { margin-left: 0; }
-    .cal-grid .cal-unit-name { min-width: 100px; font-size: 11px; padding: 8px; }
-    .cal-grid .cal-cell { min-width: 36px; min-height: 40px; }
-    .cal-grid .cal-day-header { min-width: 36px; }
-    .cal-bar { font-size: 10px; height: 28px; top: 5px; padding: 0 4px; }
-    .cal-modal { width: 95%; padding: 20px; }
+    /* ===== Calendário Mobile: coluna de unidade sticky, dias maiores, scroll snap ===== */
+    .cal-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .cal-header h2 { font-size: 17px; }
+    .cal-actions { margin-left: 0; display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+    .cal-actions button { min-height: 40px; font-size: 13px; padding: 8px 12px; }
+    .cal-container { -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+    .cal-grid .cal-unit-name {
+        min-width: 88px; width: 88px; font-size: 11px; padding: 6px 8px;
+        position: sticky; left: 0; z-index: 5; background: #fff;
+        box-shadow: 2px 0 4px rgba(0,0,0,.06);
+    }
+    .cal-grid .cal-corner {
+        min-width: 88px; width: 88px;
+        position: sticky; left: 0; z-index: 6; background: #f5f5f5;
+    }
+    .cal-grid .cal-cell { min-width: 44px; min-height: 48px; touch-action: pan-x pan-y; }
+    .cal-grid .cal-day-header { min-width: 44px; font-size: 11px; }
+    .cal-bar { font-size: 10px; height: 32px; top: 6px; padding: 0 5px; }
+    .cal-modal { width: 95%; max-width: 95%; padding: 18px; max-height: 92vh; overflow-y: auto; }
     .cal-modal .form-row { flex-direction: column; gap: 0; }
-    .cal-tabs { overflow-x: auto; }
-    .cal-tab { padding: 8px 14px; font-size: 13px; white-space: nowrap; }
-    .preco-stub { width: 110px; }
-    .preco-date-col { width: 50px; }
-    .preco-box { width: 42px; }
-    .preco-bulk-bar { flex-direction: column; text-align: center; }
+    .cal-modal input, .cal-modal select, .cal-modal button { min-height: 42px; font-size: 15px; }
+    .cal-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+    .cal-tab { padding: 10px 14px; font-size: 13px; white-space: nowrap; min-height: 42px; }
+
+    /* Preços mobile */
+    .preco-stub { width: 100px; min-width: 100px; position: sticky; left: 0; z-index: 4; background:#fff; }
+    .preco-date-col { width: 54px; min-width: 54px; }
+    .preco-box { width: 46px; min-height: 40px; font-size: 12px; }
+    .preco-bulk-bar { flex-direction: column; text-align: center; padding: 10px; }
+    .preco-bulk-bar input { min-height: 40px; font-size: 15px; }
+    .preco-bulk-bar button { min-height: 40px; width: 100%; margin-top: 6px; }
+
+    /* Mensagens mobile */
     .msgs-layout { flex-direction: column; height: auto; max-height: 80vh; }
-    .msgs-lista { width: 100%; min-width: 0; max-height: 200px; border-right: none; border-bottom: 1px solid var(--border-color); }
-    .msgs-conversa-body { min-height: 200px; max-height: 300px; }
+    .msgs-lista { width: 100%; min-width: 0; max-height: 220px; border-right: none; border-bottom: 1px solid var(--border-color); }
+    .msgs-conversa-body { min-height: 220px; max-height: 360px; }
+    .msgs-input-area textarea { font-size: 15px; }
+
+    /* Modal Novo Usuário / Movi no mobile — inputs maiores, teclado nativo */
+    #modalMoviReserva input,
+    #modalMoviReserva button { min-height: 44px; font-size: 15px; }
+}
+
+@media (max-width: 480px) {
+    .cal-grid .cal-unit-name { min-width: 74px; width: 74px; font-size: 10px; padding: 4px 6px; }
+    .cal-grid .cal-corner { min-width: 74px; width: 74px; }
+    .cal-grid .cal-cell, .cal-grid .cal-day-header { min-width: 40px; }
+    .cal-bar { font-size: 9px; height: 30px; }
 }
 </style>
 </head>
@@ -699,9 +730,9 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
             <div class="menu-item" onclick="showPage('despesas', this)">💸 Despesas</div>
             <div class="menu-item" onclick="showPage('reservas', this)">🧹 Reservas Futuras</div>
             <div class="menu-item" onclick="showPage('proprietarios', this)">🏠 Consolidado</div>
-            <div class="menu-item" onclick="showPage('configuracoes', this)">⚙️ Configurações</div>
             <div class="menu-item" onclick="showPage('calendario', this)">📅 Calendário</div>
             <div class="menu-item" onclick="showPage('upload', this)">📤 Upload de Dados</div>
+            <div class="menu-item" onclick="showPage('configuracoes', this)">⚙️ Configurações</div>
 
             <div class="menu-item" onclick="logout()" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">🚪 Sair</div>
         </div>
@@ -944,6 +975,26 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                     <button class="btn btn-primary" onclick="alterarSenha()">Salvar Nova Senha</button>
                 </div>
                     
+
+<div class="card">
+    <h3 style="margin-bottom: 20px;">🔔 Notificações</h3>
+    <p style="color: var(--text-light); margin-bottom: 16px; font-size: 14px;">
+        Ative notificações para receber alertas de novas reservas e mensagens — mesmo com o app em segundo plano.
+    </p>
+    <div id="notifStatus" style="padding: 12px; border-radius: 8px; background: #f5f5f5; margin-bottom: 14px; font-size: 13px;">
+        Status: <span id="notifStatusText">verificando...</span>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
+        <button class="btn btn-secondary" onclick="testarNotificacao()">🧪 Testar</button>
+    </div>
+    <div id="notifIosInfo" style="display:none; background:#e3f2fd; border-left:4px solid #1976D2; padding:12px; border-radius:6px; margin-top:14px; font-size:12px; color:#0d47a1;">
+        <strong>📱 No iPhone/iPad:</strong> para receber notificações push quando o app estiver fechado, é necessário instalar o app na tela inicial (Compartilhar → Adicionar à Tela de Início) usando Safari.
+    </div>
+    <div style="background: #fff8e1; border-left: 4px solid #ffc107; padding: 12px; border-radius: 6px; margin-top: 12px; font-size: 12px; color: #795548;">
+        ⚠️ <strong>Android / Desktop:</strong> notificações funcionam com o app aberto (mesmo em outra aba). Para push real com app fechado, veja <code>supabase/functions/notify-push</code>.
+    </div>
+</div>
 
 <div class="card">
     <h3 style="margin-bottom: 20px;">💾 Backup e Restauração</h3>
@@ -1993,7 +2044,7 @@ function parseDataBR(valor) {
 ,
 
             "proprietarios"===e&&(async()=>await renderProprietarios())(),
-            "configuracoes"===e&&carregarUsuarios(),
+            "configuracoes"===e&&(carregarUsuarios(), typeof atualizarStatusNotif==="function"&&atualizarStatusNotif()),
             "calendario"===e&&initCalendario()
         }
 
@@ -3803,15 +3854,62 @@ async function criarNovoUsuario() {
 
     if (!login || !senha) { alert('Preencha usuário e senha'); return; }
 
-    const { error } = await db.from('usuarios').insert({
-        usuario: login,
-        senha,
-        tipo: 'viewer',
-        unidades_permitidas: unidades.length > 0 ? unidades : null,
-        ativo: true
-    });
+    // Tenta via Edge Function admin-users (contorna RLS com service_role).
+    // Se a Edge Function não estiver deployada, cai para insert direto.
+    let sucesso = false;
+    let erroFinal = null;
+    try {
+        const SUPABASE_URL = "https://daozgmiytfrwomxznjln.supabase.co";
+        const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb3pnbWl5dGZyd29teHpuamxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMDY4NzMsImV4cCI6MjA5MDU4Mjg3M30.evEDpNDP5nFaxCDPqyhyWg2uxM9TvjsVKP0ujNqfQWs";
+        const resp = await fetch(SUPABASE_URL + '/functions/v1/admin-users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + ANON_KEY,
+                'apikey': ANON_KEY,
+            },
+            body: JSON.stringify({
+                action: 'createUser',
+                usuario: login,
+                senha,
+                tipo: 'viewer',
+                unidades_permitidas: unidades.length > 0 ? unidades : null,
+            })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (resp.ok && data.ok) {
+            sucesso = true;
+        } else {
+            erroFinal = data.error || ('Edge Function retornou ' + resp.status);
+        }
+    } catch (e) {
+        erroFinal = e.message || String(e);
+    }
 
-    if (error) { alert('Erro ao criar: ' + error.message); return; }
+    // Fallback: tenta inserir direto (funciona só se RLS estiver aberto)
+    if (!sucesso) {
+        const { error } = await db.from('usuarios').insert({
+            usuario: login,
+            senha,
+            tipo: 'viewer',
+            unidades_permitidas: unidades.length > 0 ? unidades : null,
+            ativo: true
+        });
+        if (!error) {
+            sucesso = true;
+        } else {
+            erroFinal = error.message;
+        }
+    }
+
+    if (!sucesso) {
+        alert('Erro ao criar usuário: ' + erroFinal + '\n\n' +
+              '⚠️ A Edge Function "admin-users" provavelmente não foi deployada no Supabase.\n' +
+              'Deploy: Dashboard → Edge Functions → Nova função → colar supabase/functions/admin-users/index.ts\n' +
+              'Secrets necessários: SUPABASE_SERVICE_ROLE_KEY');
+        return;
+    }
+
     modal.remove();
     alert('✅ Usuário criado!');
     carregarUsuarios();
@@ -5944,9 +6042,8 @@ function fecharHistoricoAnual() {
         if (calMes < 0) { calMes = 11; calAno--; }
         carregarReservasCalendario();
         renderCalendario();
-        // Recarregar precos se tab ativa
+        // Recarregar precos se tab ativa (mantem cache — carregarPrecos decide se busca)
         if (typeof calActiveTab !== 'undefined' && calActiveTab === 'precos') {
-            precosCache = {};
             carregarPrecos();
         }
     };
@@ -5956,10 +6053,145 @@ function fecharHistoricoAnual() {
         calMes = new Date().getMonth();
         carregarReservasCalendario();
         renderCalendario();
-        // Recarregar precos se tab ativa
         if (typeof calActiveTab !== 'undefined' && calActiveTab === 'precos') {
-            precosCache = {};
             carregarPrecos();
+        }
+    };
+
+    // ========================================================
+    //  MOVI 505: Modal de nova reserva manual (usado por Bruno e Ricardo)
+    // ========================================================
+    window.abrirModalMoviNovaReserva = function(reservaExistente) {
+        const hoje = new Date().toISOString().slice(0, 10);
+        const isEdit = !!reservaExistente;
+        const modal = document.createElement('div');
+        modal.id = 'modalMoviReserva';
+        modal.className = 'cal-modal-overlay active';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px;';
+        modal.innerHTML = `
+            <div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:460px;max-height:92vh;overflow-y:auto;">
+                <h3 style="margin:0 0 6px;color:#1a4d4d;">${isEdit ? '✏️ Editar' : '➕ Nova'} Reserva — Movi 505</h3>
+                <div style="font-size:12px;color:#888;margin-bottom:18px;">Preenchimento manual das reservas do Movi.</div>
+                <div class="form-group"><label class="form-label">💬 Comentário</label>
+                    <input type="text" id="moviComentario" class="form-input" placeholder="Ex: Reserva proprietário, Paulo..." value="${(reservaExistente?.hospede || '').replace(/"/g,'&quot;')}"></div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <div class="form-group" style="flex:1;min-width:140px;"><label class="form-label">📅 Check-in</label>
+                        <input type="date" id="moviCheckin" class="form-input" value="${reservaExistente?.chegada || hoje}"></div>
+                    <div class="form-group" style="flex:1;min-width:140px;"><label class="form-label">📅 Check-out</label>
+                        <input type="date" id="moviCheckout" class="form-input" value="${reservaExistente?.partida || ''}"></div>
+                </div>
+                <div class="form-group"><label class="form-label">💰 Valor (R$)</label>
+                    <input type="number" id="moviValor" class="form-input" step="0.01" min="0" placeholder="0.00" value="${reservaExistente?.receita ?? ''}"></div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <div class="form-group" style="flex:1;min-width:140px;"><label class="form-label">📱 Taxa App (R$)</label>
+                        <input type="number" id="moviTaxaApp" class="form-input" step="0.01" min="0" value="${reservaExistente?.comissaoPortais ?? reservaExistente?.comissao ?? ''}" placeholder="0.00"></div>
+                    <div class="form-group" style="flex:1;min-width:140px;"><label class="form-label">🏢 Taxa Short Stay (R$)</label>
+                        <input type="number" id="moviTaxaShort" class="form-input" step="0.01" min="0" value="${reservaExistente?.comissaoShortStay ?? ''}" placeholder="0.00"></div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" style="flex:1;min-width:120px;" onclick="salvarReservaMovi(${isEdit ? `'${reservaExistente.idReserva || reservaExistente.id}'` : 'null'})">${isEdit ? '💾 Atualizar' : '✅ Salvar'}</button>
+                    ${isEdit ? `<button class="btn" style="background:#e53935;color:#fff;" onclick="excluirReservaMovi('${reservaExistente.idReserva || reservaExistente.id}')">🗑️ Excluir</button>` : ''}
+                    <button class="btn btn-link" onclick="document.getElementById('modalMoviReserva').remove()">Cancelar</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        setTimeout(() => document.getElementById('moviComentario').focus(), 100);
+    };
+
+    window.salvarReservaMovi = async function(idExistente) {
+        const comentario = document.getElementById('moviComentario').value.trim();
+        const checkin = document.getElementById('moviCheckin').value;
+        const checkout = document.getElementById('moviCheckout').value;
+        const valor = parseFloat(document.getElementById('moviValor').value) || 0;
+        const taxaApp = parseFloat(document.getElementById('moviTaxaApp').value) || 0;
+        const taxaShort = parseFloat(document.getElementById('moviTaxaShort').value) || 0;
+
+        if (!checkin || !checkout) { alert('Preencha check-in e check-out.'); return; }
+        if (new Date(checkout) <= new Date(checkin)) { alert('Check-out deve ser DEPOIS do check-in.'); return; }
+
+        try {
+            // Descobrir unidade_id do Movi
+            const { data: unidadesMovi } = await db.from('unidades').select('id, nome').ilike('nome', '%movi%');
+            if (!unidadesMovi || unidadesMovi.length === 0) {
+                alert('Unidade Movi 505 não encontrada no banco. Cadastre a unidade primeiro.');
+                return;
+            }
+            const unidadeMovi = unidadesMovi[0];
+
+            const ano = checkin.slice(0, 4);
+            const mes = checkin.slice(5, 7);
+            const mesAno = `${ano}-${mes}`;
+            const d1 = checkin.slice(8, 10);
+            const d2 = checkout.slice(8, 10);
+
+            if (idExistente) {
+                const { error } = await db.from('reservas').update({
+                    hospede: comentario || null,
+                    chegada: checkin,
+                    partida: checkout,
+                    receita: valor,
+                    comissao_portais: taxaApp,
+                    comissao_short_stay: taxaShort,
+                    ano, mes, mes_ano: mesAno,
+                    status: 'ativa'
+                }).eq('id_reserva', idExistente);
+                if (error) throw error;
+            } else {
+                const idReserva = `MOVI_${ano}${mes}_${d1}-${d2}_${valor.toFixed(2)}`;
+                const { error } = await db.from('reservas').insert({
+                    id: crypto.randomUUID(),
+                    id_reserva: idReserva,
+                    unidade_id: unidadeMovi.id,
+                    hospede: comentario || null,
+                    chegada: checkin,
+                    partida: checkout,
+                    ano, mes, mes_ano: mesAno,
+                    receita: valor,
+                    comissao_portais: taxaApp,
+                    comissao_short_stay: taxaShort,
+                    canal: 'Movi',
+                    status: 'ativa'
+                });
+                if (error) throw error;
+            }
+
+            document.getElementById('modalMoviReserva').remove();
+            // Recarregar dados no calendário
+            if (typeof carregarReservasCalendario === 'function') {
+                await carregarReservasCalendario();
+                renderCalendario();
+            }
+            // Se app principal está ativo, recarregar dados gerais
+            if (typeof carregarReservasSupabase === 'function') {
+                await carregarReservasSupabase();
+                if (typeof renderViews === 'function') renderViews();
+            }
+            // Recarregar lista Ricardo se ativa
+            if (typeof window.recarregarListaMoviRicardo === 'function') window.recarregarListaMoviRicardo();
+            alert('✅ Reserva Movi salva!');
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao salvar: ' + (err.message || err));
+        }
+    };
+
+    window.excluirReservaMovi = async function(idReserva) {
+        if (!confirm('Excluir esta reserva Movi?')) return;
+        try {
+            const { error } = await db.from('reservas').delete().eq('id_reserva', idReserva);
+            if (error) throw error;
+            document.getElementById('modalMoviReserva').remove();
+            if (typeof carregarReservasCalendario === 'function') {
+                await carregarReservasCalendario();
+                renderCalendario();
+            }
+            if (typeof carregarReservasSupabase === 'function') {
+                await carregarReservasSupabase();
+                if (typeof renderViews === 'function') renderViews();
+            }
+            if (typeof window.recarregarListaMoviRicardo === 'function') window.recarregarListaMoviRicardo();
+        } catch (err) {
+            alert('Erro ao excluir: ' + (err.message || err));
         }
     };
 
@@ -6029,7 +6261,11 @@ function fecharHistoricoAnual() {
         const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
 
         const numCols = diasNoMes + 1; // +1 para coluna de unidade
-        grid.style.gridTemplateColumns = `140px repeat(${diasNoMes}, minmax(42px, 1fr))`;
+        // Mobile: coluna de unidade mais estreita e células maiores
+        const isMobile = window.innerWidth <= 768;
+        const unitColWidth = isMobile ? (window.innerWidth <= 480 ? '74px' : '88px') : '140px';
+        const dayMin = isMobile ? '44px' : '42px';
+        grid.style.gridTemplateColumns = `${unitColWidth} repeat(${diasNoMes}, minmax(${dayMin}, 1fr))`;
 
         let html = '';
 
@@ -6053,8 +6289,16 @@ function fecharHistoricoAnual() {
 
         // Linhas: uma por unidade
         calUnidades.forEach(unidade => {
-            // Nome da unidade
-            html += `<div class="cal-unit-name">${unidade.nome}</div>`;
+            // Nome da unidade — Movi ganha botão de nova reserva manual
+            const isMovi = (unidade.nome || '').toLowerCase().includes('movi');
+            if (isMovi) {
+                html += `<div class="cal-unit-name" style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:6px 8px;">
+                    <span>${unidade.nome}</span>
+                    <button onclick="abrirModalMoviNovaReserva()" style="background:#28a745;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:600;">➕ Nova</button>
+                </div>`;
+            } else {
+                html += `<div class="cal-unit-name">${unidade.nome}</div>`;
+            }
 
             // Cells dos dias
             for (let d = 1; d <= diasNoMes; d++) {
@@ -6163,7 +6407,12 @@ function fecharHistoricoAnual() {
 
             bar.onclick = function(e) {
                 e.stopPropagation();
-                calEditarReserva(reserva);
+                // Movi usa modal dedicado com Comentário, Taxa App, Taxa Short Stay
+                if (unidade.nome && unidade.nome.toLowerCase().includes('movi')) {
+                    window.abrirModalMoviNovaReserva(reserva);
+                } else {
+                    calEditarReserva(reserva);
+                }
             };
 
             cellInicio.appendChild(bar);
@@ -6879,6 +7128,8 @@ function fecharHistoricoAnual() {
     //  PRECOS: Estado
     // ========================================================
     let precosCache = {}; // { apartmentId: { 'YYYY-MM-DD': { price, minStay } } }
+    let precosMesCarregado = {}; // { 'YYYY-MM': timestamp } — evita refetch desnecessário
+    const PRECOS_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutos
     let precosCarregando = false;
     let precoDragState = null;
     let precoDragMoved = false;
@@ -6888,12 +7139,39 @@ function fecharHistoricoAnual() {
     // ========================================================
     //  PRECOS: Carregar do Smoobu
     // ========================================================
-    async function carregarPrecos() {
+    // Helper extraído para reuso em hits de cache
+    function _calcOcupacaoCanal(apartments) {
+        const ocupacaoCanal = {};
+        apartments.forEach(apt => {
+            ocupacaoCanal[apt.id] = {};
+            const aptNum = (apt.name.match(/(\d+(?:\.\d+)?)/) || [])[1];
+            const localUnit = calUnidades.find(u => {
+                const uNum = (u.nome.match(/(\d+(?:\.\d+)?)/) || [])[1];
+                return uNum && uNum === aptNum;
+            });
+            if (localUnit) {
+                calReservas.forEach(r => {
+                    if (r.unidade !== localUnit.nome || !r.chegada || !r.partida) return;
+                    let d = new Date(r.chegada + 'T00:00:00');
+                    const end = new Date(r.partida + 'T00:00:00');
+                    while (d <= end) {
+                        const ds = d.toISOString().split('T')[0];
+                        ocupacaoCanal[apt.id][ds] = canalParaClasse(r.canal);
+                        d.setDate(d.getDate() + 1);
+                    }
+                });
+            }
+        });
+        return ocupacaoCanal;
+    }
+
+    async function carregarPrecos(forceRefresh) {
         if (precosCarregando) return;
         precosCarregando = true;
 
         const grid = document.getElementById('precoGrid');
-        grid.innerHTML = '<div style="padding:40px;text-align:center;color:#999;">Carregando precos do Smoobu...</div>';
+        const mesKey = calAno + '-' + String(calMes + 1).padStart(2, '0');
+        const cacheHit = precosMesCarregado[mesKey] && (Date.now() - precosMesCarregado[mesKey] < PRECOS_CACHE_TTL_MS);
 
         try {
             const apartments = await carregarSmoobuApartments();
@@ -6902,8 +7180,17 @@ function fecharHistoricoAnual() {
             const startDate = `${calAno}-${mesStr}-01`;
             const endDate = `${calAno}-${mesStr}-${String(diasNoMes).padStart(2, '0')}`;
 
-            // Buscar precos de todos os apartamentos
-            for (const apt of apartments) {
+            // ⚡ Cache hit: renderiza instantaneamente sem chamar Smoobu
+            if (cacheHit && !forceRefresh) {
+                renderGradePrecos(apartments, diasNoMes, _calcOcupacaoCanal(apartments));
+                precosCarregando = false;
+                return;
+            }
+
+            grid.innerHTML = '<div style="padding:40px;text-align:center;color:#999;">Carregando precos do Smoobu...</div>';
+
+            // 🚀 Buscar precos de todos os apartamentos EM PARALELO (era sequencial, muito lento)
+            await Promise.all(apartments.map(async (apt) => {
                 try {
                     const resultado = await chamarEdgeFunction({
                         action: 'getRates',
@@ -6912,12 +7199,9 @@ function fecharHistoricoAnual() {
                         endDate: endDate,
                     });
 
-                    // Processar resultado
                     precosCache[apt.id] = {};
                     const ratesData = resultado.rates || {};
 
-                    // A API do Smoobu retorna rates em formato: { data: { apartmentId: { dates: { 'YYYY-MM-DD': { price, min_length_of_stay } } } } }
-                    // Ou pode ser: { apartmentId: { 'YYYY-MM-DD': { price, min_length_of_stay } } }
                     let dates = null;
                     if (ratesData.data && ratesData.data[apt.id]) {
                         dates = ratesData.data[apt.id].dates || ratesData.data[apt.id];
@@ -6940,33 +7224,13 @@ function fecharHistoricoAnual() {
                 } catch (e) {
                     console.error('Erro ao buscar precos de ' + apt.name + ':', e);
                 }
-            }
+            }));
 
             // Mapa de ocupação por canal: { aptId: { 'YYYY-MM-DD': 'booking'|'airbnb'|... } }
-            const ocupacaoCanal = {};
-            apartments.forEach(apt => {
-                ocupacaoCanal[apt.id] = {};
-                // Encontrar unidade local pelo número
-                const aptNum = (apt.name.match(/(\d+(?:\.\d+)?)/) || [])[1];
-                const localUnit = calUnidades.find(u => {
-                    const uNum = (u.nome.match(/(\d+(?:\.\d+)?)/) || [])[1];
-                    return uNum && uNum === aptNum;
-                });
-                if (localUnit) {
-                    calReservas.forEach(r => {
-                        if (r.unidade !== localUnit.nome || !r.chegada || !r.partida) return;
-                        let d = new Date(r.chegada + 'T00:00:00');
-                        const end = new Date(r.partida + 'T00:00:00');
-                        while (d <= end) {
-                            const ds = d.toISOString().split('T')[0];
-                            ocupacaoCanal[apt.id][ds] = canalParaClasse(r.canal);
-                            d.setDate(d.getDate() + 1);
-                        }
-                    });
-                }
-            });
+            // Marca mês como carregado
+            precosMesCarregado[mesKey] = Date.now();
 
-            renderGradePrecos(apartments, diasNoMes, ocupacaoCanal);
+            renderGradePrecos(apartments, diasNoMes, _calcOcupacaoCanal(apartments));
             // Scroll automático para hoje
             setTimeout(() => {
                 const container = document.querySelector('#calPrecosContainer .cal-container');
@@ -9172,6 +9436,7 @@ function fecharHistoricoAnual() {
     let ultimasMsgIds = {}; // { reservaId: ultimoMsgId }
     let isFirstMsgCheck = true;
     let notifCheckInterval = null;
+    let realtimeChannel = null;
 
     // ─── Solicitar permissão (só pede 1 vez) ────────────────────────
     async function solicitarPermissao() {
@@ -9188,6 +9453,66 @@ function fecharHistoricoAnual() {
             notifPermission = perm;
         }
     }
+
+    // ─── Botão manual: ativar notificações ───────────────────────────
+    window.ativarNotificacoes = async function() {
+        if (!('Notification' in window)) {
+            alert('Seu navegador não suporta notificações.');
+            return;
+        }
+        // Reset flag para poder pedir de novo
+        localStorage.removeItem('notifJaPediu');
+        let perm = Notification.permission;
+        if (perm !== 'granted') {
+            perm = await Notification.requestPermission();
+        }
+        notifPermission = perm;
+        atualizarStatusNotif();
+        if (perm === 'granted') {
+            new Notification('🔔 Notificações ativadas!', {
+                body: 'Você receberá alertas de novas reservas e mensagens.',
+                icon: 'logo-nobg.png'
+            });
+            // Garante que realtime esteja conectado
+            iniciarRealtimeReservas();
+        } else if (perm === 'denied') {
+            alert('Notificações foram bloqueadas. Ative manualmente nas configurações do navegador:\n\n' +
+                  'Chrome/Android: ⋮ → Configurações do site → Notificações\n' +
+                  'iOS: Instale o app na tela inicial e reabra.');
+        }
+    };
+
+    window.testarNotificacao = function() {
+        window.mostrarToastNotif('🧪 Teste', 'Esta é uma notificação de teste.', { type: 'test' });
+        if (notifPermission === 'granted') {
+            try {
+                new Notification('🧪 Teste Bandeira Stay', {
+                    body: 'Se você viu esta notificação, está tudo funcionando!',
+                    icon: 'logo-nobg.png'
+                });
+            } catch(e) { console.warn(e); }
+        }
+    };
+
+    function atualizarStatusNotif() {
+        const el = document.getElementById('notifStatusText');
+        const iosInfo = document.getElementById('notifIosInfo');
+        if (!el) return;
+        const p = ('Notification' in window) ? Notification.permission : 'unsupported';
+        const emoji = { granted: '✅', denied: '❌', default: '⚠️', unsupported: '🚫' };
+        const texto = {
+            granted: 'Notificações ATIVADAS',
+            denied: 'Notificações BLOQUEADAS (libere nas configurações do navegador)',
+            default: 'Notificações desativadas — clique em "Ativar"',
+            unsupported: 'Navegador não suporta notificações'
+        };
+        el.textContent = (emoji[p] || '') + ' ' + (texto[p] || p);
+        // Detectar iOS e mostrar info
+        const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+        if (iosInfo) iosInfo.style.display = (isIos && !isStandalone) ? 'block' : 'none';
+    }
+    window.atualizarStatusNotif = atualizarStatusNotif;
 
     // ─── Toast in-app ─────────────────────────────────────────────
     window.mostrarToastNotif = function(titulo, corpo, dados) {
@@ -9278,18 +9603,21 @@ function fecharHistoricoAnual() {
     // ─── Supabase Realtime: novas reservas ────────────────────────
     function iniciarRealtimeReservas() {
         if (typeof db === 'undefined') return;
+        // Evita múltiplas subscriptions
         try {
-            db.channel('notif-novas-reservas')
+            if (realtimeChannel) {
+                try { db.removeChannel(realtimeChannel); } catch(_){}
+                realtimeChannel = null;
+            }
+            realtimeChannel = db.channel('notif-novas-reservas-' + Date.now())
                 .on('postgres_changes', {
                     event: 'INSERT', schema: 'public', table: 'reservas'
                 }, function(payload) {
                     const r = payload.new || {};
-                    // Ignorar manuais e Movi
                     if (!r.id_reserva) return;
                     if (String(r.id_reserva).startsWith('manual-')) return;
                     if (String(r.id_reserva).startsWith('MOVI_')) return;
 
-                    const unidade = r.unidade_nome || '';
                     const hospede = r.hospede || 'Hóspede';
                     mostrarNotificacao(
                         '🏠 Nova Reserva!',
@@ -9297,9 +9625,22 @@ function fecharHistoricoAnual() {
                         { type: 'reserva' }
                     );
                 })
-                .subscribe();
+                .subscribe((status) => {
+                    console.log('[Realtime] status:', status);
+                });
         } catch(e) { console.warn('Realtime não disponível:', e); }
     }
+
+    // ─── Reconectar Realtime quando app volta a ficar visível ────────
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            iniciarRealtimeReservas();
+            verificarNovasMensagens();
+        }
+    });
+    window.addEventListener('focus', function() {
+        iniciarRealtimeReservas();
+    });
 
     // ─── Quick Reply ──────────────────────────────────────────────
     window.abrirRespostaRapida = function(dados) {
