@@ -6367,16 +6367,26 @@ function fecharHistoricoAnual() {
                 };
             });
 
-            // 3) Upsert em lote
-            console.log('📤 Enviando registros Movi:', registros);
+            // 3) Estratégia: apaga só os id_reserva que vamos inserir (evita dependência de UNIQUE constraint)
+            const idsNovos = registros.map(r => r.id_reserva);
+            console.log('📤 Apagando Movi antigas com mesmo id_reserva...', idsNovos.length);
+            const { error: errDel } = await db.from('reservas')
+                .delete()
+                .eq('unidade_id', unidadeMovi.id)
+                .in('id_reserva', idsNovos);
+            if (errDel) {
+                console.warn('⚠️ Erro ao apagar antigas (ignorando):', errDel);
+            }
+
+            console.log('📤 Inserindo', registros.length, 'registros Movi...');
             const { data: inseridos, error } = await db.from('reservas')
-                .upsert(registros, { onConflict: 'id_reserva' })
+                .insert(registros)
                 .select();
             if (error) {
-                console.error('❌ Erro upsert:', error);
+                console.error('❌ Erro insert:', error);
                 throw error;
             }
-            console.log(`✅ ${(inseridos || []).length} reservas inseridas/atualizadas`);
+            console.log(`✅ ${(inseridos || []).length} reservas inseridas`);
 
             // 4) Recarrega caches
             if (typeof carregarReservasSupabase === 'function') {
