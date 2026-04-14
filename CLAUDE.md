@@ -1,24 +1,88 @@
 # Bandeira Beach House — Contexto do Projeto para Claude
 
+## ⚠️ REGRAS CRÍTICAS DE TRABALHO (ler SEMPRE antes de começar)
+
+### 🚀 Deploy: Mudanças SÓ vão pro ar quando estão em `main`
+- **Hospedagem real**: GitHub Pages serve a partir da branch **`main`**
+- URL de produção: `https://brunohrb.github.io/bandeirabeachhouse/`
+- Se commitar em branch de feature (ex: `claude/fix-xxx`) e não fizer merge → **o usuário NÃO vê nada mudando**
+- **Fluxo padrão**: fazer as mudanças na branch de dev → merge em `main` → push `main` → pronto
+- Não perder tempo perguntando "PR ou merge direto?" — o Bruno prefere merge direto no `main` pra ir logo pro ar
+- Comando: `git checkout main && git merge <branch-dev> --no-ff -m "..." && git push origin main`
+
+### 🧊 Cache do Service Worker é AGRESSIVO
+- Qualquer mudança em `index.html`/`movi.html`/`service-worker.js` exige:
+  1. Bump do `CACHE_NAME` em `service-worker.js` (v6 → v7...)
+  2. Usuário precisa: Ctrl+Shift+R ou botão "🔄 Limpar cache e recarregar" em Configurações
+- O app já tem auto-update a cada 30s e recarrega sozinho quando detecta SW novo
+- Se o usuário diz "não apareceu nada" mesmo depois do push, é 99% cache — oriente o hard refresh
+
+### 🔒 RLS do Supabase precisa estar permissivo
+O app autentica pelo próprio login (tabela `usuarios`). As tabelas precisam liberar anon/authenticated:
+```sql
+-- Rodar no SQL Editor do Supabase (1 vez só)
+ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "usuarios_all_anon" ON usuarios;
+CREATE POLICY "usuarios_all_anon" ON usuarios FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+ALTER TABLE reservas ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "reservas_all_anon" ON reservas;
+CREATE POLICY "reservas_all_anon" ON reservas FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+ALTER TABLE unidades ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "unidades_select_anon" ON unidades;
+CREATE POLICY "unidades_select_anon" ON unidades FOR SELECT TO anon, authenticated USING (true);
+```
+
+### 🗃️ `id_reserva` NÃO tem UNIQUE constraint no banco
+- **NÃO usar** `db.from('reservas').upsert(..., { onConflict: 'id_reserva' })`
+- **Erro típico**: `there is no unique or exclusion constraint matching the ON CONFLICT specification`
+- **Padrão correto**: `DELETE` pelos `id_reserva` que vai inserir → `INSERT` em lote
+```javascript
+const idsNovos = registros.map(r => r.id_reserva);
+await db.from('reservas').delete().eq('unidade_id', uid).in('id_reserva', idsNovos);
+await db.from('reservas').insert(registros);
+```
+
+### 📁 Onde ficam arquivos críticos
+- **Arquivos servidos pelo Pages**: raiz do repo (`index.html`, `movi.html`, `service-worker.js`, `manifest.webmanifest`)
+- **Paths no manifest/SW**: SEMPRE relativos (`./index.html`, scope `./`) porque GitHub Pages serve em subpath `/bandeirabeachhouse/`
+- **iOS Safari**: start_url absoluto (`/index.html`) dá 404 — usar `./index.html`
+
+### 👥 Tipos de usuário
+- **admin** (`tipo='admin'`): vê todas as abas e todas as unidades (`unidades_permitidas=null`)
+- **viewer** (`tipo='viewer'`): só NÃO vê Configurações e Upload de Dados (as outras 7 abas aparecem)
+- Modal Novo/Editar Usuário tem checkbox 👑 Administrador que alterna o tipo
+
+### 🤝 Preferências do usuário (Bruno)
+- Escreve em português
+- Prefere ação direta — se precisa de autorização pra algo (ex: mexer em `main`), avisa brevemente e faz
+- Odeia cache travando — sempre orientar hard refresh quando mudança não aparecer
+- Abas do menu (em ordem): Financeiro → Analítica → Despesas → Reservas Futuras → Consolidado → Calendário → Upload → Configurações → Sair
+
 ## O que é este projeto
 Sistema de gestão de uma pousada/aparthotel (Bandeira Stay) com múltiplas unidades.
 PWA (Progressive Web App) em vanilla JS + Supabase como backend.
-Arquivo principal: `index.html` (~7100+ linhas, tudo em um arquivo).
+Arquivo principal: `index.html` (~9700+ linhas, tudo em um arquivo).
 
 ## Stack técnica
 - **Frontend**: Vanilla JS, HTML, CSS — SPA sem frameworks
 - **Backend**: Supabase (PostgreSQL + Auth + Edge Functions)
 - **OTA/PMS**: Smoobu (sistema de gestão de reservas)
-- **Hosting**: Google Drive / arquivo local servido como PWA
+- **Hosting**: **GitHub Pages** (branch `main`) em `brunohrb.github.io/bandeirabeachhouse/`
 - **Sync automático**: GitHub Actions (roda de hora em hora via `scripts/smoobu-sync.js`)
 
 ## Arquivos principais
 ```
-index.html                              # App inteiro (HTML + CSS + JS)
-supabase/functions/smoobu-proxy/index.ts  # Edge Function proxy para API do Smoobu
-scripts/smoobu-sync.js                  # Sync automático via GitHub Actions
-service-worker.js                       # Service Worker (PWA + push notifications)
-CLAUDE.md                               # Este arquivo
+index.html                                 # App inteiro (HTML + CSS + JS)
+movi.html                                  # Página standalone do Ricardo (Movi 505)
+supabase/functions/smoobu-proxy/index.ts   # Edge Function proxy pra API do Smoobu
+supabase/functions/admin-users/index.ts    # Edge Function criar usuários via service_role
+scripts/smoobu-sync.js                     # Sync automático via GitHub Actions
+scripts/daily-backup.js                    # Backup Excel diário via GitHub Actions
+service-worker.js                          # Service Worker (PWA + push notifications)
+manifest.webmanifest                       # PWA manifest
+CLAUDE.md                                  # Este arquivo
 ```
 
 ## Supabase
