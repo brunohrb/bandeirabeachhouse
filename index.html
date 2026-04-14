@@ -6577,7 +6577,35 @@ function fecharHistoricoAnual() {
             const diasNoMes = new Date(calAno, calMes + 1, 0).getDate();
             const to = `${calAno}-${mesStr}-${diasNoMes}`;
 
-            // Buscar todas as páginas via Edge Function (fetch direto)
+            // PASSO 1: Carregar unidades ANTES de qualquer operação destrutiva.
+            // Se falhar ou retornar vazio, abortamos SEM apagar nada.
+            const { data: unidades, error: errUnidades } = await db.from('unidades').select('id, nome');
+            if (errUnidades) {
+                console.error('[sync] Erro ao carregar unidades:', errUnidades);
+                throw new Error('Nao foi possivel carregar unidades do Supabase: ' + (errUnidades.message || 'erro desconhecido'));
+            }
+            if (!unidades || unidades.length === 0) {
+                console.warn('[sync] Tabela unidades vazia/inacessivel — abortando sync sem apagar dados.');
+                alert('Sync abortado: nao foi possivel carregar a lista de unidades do Supabase.\n\nTente recarregar a pagina (Ctrl+Shift+R) e fazer login novamente.');
+                return;
+            }
+
+            const mapaUnidades = {};
+            unidades.forEach(u => {
+                mapaUnidades[u.nome.toLowerCase()] = u.id;
+                const num = u.nome.match(/(\d+(?:\.\d+)?)/);
+                if (num) mapaUnidades['_num_' + num[1]] = u.id;
+            });
+
+            function findUnidadeId(nomeSmoobu) {
+                const lower = (nomeSmoobu || '').toLowerCase();
+                if (mapaUnidades[lower]) return mapaUnidades[lower];
+                const num = (nomeSmoobu || '').match(/(\d+(?:\.\d+)?)/);
+                if (num && mapaUnidades['_num_' + num[1]]) return mapaUnidades['_num_' + num[1]];
+                return null;
+            }
+
+            // PASSO 2: Buscar reservas do Smoobu
             let todasReservas = [];
             let page = 1;
             let totalPages = 1;
@@ -6593,72 +6621,67 @@ function fecharHistoricoAnual() {
                 page++;
             }
 
-            if (todasReservas.length > 0) {
-                // Carregar mapa de unidades
-                const { data: unidades } = await db.from('unidades').select('id, nome');
-                const mapaUnidades = {};
-                (unidades || []).forEach(u => {
-                    mapaUnidades[u.nome.toLowerCase()] = u.id;
-                    // Match por número
-                    const num = u.nome.match(/(\d+(?:\.\d+)?)/);
-                    if (num) mapaUnidades['_num_' + num[1]] = u.id;
-                });
-
-                function findUnidadeId(nomeSmoobu) {
-                    const lower = nomeSmoobu.toLowerCase();
-                    if (mapaUnidades[lower]) return mapaUnidades[lower];
-                    const num = nomeSmoobu.match(/(\d+(?:\.\d+)?)/);
-                    if (num && mapaUnidades['_num_' + num[1]]) return mapaUnidades['_num_' + num[1]];
-                    return null;
-                }
-
-                // Deletar APENAS reservas do Smoobu (preservar manuais/bloqueios e Movi)
-                for (const u of (unidades || [])) {
-                    if (u.nome.toLowerCase().includes('movi')) continue; // Movi vem de upload, nao do Smoobu
-                    await db.from('reservas').delete()
-                        .eq('unidade_id', u.id)
-                        .eq('mes_ano', `${calAno}-${mesStr}`)
-                        .not('id_reserva', 'like', 'manual-%');
-                }
-
-                // Inserir novas
-                const registros = todasReservas.map(r => {
-                    const uid = findUnidadeId(r.unidade);
-                    if (!uid) return null;
-                    const [ano, mes] = (r.chegada || '').split('-');
-                    return {
-                        // id auto-gerado pelo Supabase (gen_random_uuid)
-                        id_reserva: r.id,
-                        unidade_id: uid,
-                        ano: ano, mes: mes, mes_ano: `${ano}-${mes}`,
-                        receita: r.receita || 0,
-                        comissao_portais: r.comissao || 0,
-                        comissao_short_stay: 0,
-                        status: r.status || 'ativa',
-                        hospede: r.hospede,
-                        chegada: r.chegada,
-                        partida: r.partida,
-                        num_hospedes: r.numHospedes || 1,
-                        canal: r.canal || 'Direto'
-                    };
-                }).filter(Boolean);
-
-                if (registros.length > 0) {
-                    for (let i = 0; i < registros.length; i += 500) {
-                        const lote = registros.slice(i, i + 500);
-                        await db.from('reservas').insert(lote);
-                    }
-                }
-
-                // Recarregar cache
-                await carregarReservasSupabase();
-                carregarReservasCalendario();
-                renderCalendario();
-
-                alert(`Sincronizado! ${registros.length} reserva(s) atualizadas.`);
-            } else {
+            if (todasReservas.length === 0) {
                 alert('Nenhuma reserva encontrada no Smoobu para este periodo.');
+                return;
             }
+
+            // PASSO 3: Montar registros ANTES de apagar nada.
+            // Se nenhuma reserva mapear pra unidade, nao apagamos nada.
+            const naoMapeadas = [];
+            const registros = todasReservas.map(r => {
+                const uid = findUnidadeId(r.unidade);
+                if (!uid) { naoMapeadas.push(r.unidade); return null; }
+                const [ano, mes] = (r.chegada || '').split('-');
+                return {
+                    id_reserva: r.id,
+                    unidade_id: uid,
+                    ano: ano, mes: mes, mes_ano: `${ano}-${mes}`,
+                    receita: r.receita || 0,
+                    comissao_portais: r.comissao || 0,
+                    comissao_short_stay: 0,
+                    status: r.status || 'ativa',
+                    hospede: r.hospede,
+                    chegada: r.chegada,
+                    partida: r.partida,
+                    num_hospedes: r.numHospedes || 1,
+                    canal: r.canal || 'Direto'
+                };
+            }).filter(Boolean);
+
+            if (naoMapeadas.length > 0) {
+                console.warn('[sync] Unidades do Smoobu sem correspondencia no Supabase:', [...new Set(naoMapeadas)]);
+            }
+
+            if (registros.length === 0) {
+                // Smoobu retornou reservas, mas NENHUMA mapeou pra unidade.
+                // Isso eh sintoma de problema (unidades incompletas) — NAO apagar nada.
+                console.error('[sync] Smoobu retornou', todasReservas.length, 'reservas mas nenhuma pode ser mapeada. Unidades carregadas:', unidades.map(u => u.nome));
+                alert('Sync abortado: Smoobu retornou ' + todasReservas.length + ' reserva(s) mas nenhuma pode ser associada a uma unidade.\n\nUnidades Smoobu sem match: ' + [...new Set(naoMapeadas)].join(', ') + '\n\nNenhum dado foi apagado.');
+                return;
+            }
+
+            // PASSO 4: Agora sim, deletar + inserir (so reservas do Smoobu).
+            // Preserva manuais/bloqueios e Movi.
+            for (const u of unidades) {
+                if (u.nome.toLowerCase().includes('movi')) continue;
+                await db.from('reservas').delete()
+                    .eq('unidade_id', u.id)
+                    .eq('mes_ano', `${calAno}-${mesStr}`)
+                    .not('id_reserva', 'like', 'manual-%');
+            }
+
+            for (let i = 0; i < registros.length; i += 500) {
+                const lote = registros.slice(i, i + 500);
+                await db.from('reservas').insert(lote);
+            }
+
+            // Recarregar cache
+            await carregarReservasSupabase();
+            carregarReservasCalendario();
+            renderCalendario();
+
+            alert(`Sincronizado! ${registros.length} reserva(s) atualizadas.`);
         } catch (e) {
             console.error('Erro sync Smoobu:', e);
             alert('Erro ao sincronizar: ' + e.message + '\n\nVerifique se a Edge Function smoobu-proxy esta configurada.');
