@@ -1,5 +1,15 @@
 # Bandeira Beach House — Contexto do Projeto para Claude
 
+## 📝 REGRA DE OURO: MANTER ESTE ARQUIVO ATUALIZADO
+- **SEMPRE** atualize este `CLAUDE.md` quando fizer mudanças significativas no sistema:
+  - Novos recursos ou abas
+  - Novas regras de negócio (permissões, validações)
+  - Preferências do usuário descobertas na conversa
+  - Bugs recorrentes e como resolvê-los
+  - Mudanças de arquitetura (tabelas, campos novos, paths)
+- Bruno não precisa pedir — é sua responsabilidade manter o contexto vivo pra próximas sessões
+- Formato: adicione em seção existente OU crie seção nova se for tópico novo
+
 ## ⚠️ REGRAS CRÍTICAS DE TRABALHO (ler SEMPRE antes de começar)
 
 ### 🚀 Deploy: Mudanças SÓ vão pro ar quando estão em `main`

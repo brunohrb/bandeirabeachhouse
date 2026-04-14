@@ -95,7 +95,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
         position: relative;
         width: 100%;
         height: auto;
-        padding: 12px 0;
+        padding: calc(env(safe-area-inset-top, 0px) + 12px) 0 12px;
     }
 
     .menu-item {
@@ -142,14 +142,19 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
 
 .menu-toggle {
     display: none;
-    font-size: 24px;
-    padding: 0 24px 12px;
+    font-size: 28px;
+    padding: 12px 24px;
+    min-height: 48px;
+    min-width: 48px;
     cursor: pointer;
+    line-height: 1;
+    user-select: none;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.1);
 }
 
 @media (max-width: 768px) {
     .menu-toggle {
-        display: block;
+        display: inline-block;
     }
 
     .sidebar .menu-item {
@@ -6130,6 +6135,22 @@ function fecharHistoricoAnual() {
     // ========================================================
     //  MOVI 505: Modal de nova reserva manual (usado por Bruno e Ricardo)
     // ========================================================
+    // ===== Helpers BRL format (inputs com máscara 1.234,56) =====
+    window.formatBRLInput = function(el) {
+        let v = (el.value || '').replace(/\D/g, '');
+        if (!v) { el.value = ''; return; }
+        v = (parseInt(v, 10) / 100).toFixed(2);
+        el.value = v.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    };
+    window.parseBRLInput = function(s) {
+        if (s === null || s === undefined || s === '') return 0;
+        if (typeof s === 'number') return s;
+        return Number(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+    };
+    window.formatBRLValue = function(n) {
+        return (Number(n || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
     window.abrirModalMoviNovaReserva = function(reservaExistente) {
         const hoje = new Date().toISOString().slice(0, 10);
         const isEdit = !!reservaExistente;
@@ -6150,12 +6171,23 @@ function fecharHistoricoAnual() {
                         <input type="date" id="moviCheckout" class="form-input" value="${reservaExistente?.partida || ''}"></div>
                 </div>
                 <div class="form-group"><label class="form-label">💰 Valor (R$)</label>
-                    <input type="number" id="moviValor" class="form-input" step="0.01" min="0" placeholder="0.00" value="${reservaExistente?.receita ?? ''}"></div>
+                    <input type="text" inputmode="decimal" id="moviValor" class="form-input" placeholder="0,00" oninput="formatBRLInput(this)" value="${reservaExistente?.receita ? formatBRLValue(reservaExistente.receita) : ''}"></div>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
                     <div class="form-group" style="flex:1;min-width:140px;"><label class="form-label">📱 Taxa App (R$)</label>
-                        <input type="number" id="moviTaxaApp" class="form-input" step="0.01" min="0" value="${reservaExistente?.comissaoPortais ?? reservaExistente?.comissao ?? ''}" placeholder="0.00"></div>
+                        <input type="text" inputmode="decimal" id="moviTaxaApp" class="form-input" placeholder="0,00" oninput="formatBRLInput(this)" value="${(reservaExistente?.comissaoPortais ?? reservaExistente?.comissao) ? formatBRLValue(reservaExistente.comissaoPortais ?? reservaExistente.comissao) : ''}"></div>
                     <div class="form-group" style="flex:1;min-width:140px;"><label class="form-label">🏢 Taxa Short Stay (R$)</label>
-                        <input type="number" id="moviTaxaShort" class="form-input" step="0.01" min="0" value="${reservaExistente?.comissaoShortStay ?? ''}" placeholder="0.00"></div>
+                        <input type="text" inputmode="decimal" id="moviTaxaShort" class="form-input" placeholder="0,00" oninput="formatBRLInput(this)" value="${reservaExistente?.comissaoShortStay ? formatBRLValue(reservaExistente.comissaoShortStay) : ''}"></div>
+                </div>
+                <div class="form-group"><label class="form-label">🏷️ Canal</label>
+                    <select id="moviCanal" class="form-select">
+                        <option value="Direto" ${(reservaExistente?.canal || 'Direto') === 'Direto' ? 'selected' : ''}>🟢 Direto</option>
+                        <option value="Booking.com" ${reservaExistente?.canal === 'Booking.com' ? 'selected' : ''}>🔵 Booking.com</option>
+                        <option value="Airbnb" ${reservaExistente?.canal === 'Airbnb' ? 'selected' : ''}>🔴 Airbnb</option>
+                        <option value="Expedia" ${reservaExistente?.canal === 'Expedia' ? 'selected' : ''}>🟡 Expedia</option>
+                        <option value="Proprietário" ${reservaExistente?.canal === 'Proprietário' ? 'selected' : ''}>👤 Proprietário</option>
+                        <option value="Movi" ${reservaExistente?.canal === 'Movi' ? 'selected' : ''}>🏠 Movi</option>
+                        <option value="Outros" ${reservaExistente?.canal === 'Outros' ? 'selected' : ''}>⚪ Outros</option>
+                    </select>
                 </div>
                 <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;">
                     <button class="btn btn-primary" style="flex:1;min-width:120px;" onclick="salvarReservaMovi(${isEdit ? `'${reservaExistente.idReserva || reservaExistente.id}'` : 'null'})">${isEdit ? '💾 Atualizar' : '✅ Salvar'}</button>
@@ -6171,9 +6203,10 @@ function fecharHistoricoAnual() {
         const comentario = document.getElementById('moviComentario').value.trim();
         const checkin = document.getElementById('moviCheckin').value;
         const checkout = document.getElementById('moviCheckout').value;
-        const valor = parseFloat(document.getElementById('moviValor').value) || 0;
-        const taxaApp = parseFloat(document.getElementById('moviTaxaApp').value) || 0;
-        const taxaShort = parseFloat(document.getElementById('moviTaxaShort').value) || 0;
+        const valor = parseBRLInput(document.getElementById('moviValor').value);
+        const taxaApp = parseBRLInput(document.getElementById('moviTaxaApp').value);
+        const taxaShort = parseBRLInput(document.getElementById('moviTaxaShort').value);
+        const canal = document.getElementById('moviCanal').value || 'Direto';
 
         if (!checkin || !checkout) { alert('Preencha check-in e check-out.'); return; }
         if (new Date(checkout) <= new Date(checkin)) { alert('Check-out deve ser DEPOIS do check-in.'); return; }
@@ -6201,6 +6234,7 @@ function fecharHistoricoAnual() {
                     receita: valor,
                     comissao_portais: taxaApp,
                     comissao_short_stay: taxaShort,
+                    canal: canal,
                     ano, mes, mes_ano: mesAno,
                     status: 'ativa'
                 }).eq('id_reserva', idExistente);
@@ -6218,7 +6252,7 @@ function fecharHistoricoAnual() {
                     receita: valor,
                     comissao_portais: taxaApp,
                     comissao_short_stay: taxaShort,
-                    canal: 'Movi',
+                    canal: canal,
                     status: 'ativa'
                 });
                 if (error) throw error;
@@ -6347,7 +6381,7 @@ function fecharHistoricoAnual() {
                 const [ano, mes, dia] = chegada.split('-');
                 const [, , diaFim] = partida.split('-');
                 const id = `MOVI_${ano}${mes}_${parseInt(dia)}-${parseInt(diaFim)}_${Number(val).toFixed(2)}`;
-                const canal = (com && com.toLowerCase().includes('propriet')) ? 'Proprietário' : 'Movi';
+                const canal = (com && com.toLowerCase().includes('propriet')) ? 'Proprietário' : 'Direto';
                 const status = (val === 0 || (com && com.toLowerCase().includes('propriet'))) ? 'bloqueio' : 'ativa';
                 return {
                     id_reserva: id,
@@ -6446,6 +6480,15 @@ function fecharHistoricoAnual() {
             if (CACHE_RESERVAS) {
                 const nomes = [...new Set(CACHE_RESERVAS.map(r => r.unidade))];
                 calUnidades = nomes.map((n, i) => ({ id: i, nome: n }));
+            }
+        }
+
+        // Filtro viewer: só unidades permitidas
+        const tipo = sessionStorage.getItem('tipoUsuario');
+        if (tipo === 'viewer') {
+            const permitidas = JSON.parse(sessionStorage.getItem('unidadesPermitidas') || 'null');
+            if (Array.isArray(permitidas) && permitidas.length > 0) {
+                calUnidades = calUnidades.filter(u => permitidas.includes(u.nome));
             }
         }
     }
@@ -7208,7 +7251,27 @@ function fecharHistoricoAnual() {
         if (calSmoobuApartments) return calSmoobuApartments;
         try {
             const resultado = await chamarEdgeFunction({ action: 'getApartments' });
-            calSmoobuApartments = resultado.apartments || [];
+            let apts = resultado.apartments || [];
+
+            // Filtro viewer: só unidades permitidas (match por número da unidade)
+            const tipo = sessionStorage.getItem('tipoUsuario');
+            if (tipo === 'viewer') {
+                const permitidas = JSON.parse(sessionStorage.getItem('unidadesPermitidas') || 'null');
+                if (Array.isArray(permitidas) && permitidas.length > 0) {
+                    apts = apts.filter(a => {
+                        // Match exato ou por número
+                        if (permitidas.includes(a.name)) return true;
+                        const anum = (a.name || '').match(/(\d+(?:\.\d+)?)/);
+                        if (!anum) return false;
+                        return permitidas.some(p => {
+                            const pnum = (p || '').match(/(\d+(?:\.\d+)?)/);
+                            return pnum && pnum[1] === anum[1];
+                        });
+                    });
+                }
+            }
+
+            calSmoobuApartments = apts;
             console.log('Smoobu apartments:', calSmoobuApartments.map(a => a.name).join(', '));
             return calSmoobuApartments;
         } catch (e) {
