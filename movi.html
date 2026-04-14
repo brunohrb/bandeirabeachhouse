@@ -314,7 +314,7 @@ async function carregarLista() {
     document.getElementById('totaisBar').style.display = 'none';
 
     const { data, error } = await db.from('reservas')
-        .select('id,id_reserva,hospede,chegada,partida,receita,comissao_portais,comissao_short_stay,ano,mes_ano')
+        .select('id,id_reserva,hospede,chegada,partida,receita,comissao_portais,comissao_short_stay,ano,mes_ano,canal')
         .eq('unidade_id', unidadeMoviId)
         .eq('ano', String(ano))
         .order('chegada', { ascending: true, nullsFirst: false })
@@ -360,8 +360,19 @@ async function carregarLista() {
         const totalMes = reservas.reduce((s, r) => s + Number(r.receita || 0), 0);
         const countMes = reservas.length;
 
+        const CANAIS = [
+            { v: 'Direto',        l: '🟢 Direto' },
+            { v: 'Booking.com',   l: '🔵 Booking.com' },
+            { v: 'Airbnb',        l: '🔴 Airbnb' },
+            { v: 'Expedia',       l: '🟡 Expedia' },
+            { v: 'Proprietário',  l: '👤 Proprietário' },
+            { v: 'Movi',          l: '🏠 Movi' },
+            { v: 'Outros',        l: '⚪ Outros' }
+        ];
         const cards = reservas.map(r => {
             const isProprietario = Number(r.receita || 0) === 0;
+            const canalAtual = r.canal || 'Direto';
+            const opts = CANAIS.map(c => `<option value="${c.v}" ${c.v === canalAtual ? 'selected' : ''}>${c.l}</option>`).join('');
             return `
             <div class="reserva-card" style="${isProprietario ? 'background:#fff8e1;border-color:#ffe082' : ''}">
                 <div class="rc-head">
@@ -372,6 +383,14 @@ async function carregarLista() {
                 <div class="rc-taxas">
                     <span>Taxa App: ${fmtBRL(r.comissao_portais)}</span>
                     <span>Short Stay: ${fmtBRL(r.comissao_short_stay)}</span>
+                </div>
+                <div class="rc-canal" style="margin-top:8px;display:flex;align-items:center;gap:8px">
+                    <label style="font-size:13px;color:#555;font-weight:500">🏷️ Canal:</label>
+                    <select onchange="atualizarCanal('${esc(r.id_reserva)}', this.value, this)"
+                            style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;background:white;cursor:pointer;flex:1;max-width:220px">
+                        ${opts}
+                    </select>
+                    <span class="canal-status" style="font-size:12px;color:#28a745;display:none">✓</span>
                 </div>
                 <div class="rc-actions">
                     <button class="danger" onclick="excluir('${esc(r.id_reserva)}')">🗑️ Excluir</button>
@@ -466,6 +485,24 @@ async function excluir(idReserva) {
     if (error) { toast('Erro: ' + error.message, 'err'); return; }
     toast('Reserva excluída', 'ok');
     carregarLista();
+}
+
+// ─── Atualizar canal (dropdown inline) ─────────────────────────────
+async function atualizarCanal(idReserva, novoCanal, selectEl) {
+    const { error } = await db.from('reservas')
+        .update({ canal: novoCanal })
+        .eq('id_reserva', idReserva);
+    if (error) { toast('Erro: ' + error.message, 'err'); return; }
+    // atualiza cache local
+    const r = listaCache.find(x => x.id_reserva === idReserva);
+    if (r) r.canal = novoCanal;
+    // feedback visual rápido
+    const status = selectEl.parentElement.querySelector('.canal-status');
+    if (status) {
+        status.style.display = 'inline';
+        setTimeout(() => { status.style.display = 'none'; }, 1500);
+    }
+    toast('Canal atualizado: ' + novoCanal, 'ok');
 }
 
 // ─── Baixar Excel ─────────────────────────────────────────────────
