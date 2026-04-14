@@ -5,13 +5,15 @@
  * Cacheia assets estáticos para funcionar offline/app-like no Safari.
  */
 
-const CACHE_NAME = 'bandeira-stay-v2';
+const CACHE_NAME = 'bandeira-stay-v3';
 
+// Usa URLs relativas ao SW (resolvem corretamente em GitHub Pages com subpath).
 const ASSETS_TO_CACHE = [
-    '/',
-    '/index.html',
-    '/logo-nobg.png',
-    '/manifest.webmanifest',
+    './',
+    './index.html',
+    './movi.html',
+    './logo-nobg.png',
+    './manifest.webmanifest',
     'https://code.jquery.com/jquery-3.6.0.min.js',
     'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css',
     'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js',
@@ -20,12 +22,14 @@ const ASSETS_TO_CACHE = [
     'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
 ];
 
-// Install: cacheia assets estáticos
+// Install: cacheia assets estáticos (ignora falhas individuais pra não travar o SW)
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
+        caches.open(CACHE_NAME).then(async (cache) => {
             console.log('[SW] Cacheando assets...');
-            return cache.addAll(ASSETS_TO_CACHE);
+            await Promise.all(ASSETS_TO_CACHE.map(url =>
+                cache.add(url).catch(err => console.warn('[SW] Falhou cache de', url, err))
+            ));
         })
     );
     self.skipWaiting();
@@ -81,7 +85,9 @@ self.addEventListener('notificationclick', (event) => {
                     existing.postMessage({ type: 'MSG_CLICK', dados: payload });
                 }
             } else {
-                self.clients.openWindow('/').then(win => {
+                // Abre relativo ao scope do SW (funciona em GitHub Pages com subpath)
+                const target = new URL('./', self.registration.scope).href;
+                self.clients.openWindow(target).then(win => {
                     if (win && payload.type === 'message') {
                         setTimeout(() => win.postMessage({ type: 'MSG_CLICK', dados: payload }), 1500);
                     }
@@ -118,9 +124,9 @@ self.addEventListener('fetch', (event) => {
                 // Offline: tenta o cache
                 return caches.match(event.request).then((cached) => {
                     if (cached) return cached;
-                    // Fallback para navegação: retorna index.html do cache
+                    // Fallback para navegação: retorna index.html do cache (relativo ao scope)
                     if (event.request.mode === 'navigate') {
-                        return caches.match('/index.html');
+                        return caches.match('./index.html') || caches.match('./');
                     }
                     return new Response('Offline', { status: 503 });
                 });

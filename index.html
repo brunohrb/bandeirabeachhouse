@@ -1039,6 +1039,19 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
         <button class="btn btn-outline" onclick="atualizarDoSmoobuViaDownload()">📥 Baixar Excel do Smoobu</button>
     </div>
 
+    <div class="card">
+        <h3 style="margin-bottom: 20px;">🔗 Acesso do Ricardo (Movi 505)</h3>
+        <p style="color: var(--text-light); margin-bottom: 16px; font-size: 14px;">
+            Página dedicada para o Ricardo gerenciar as reservas da <strong>Movi 505</strong> — criar, editar, listar e importar planilha. Sem acesso às outras unidades.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
+            <button class="btn btn-primary" onclick="abrirLinkRicardo()">🔗 Abrir página do Ricardo</button>
+            <button class="btn btn-secondary" onclick="copiarLinkRicardo()">📋 Copiar link</button>
+            <button class="btn btn-outline" onclick="seedMoviPlanilha()">📥 Importar planilha inicial (35 reservas)</button>
+        </div>
+        <div id="linkRicardoInfo" style="background:#e3f2fd; border-left:4px solid #1976D2; padding:10px 12px; border-radius:6px; font-size:12px; color:#0d47a1; word-break:break-all;"></div>
+    </div>
+
     <div id="card-gerenciar-usuarios" class="card">
         <h3 style="margin-bottom: 20px;">👥 Gerenciar Usuários</h3>
         <p style="color: var(--text-light); margin-bottom: 16px; font-size: 14px;">
@@ -1084,6 +1097,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
             <button class="cal-sync-btn" id="calSyncBtn" onclick="syncSmoobuRealtime()">
                 <span id="calSyncIcon">&#x21bb;</span> Sincronizar
             </button>
+            <button class="btn btn-outline" onclick="abrirLinkRicardo()" title="Abrir/copiar link para o Ricardo gerenciar a Movi 505">🔗 Ricardo (Movi)</button>
             <button class="btn btn-outline" onclick="calHoje()">Hoje</button>
         </div>
     </div>
@@ -6156,22 +6170,166 @@ function fecharHistoricoAnual() {
             }
 
             document.getElementById('modalMoviReserva').remove();
-            // Recarregar dados no calendário
-            if (typeof carregarReservasCalendario === 'function') {
-                await carregarReservasCalendario();
-                renderCalendario();
-            }
-            // Se app principal está ativo, recarregar dados gerais
+            // 1) Recarregar cache global de reservas (CACHE_RESERVAS)
             if (typeof carregarReservasSupabase === 'function') {
                 await carregarReservasSupabase();
                 if (typeof renderViews === 'function') renderViews();
             }
-            // Recarregar lista Ricardo se ativa
+            // 2) Invalida cache de Preços para forçar reload com nova ocupação
+            precosMesCarregado = {};
+            // 3) Atualizar calendário (depende de CACHE_RESERVAS)
+            if (typeof carregarReservasCalendario === 'function') {
+                carregarReservasCalendario();
+                renderCalendario();
+            }
+            // 3) Recarregar lista Ricardo se ativa
             if (typeof window.recarregarListaMoviRicardo === 'function') window.recarregarListaMoviRicardo();
-            alert('✅ Reserva Movi salva!');
+            // Toast leve em vez de alert pra não interromper o fluxo
+            if (typeof window.mostrarToastNotif === 'function') {
+                window.mostrarToastNotif('✅ Reserva Movi salva!', 'A reserva foi adicionada ao calendário.', { type: 'success' });
+            } else {
+                alert('✅ Reserva Movi salva!');
+            }
         } catch (err) {
             console.error(err);
             alert('Erro ao salvar: ' + (err.message || err));
+        }
+    };
+
+    // ===== Link do Ricardo (página standalone Movi 505) =====
+    window.getLinkRicardo = function() {
+        // movi.html fica na mesma pasta do index.html
+        const base = window.location.href.replace(/index\.html.*$/i, '').replace(/\/[^\/]*$/, '/');
+        const url = new URL('movi.html', window.location.href).href;
+        return url;
+    };
+
+    window.abrirLinkRicardo = function() {
+        const url = window.getLinkRicardo();
+        const info = document.getElementById('linkRicardoInfo');
+        if (info) info.innerHTML = `<strong>URL:</strong> ${url}`;
+        window.open(url, '_blank');
+    };
+
+    window.copiarLinkRicardo = async function() {
+        const url = window.getLinkRicardo();
+        try {
+            await navigator.clipboard.writeText(url);
+            const info = document.getElementById('linkRicardoInfo');
+            if (info) info.innerHTML = `✅ <strong>Copiado:</strong> ${url}`;
+            if (typeof window.mostrarToastNotif === 'function') {
+                window.mostrarToastNotif('✅ Link copiado!', 'Envie ao Ricardo por WhatsApp.', { type: 'success' });
+            } else {
+                alert('Link copiado:\n' + url);
+            }
+        } catch (e) {
+            prompt('Copie o link abaixo:', url);
+        }
+    };
+
+    // ===== Seed: importa 35 reservas iniciais da planilha Movi 505 =====
+    window.seedMoviPlanilha = async function() {
+        const PLANILHA = [
+            // [comentario, checkin, checkout, valor, taxaApp, taxaShortStay]
+            ['', '31/12/2025', '05/01/2026', 738.00, 95.94, 73.80],
+            ['', '08/01/2026', '16/01/2026', 1073.68, 139.58, 107.37],
+            ['', '18/01/2026', '26/01/2026', 1482.88, 192.77, 148.29],
+            ['', '28/01/2026', '31/01/2026', 606.31, 97.01, 60.63],
+            ['Reserva proprietário', '01/02/2026', '10/02/2026', 0, 0, 0],
+            ['', '23/02/2026', '25/02/2026', 540.00, 70.20, 54.00],
+            ['', '25/02/2026', '27/02/2026', 517.04, 82.73, 51.70],
+            ['', '27/02/2026', '03/03/2026', 941.24, 122.36, 94.12],
+            ['', '03/03/2026', '05/03/2026', 511.56, 66.50, 51.16],
+            ['', '10/03/2026', '13/03/2026', 768.76, 123.00, 76.88],
+            ['', '13/03/2026', '15/03/2026', 561.78, 89.88, 56.18],
+            ['Paulo proprietário', '15/03/2026', '19/03/2026', 0, 0, 0],
+            ['', '19/03/2026', '24/03/2026', 1162.20, 185.95, 116.22],
+            ['', '24/03/2026', '26/03/2026', 517.04, 82.73, 51.70],
+            ['', '27/03/2026', '28/03/2026', 380.80, 69.35, 38.08],
+            ['Paulo proprietário', '29/03/2026', '31/03/2026', 0, 0, 0],
+            ['', '31/03/2026', '02/04/2026', 509.18, 92.74, 50.92],
+            ['', '06/04/2026', '08/04/2026', 540.00, 86.40, 54.00],
+            ['', '08/04/2026', '13/04/2026', 1183.30, 183.30, 118.33],
+            ['', '14/04/2026', '15/04/2026', 350.00, 56.01, 35.00],
+            ['', '15/04/2026', '16/04/2026', 342.00, 54.72, 34.20],
+            ['', '20/04/2026', '23/04/2026', 895.71, 119.31, 89.57],
+            ['', '26/04/2026', '29/04/2026', 696.03, 111.36, 69.60],
+            ['', '01/05/2026', '05/05/2026', 1100.00, 200.35, 110.00],
+            ['Bruno proprietário', '07/05/2026', '09/05/2026', 0, 0, 0],
+            ['', '12/05/2026', '16/05/2026', 920.00, 119.60, 92.00],
+            ['', '27/05/2026', '01/06/2026', 1246.80, 199.49, 124.68],
+            ['', '12/06/2026', '14/06/2026', 602.92, 96.47, 60.29],
+            ['Paulo proprietário', '14/06/2026', '17/06/2026', 0, 0, 0],
+            ['', '16/07/2026', '19/07/2026', 694.60, 111.14, 69.46],
+            ['', '24/07/2026', '26/07/2026', 511.60, 81.86, 51.16],
+            ['', '26/10/2026', '29/10/2026', 1017.54, 162.81, 101.75],
+            ['', '29/10/2026', '31/10/2026', 730.24, 94.93, 73.02],
+            ['', '31/10/2026', '01/11/2026', 445.12, 57.87, 44.51],
+            ['', '06/11/2026', '09/11/2026', 961.90, 153.90, 96.19],
+        ];
+
+        if (!confirm(`Importar ${PLANILHA.length} reservas iniciais da Movi 505 para o banco?\n\nReservas duplicadas (mesmo ID) serão sobrescritas.`)) return;
+
+        try {
+            // 1) Garante a unidade Movi 505
+            let { data: unidadesMovi } = await db.from('unidades').select('id, nome').ilike('nome', '%movi%');
+            if (!unidadesMovi || unidadesMovi.length === 0) {
+                const { data: nova, error: errCreate } = await db.from('unidades').insert({ nome: 'Movi 505' }).select().single();
+                if (errCreate) throw errCreate;
+                unidadesMovi = [nova];
+            }
+            const unidadeMovi = unidadesMovi[0];
+
+            // 2) Monta registros
+            const parseBR = (s) => {
+                const [d, m, y] = s.split('/');
+                return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+            };
+
+            const registros = PLANILHA.map(([com, ci, co, val, tApp, tSS]) => {
+                const chegada = parseBR(ci);
+                const partida = parseBR(co);
+                const [ano, mes, dia] = chegada.split('-');
+                const [, , diaFim] = partida.split('-');
+                const id = `MOVI_${ano}${mes}_${parseInt(dia)}-${parseInt(diaFim)}_${Number(val).toFixed(2)}`;
+                const canal = (com && com.toLowerCase().includes('propriet')) ? 'Proprietário' : 'Movi';
+                const status = (val === 0 || (com && com.toLowerCase().includes('propriet'))) ? 'bloqueio' : 'ativa';
+                return {
+                    id_reserva: id,
+                    unidade_id: unidadeMovi.id,
+                    ano: parseInt(ano),
+                    mes: parseInt(mes),
+                    mes_ano: `${ano}-${mes}`,
+                    chegada,
+                    partida,
+                    receita: Number(val),
+                    comissao_portais: Number(tApp),
+                    comissao_short_stay: Number(tSS),
+                    hospede: com || '',
+                    canal,
+                    status,
+                    num_hospedes: 1
+                };
+            });
+
+            // 3) Upsert em lote
+            const { error } = await db.from('reservas').upsert(registros, { onConflict: 'id_reserva' });
+            if (error) throw error;
+
+            // 4) Recarrega caches
+            if (typeof carregarReservasSupabase === 'function') {
+                await carregarReservasSupabase();
+                if (typeof renderViews === 'function') renderViews();
+            }
+            if (typeof carregarReservasCalendario === 'function') {
+                carregarReservasCalendario();
+                if (typeof renderCalendario === 'function') renderCalendario();
+            }
+
+            alert(`✅ ${registros.length} reservas da Movi 505 importadas!`);
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao importar: ' + (err.message || err));
         }
     };
 
@@ -6181,13 +6339,13 @@ function fecharHistoricoAnual() {
             const { error } = await db.from('reservas').delete().eq('id_reserva', idReserva);
             if (error) throw error;
             document.getElementById('modalMoviReserva').remove();
-            if (typeof carregarReservasCalendario === 'function') {
-                await carregarReservasCalendario();
-                renderCalendario();
-            }
             if (typeof carregarReservasSupabase === 'function') {
                 await carregarReservasSupabase();
                 if (typeof renderViews === 'function') renderViews();
+            }
+            if (typeof carregarReservasCalendario === 'function') {
+                carregarReservasCalendario();
+                renderCalendario();
             }
             if (typeof window.recarregarListaMoviRicardo === 'function') window.recarregarListaMoviRicardo();
         } catch (err) {
@@ -9713,7 +9871,8 @@ function fecharHistoricoAnual() {
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-        navigator.serviceWorker.register('service-worker.js')
+        // Registra com scope relativo pra funcionar em GitHub Pages com subpath
+        navigator.serviceWorker.register('service-worker.js', { scope: './' })
             .then(function(reg) { console.log('SW registrado:', reg.scope); })
             .catch(function(err) { console.log('SW erro:', err); });
     });
