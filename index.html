@@ -976,6 +976,17 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                 </div>
                     
 
+<div class="card" style="background:#fff3cd;border-left:4px solid #ffc107;">
+    <h3 style="margin-bottom: 12px;">🔄 Versão do App</h3>
+    <div style="font-size:13px;color:#795548;margin-bottom:12px;">
+        Versão atual: <strong>v6 (2026-04-14 — admin/movi fixes)</strong>
+    </div>
+    <button class="btn btn-primary" onclick="forcarAtualizacaoApp()">🔄 Limpar cache e recarregar</button>
+    <div style="font-size:11px;color:#888;margin-top:8px;">
+        Use este botão se mudanças não aparecerem após atualização.
+    </div>
+</div>
+
 <div class="card">
     <h3 style="margin-bottom: 20px;">🔔 Notificações</h3>
     <p style="color: var(--text-light); margin-bottom: 16px; font-size: 14px;">
@@ -1097,8 +1108,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
             <button class="cal-sync-btn" id="calSyncBtn" onclick="syncSmoobuRealtime()">
                 <span id="calSyncIcon">&#x21bb;</span> Sincronizar
             </button>
-            <button class="btn btn-outline" onclick="abrirLinkRicardo()" title="Abrir/copiar link para o Ricardo gerenciar a Movi 505">🔗 Ricardo (Movi)</button>
-            <button class="btn btn-outline" onclick="calHoje()">Hoje</button>
+            <button class="btn btn-outline" onclick="abrirLinkRicardo()" title="Abrir página Movi 505">🔗 Movi</button>
         </div>
     </div>
 
@@ -1696,9 +1706,9 @@ function mostrarSistema() {
     const elNome = document.getElementById('nomeUsuarioLogado');
     if (elNome) elNome.textContent = nome;
 
-    // Viewer: ocultar abas e seções de admin
+    // Viewer: ocultar apenas abas realmente administrativas
     if (tipo === 'viewer') {
-        ['configuracoes', 'upload', 'reservas'].forEach(id => {
+        ['configuracoes', 'upload'].forEach(id => {
             const menuItem = document.querySelector(`.menu-item[onclick*="'${id}'"]`);
             if (menuItem) menuItem.style.display = 'none';
         });
@@ -1720,6 +1730,27 @@ function mostrarSistema() {
         // Sync automático agora é feito via GitHub Actions (de hora em hora)
     });
 }
+async function forcarAtualizacaoApp() {
+    try {
+        // 1) Apaga todos os caches do navegador
+        if ('caches' in window) {
+            const names = await caches.keys();
+            await Promise.all(names.map(n => caches.delete(n)));
+        }
+        // 2) Desregistra todos os Service Workers
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+        }
+        alert('✅ Cache limpo! Recarregando...');
+        // 3) Força reload sem cache
+        location.reload(true);
+    } catch (e) {
+        alert('Erro: ' + e.message);
+        location.reload(true);
+    }
+}
+
 function logout() {
     ['autenticado','tipoUsuario','nomeUsuario','unidadesPermitidas'].forEach(k => {
         sessionStorage.removeItem(k);
@@ -3740,7 +3771,7 @@ async function carregarUsuarios() {
                 ? u.unidades_permitidas.join(', ')
                 : '<em style="color:#888">Todas</em>';
         const ativoLabel = u.ativo ? '<span style="color:var(--green);font-weight:600">✔ Sim</span>' : '<span style="color:var(--red)">✘ Não</span>';
-        const btnEditar = u.tipo !== 'admin' ? `<button class="btn btn-link" onclick="editarUsuario('${u.id}')" style="font-size:12px">✏️ Editar</button>` : '';
+        const btnEditar = `<button class="btn btn-link" onclick="editarUsuario('${u.id}')" style="font-size:12px">✏️ Editar</button>`;
         html += `<tr style="border-bottom:1px solid var(--border-color)">
             <td style="padding:8px;font-weight:600">${u.usuario}</td>
             <td style="padding:8px"><span style="background:${u.tipo === 'admin' ? '#2d7a7a' : '#6c757d'};color:white;padding:2px 8px;border-radius:12px;font-size:11px">${u.tipo}</span></td>
@@ -3777,6 +3808,15 @@ async function editarUsuario(id) {
             <input type="password" id="editSenha" class="form-input" placeholder="Nova senha">
         </div>
         <div class="form-group">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px;background:#f5f5f5;border-radius:8px;border:1px solid var(--border-color)">
+                <input type="checkbox" id="editIsAdmin" ${u.tipo === 'admin' ? 'checked' : ''} style="width:18px;height:18px" onchange="document.getElementById('editUnidadesWrap').style.opacity=this.checked?'0.4':'1';document.getElementById('editUnidadesWrap').style.pointerEvents=this.checked?'none':'auto'">
+                <span>
+                    <strong>👑 Administrador</strong>
+                    <div style="font-size:12px;color:#666;margin-top:2px">Acesso total — todas as unidades e todas as abas</div>
+                </span>
+            </label>
+        </div>
+        <div class="form-group" id="editUnidadesWrap" style="${u.tipo === 'admin' ? 'opacity:0.4;pointer-events:none' : ''}">
             <label class="form-label" style="margin-bottom:8px">Unidades Permitidas <span style="color:#888;font-size:12px">(vazio = todas)</span></label>
             <div style="border:1px solid var(--border-color);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto">${checkboxes}</div>
         </div>
@@ -3810,12 +3850,15 @@ async function salvarEdicaoUsuario(id) {
     const modal = document.getElementById('modalEditarUsuario');
     const novaSenha = document.getElementById('editSenha').value.trim();
     const ativo = document.getElementById('editAtivo').checked;
-    const checkboxes = modal.querySelectorAll('input[type="checkbox"][value]');
+    const isAdmin = document.getElementById('editIsAdmin').checked;
+    const checkboxes = modal.querySelectorAll('#editUnidadesWrap input[type="checkbox"][value]');
     const unidadesSelecionadas = [...checkboxes].filter(c => c.checked).map(c => c.value);
 
     const updates = {
         ativo,
-        unidades_permitidas: unidadesSelecionadas.length > 0 ? unidadesSelecionadas : null
+        tipo: isAdmin ? 'admin' : 'viewer',
+        // Admin sempre vê tudo → unidades_permitidas = null
+        unidades_permitidas: isAdmin ? null : (unidadesSelecionadas.length > 0 ? unidadesSelecionadas : null)
     };
     if (novaSenha) updates.senha = novaSenha;
 
@@ -3848,6 +3891,15 @@ function abrirModalNovoUsuario() {
             <input type="password" id="novaSenhaUser" class="form-input" placeholder="Senha">
         </div>
         <div class="form-group">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px;background:#f5f5f5;border-radius:8px;border:1px solid var(--border-color)">
+                <input type="checkbox" id="novoIsAdmin" style="width:18px;height:18px" onchange="document.getElementById('novoUnidadesWrap').style.opacity=this.checked?'0.4':'1';document.getElementById('novoUnidadesWrap').style.pointerEvents=this.checked?'none':'auto'">
+                <span>
+                    <strong>👑 Administrador</strong>
+                    <div style="font-size:12px;color:#666;margin-top:2px">Acesso total — todas as unidades e todas as abas</div>
+                </span>
+            </label>
+        </div>
+        <div class="form-group" id="novoUnidadesWrap">
             <label class="form-label" style="margin-bottom:8px">Unidades Permitidas <span style="color:#888;font-size:12px">(vazio = todas)</span></label>
             <div style="border:1px solid var(--border-color);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto">${checkboxes}</div>
         </div>
@@ -3863,8 +3915,11 @@ async function criarNovoUsuario() {
     const modal = document.getElementById('modalNovoUsuario');
     const login = document.getElementById('novoLogin').value.trim();
     const senha = document.getElementById('novaSenhaUser').value.trim();
-    const checkboxes = modal.querySelectorAll('input[type="checkbox"][value]');
+    const isAdmin = document.getElementById('novoIsAdmin').checked;
+    const checkboxes = modal.querySelectorAll('#novoUnidadesWrap input[type="checkbox"][value]');
     const unidades = [...checkboxes].filter(c => c.checked).map(c => c.value);
+    const tipo = isAdmin ? 'admin' : 'viewer';
+    const unidadesFinal = isAdmin ? null : (unidades.length > 0 ? unidades : null);
 
     if (!login || !senha) { alert('Preencha usuário e senha'); return; }
 
@@ -3886,8 +3941,8 @@ async function criarNovoUsuario() {
                 action: 'createUser',
                 usuario: login,
                 senha,
-                tipo: 'viewer',
-                unidades_permitidas: unidades.length > 0 ? unidades : null,
+                tipo,
+                unidades_permitidas: unidadesFinal,
             })
         });
         const data = await resp.json().catch(() => ({}));
@@ -3905,8 +3960,8 @@ async function criarNovoUsuario() {
         const { error } = await db.from('usuarios').insert({
             usuario: login,
             senha,
-            tipo: 'viewer',
-            unidades_permitidas: unidades.length > 0 ? unidades : null,
+            tipo,
+            unidades_permitidas: unidadesFinal,
             ativo: true
         });
         if (!error) {
@@ -6312,9 +6367,26 @@ function fecharHistoricoAnual() {
                 };
             });
 
-            // 3) Upsert em lote
-            const { error } = await db.from('reservas').upsert(registros, { onConflict: 'id_reserva' });
-            if (error) throw error;
+            // 3) Estratégia: apaga só os id_reserva que vamos inserir (evita dependência de UNIQUE constraint)
+            const idsNovos = registros.map(r => r.id_reserva);
+            console.log('📤 Apagando Movi antigas com mesmo id_reserva...', idsNovos.length);
+            const { error: errDel } = await db.from('reservas')
+                .delete()
+                .eq('unidade_id', unidadeMovi.id)
+                .in('id_reserva', idsNovos);
+            if (errDel) {
+                console.warn('⚠️ Erro ao apagar antigas (ignorando):', errDel);
+            }
+
+            console.log('📤 Inserindo', registros.length, 'registros Movi...');
+            const { data: inseridos, error } = await db.from('reservas')
+                .insert(registros)
+                .select();
+            if (error) {
+                console.error('❌ Erro insert:', error);
+                throw error;
+            }
+            console.log(`✅ ${(inseridos || []).length} reservas inseridas`);
 
             // 4) Recarrega caches
             if (typeof carregarReservasSupabase === 'function') {
@@ -6326,10 +6398,15 @@ function fecharHistoricoAnual() {
                 if (typeof renderCalendario === 'function') renderCalendario();
             }
 
-            alert(`✅ ${registros.length} reservas da Movi 505 importadas!`);
+            alert(`✅ ${registros.length} reservas da Movi 505 importadas!\n\nSe o calendário ainda estiver vazio:\n1. Verifique no Supabase SQL Editor se as políticas RLS estão OK\n2. Clique em "🔄 Limpar cache e recarregar" em Configurações`);
         } catch (err) {
-            console.error(err);
-            alert('Erro ao importar: ' + (err.message || err));
+            console.error('Erro completo:', err);
+            const msg = err.message || err.hint || err.details || JSON.stringify(err);
+            alert('❌ Erro ao importar: ' + msg + '\n\n' +
+                  'Possíveis causas:\n' +
+                  '• RLS bloqueando insert na tabela "reservas" (rode o SQL que te passei)\n' +
+                  '• Unidade Movi 505 não existe (criada automaticamente — verifique na tabela unidades)\n' +
+                  '• Ver console do navegador (F12) para detalhes');
         }
     };
 
@@ -9873,7 +9950,23 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
         // Registra com scope relativo pra funcionar em GitHub Pages com subpath
         navigator.serviceWorker.register('service-worker.js', { scope: './' })
-            .then(function(reg) { console.log('SW registrado:', reg.scope); })
+            .then(function(reg) {
+                console.log('SW registrado:', reg.scope);
+                // Verifica updates a cada 30s enquanto a aba estiver aberta
+                setInterval(() => reg.update().catch(()=>{}), 30000);
+                // Quando novo SW assumir, força recarga (pega HTML/JS novo)
+                reg.addEventListener('updatefound', () => {
+                    const nw = reg.installing;
+                    if (!nw) return;
+                    nw.addEventListener('statechange', () => {
+                        if (nw.state === 'activated') {
+                            console.log('🔄 Nova versão instalada — recarregando...');
+                            // Evita loop: só recarrega se já havia SW antes
+                            if (navigator.serviceWorker.controller) location.reload();
+                        }
+                    });
+                });
+            })
             .catch(function(err) { console.log('SW erro:', err); });
     });
 }

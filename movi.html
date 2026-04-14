@@ -40,7 +40,16 @@ button.secondary:hover{background:#e0e0e0}
 button.danger{background:#e53935;color:#fff;border:none;padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;font-family:inherit}
 button.ghost{background:transparent;color:#666;border:1.5px solid #ddd;padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit}
 button.upload-btn{background:linear-gradient(135deg,#28a745,#1a7a2e);color:#fff;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;width:100%;margin-top:10px;font-family:inherit}
-/* Lista de reservas */
+/* Lista de reservas agrupada por mês */
+.mes-group{margin-bottom:16px;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden;background:#fff}
+.mes-header{background:linear-gradient(135deg,#2d7a7a,#1a4d4d);color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;gap:8px;flex-wrap:wrap}
+.mes-header:hover{filter:brightness(1.1)}
+.mes-header-titulo{font-weight:700;font-size:15px;display:flex;align-items:center;gap:6px}
+.mes-header-resumo{display:flex;align-items:center;gap:12px}
+.mes-header-resumo strong{background:rgba(255,255,255,.2);padding:3px 10px;border-radius:8px;font-size:13px}
+.mes-toggle-icon{font-size:11px;margin-left:4px;opacity:.8}
+.mes-body{padding:10px}
+.mes-body .reserva-card:last-child{margin-bottom:0}
 .reserva-card{border:1px solid #eee;border-radius:12px;padding:13px 14px;margin-bottom:10px;background:#fafafa;position:relative}
 .reserva-card:last-child{margin-bottom:0}
 .rc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:4px}
@@ -118,15 +127,15 @@ button.upload-btn{background:linear-gradient(135deg,#28a745,#1a7a2e);color:#fff;
                 </div>
             </div>
             <label>💰 Valor (R$)</label>
-            <input type="number" id="valor" min="0" step="0.01" placeholder="0.00">
+            <input type="text" inputmode="decimal" id="valor" placeholder="0,00" oninput="formatBRLInput(this)">
             <div class="row">
                 <div>
                     <label>📱 Taxa App (R$)</label>
-                    <input type="number" id="taxaApp" min="0" step="0.01" placeholder="0.00">
+                    <input type="text" inputmode="decimal" id="taxaApp" placeholder="0,00" oninput="formatBRLInput(this)">
                 </div>
                 <div>
                     <label>🏢 Taxa Short Stay (R$)</label>
-                    <input type="number" id="taxaShort" min="0" step="0.01" placeholder="0.00">
+                    <input type="text" inputmode="decimal" id="taxaShort" placeholder="0,00" oninput="formatBRLInput(this)">
                 </div>
             </div>
             <button class="primary" id="btnSalvar" onclick="salvar()">✅ Salvar Reserva</button>
@@ -241,6 +250,23 @@ function parseValorBR(val) {
     return parseFloat(s) || 0;
 }
 
+// Formata input BRL enquanto digita: 1234567 → 12.345,67
+function formatBRLInput(el) {
+    let v = (el.value || '').replace(/\D/g, '');
+    if (!v) { el.value = ''; return; }
+    v = (parseInt(v, 10) / 100).toFixed(2);
+    el.value = v.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+// Converte string "1.234,56" → 1234.56
+function parseBRLInput(s) {
+    if (!s) return 0;
+    return Number(String(s).replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+// Nome do mês em PT-BR
+const MESES_PT_NOME = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
 // ─── Abas ────────────────────────────────────────────────────────
 function trocarAba(id) {
     document.querySelectorAll('.tab').forEach((t, i) => {
@@ -307,25 +333,63 @@ async function carregarLista() {
         <div class="total-item"><div class="total-label">Taxa Short Stay</div><div class="total-value">${fmtBRL(totalShort)}</div></div>
     `;
 
-    // Cards
-    document.getElementById('lista').innerHTML = listaCache.map(r => {
-        const isProprietario = Number(r.receita || 0) === 0;
+    // Agrupa por mês (usa chegada se existir, senão mes_ano)
+    const grupos = {};
+    listaCache.forEach(r => {
+        const mesAno = r.chegada ? r.chegada.slice(0, 7) : (r.mes_ano || `${ano}-01`);
+        if (!grupos[mesAno]) grupos[mesAno] = [];
+        grupos[mesAno].push(r);
+    });
+
+    const mesesOrdenados = Object.keys(grupos).sort();
+
+    document.getElementById('lista').innerHTML = mesesOrdenados.map(mesAno => {
+        const [y, m] = mesAno.split('-');
+        const nomeMes = MESES_PT_NOME[parseInt(m) - 1] || m;
+        const reservas = grupos[mesAno];
+        const totalMes = reservas.reduce((s, r) => s + Number(r.receita || 0), 0);
+        const countMes = reservas.length;
+
+        const cards = reservas.map(r => {
+            const isProprietario = Number(r.receita || 0) === 0;
+            return `
+            <div class="reserva-card" style="${isProprietario ? 'background:#fff8e1;border-color:#ffe082' : ''}">
+                <div class="rc-head">
+                    <span class="rc-datas">📅 ${fmt(r.chegada)} → ${fmt(r.partida)}</span>
+                    <span class="rc-valor">${fmtBRL(r.receita)}</span>
+                </div>
+                ${r.hospede ? `<div class="rc-coment">💬 ${esc(r.hospede)}</div>` : ''}
+                <div class="rc-taxas">
+                    <span>Taxa App: ${fmtBRL(r.comissao_portais)}</span>
+                    <span>Short Stay: ${fmtBRL(r.comissao_short_stay)}</span>
+                </div>
+                <div class="rc-actions">
+                    <button class="danger" onclick="excluir('${esc(r.id_reserva)}')">🗑️ Excluir</button>
+                </div>
+            </div>`;
+        }).join('');
+
         return `
-        <div class="reserva-card" style="${isProprietario ? 'background:#fff8e1;border-color:#ffe082' : ''}">
-            <div class="rc-head">
-                <span class="rc-datas">📅 ${fmt(r.chegada)} → ${fmt(r.partida)}</span>
-                <span class="rc-valor">${fmtBRL(r.receita)}</span>
-            </div>
-            ${r.hospede ? `<div class="rc-coment">💬 ${esc(r.hospede)}</div>` : ''}
-            <div class="rc-taxas">
-                <span>Taxa App: ${fmtBRL(r.comissao_portais)}</span>
-                <span>Short Stay: ${fmtBRL(r.comissao_short_stay)}</span>
-            </div>
-            <div class="rc-actions">
-                <button class="danger" onclick="excluir('${esc(r.id_reserva)}')">🗑️ Excluir</button>
-            </div>
-        </div>`;
+            <div class="mes-group">
+                <div class="mes-header" onclick="toggleMesGrupo(this)">
+                    <span class="mes-header-titulo">📆 ${nomeMes} <small style="color:#888;font-weight:500">${y}</small></span>
+                    <span class="mes-header-resumo">
+                        <span style="color:#666;font-size:12px">${countMes} reserva${countMes !== 1 ? 's' : ''}</span>
+                        <strong style="color:#28a745;font-size:14px">${fmtBRL(totalMes)}</strong>
+                        <span class="mes-toggle-icon">▼</span>
+                    </span>
+                </div>
+                <div class="mes-body">${cards}</div>
+            </div>`;
     }).join('');
+}
+
+function toggleMesGrupo(headerEl) {
+    const body = headerEl.nextElementSibling;
+    const icon = headerEl.querySelector('.mes-toggle-icon');
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : 'block';
+    if (icon) icon.textContent = isOpen ? '▶' : '▼';
 }
 
 // ─── Salvar reserva manual ────────────────────────────────────────
@@ -333,9 +397,9 @@ async function salvar() {
     const comentario = document.getElementById('comentario').value.trim();
     const checkin    = document.getElementById('checkin').value;
     const checkout   = document.getElementById('checkout').value;
-    const valor      = parseFloat(document.getElementById('valor').value) || 0;
-    const taxaApp    = parseFloat(document.getElementById('taxaApp').value) || 0;
-    const taxaShort  = parseFloat(document.getElementById('taxaShort').value) || 0;
+    const valor      = parseBRLInput(document.getElementById('valor').value);
+    const taxaApp    = parseBRLInput(document.getElementById('taxaApp').value);
+    const taxaShort  = parseBRLInput(document.getElementById('taxaShort').value);
 
     if (!checkin || !checkout) { toast('Preencha check-in e check-out', 'err'); return; }
     if (new Date(checkout) <= new Date(checkin)) { toast('Check-out deve ser depois do check-in', 'err'); return; }

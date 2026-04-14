@@ -5,7 +5,7 @@
  * Cacheia assets estáticos para funcionar offline/app-like no Safari.
  */
 
-const CACHE_NAME = 'bandeira-stay-v3';
+const CACHE_NAME = 'bandeira-stay-v6';
 
 // Usa URLs relativas ao SW (resolvem corretamente em GitHub Pages com subpath).
 const ASSETS_TO_CACHE = [
