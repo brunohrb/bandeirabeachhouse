@@ -138,6 +138,16 @@ button.upload-btn{background:linear-gradient(135deg,#28a745,#1a7a2e);color:#fff;
                     <input type="text" inputmode="decimal" id="taxaShort" placeholder="0,00" oninput="formatBRLInput(this)">
                 </div>
             </div>
+            <label>🏷️ Canal</label>
+            <select id="canal">
+                <option value="Direto">🟢 Direto</option>
+                <option value="Booking.com">🔵 Booking.com</option>
+                <option value="Airbnb">🔴 Airbnb</option>
+                <option value="Expedia">🟡 Expedia</option>
+                <option value="Proprietário">👤 Proprietário</option>
+                <option value="Movi">🏠 Movi</option>
+                <option value="Outros">⚪ Outros</option>
+            </select>
             <button class="primary" id="btnSalvar" onclick="salvar()">✅ Salvar Reserva</button>
         </div>
     </div>
@@ -414,6 +424,7 @@ async function salvar() {
     const d2     = checkout.slice(8,10);
     const idRes  = `MOVI_${ano}${mes}_${d1}-${d2}_${valor.toFixed(2)}`;
 
+    const canal = document.getElementById('canal').value || 'Direto';
     const { error } = await db.from('reservas').insert({
         id: crypto.randomUUID(),
         id_reserva: idRes,
@@ -422,7 +433,7 @@ async function salvar() {
         chegada: checkin, partida: checkout,
         ano, mes, mes_ano: `${ano}-${mes}`,
         receita: valor, comissao_portais: taxaApp, comissao_short_stay: taxaShort,
-        canal: 'Movi', status: 'ativa'
+        canal: canal, status: 'ativa'
     });
 
     btn.disabled = false; btn.textContent = '✅ Salvar Reserva';
