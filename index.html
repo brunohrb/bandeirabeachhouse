@@ -6156,19 +6156,26 @@ function fecharHistoricoAnual() {
             }
 
             document.getElementById('modalMoviReserva').remove();
-            // Recarregar dados no calendário
-            if (typeof carregarReservasCalendario === 'function') {
-                await carregarReservasCalendario();
-                renderCalendario();
-            }
-            // Se app principal está ativo, recarregar dados gerais
+            // 1) Recarregar cache global de reservas (CACHE_RESERVAS)
             if (typeof carregarReservasSupabase === 'function') {
                 await carregarReservasSupabase();
                 if (typeof renderViews === 'function') renderViews();
             }
-            // Recarregar lista Ricardo se ativa
+            // 2) Invalida cache de Preços para forçar reload com nova ocupação
+            precosMesCarregado = {};
+            // 3) Atualizar calendário (depende de CACHE_RESERVAS)
+            if (typeof carregarReservasCalendario === 'function') {
+                carregarReservasCalendario();
+                renderCalendario();
+            }
+            // 3) Recarregar lista Ricardo se ativa
             if (typeof window.recarregarListaMoviRicardo === 'function') window.recarregarListaMoviRicardo();
-            alert('✅ Reserva Movi salva!');
+            // Toast leve em vez de alert pra não interromper o fluxo
+            if (typeof window.mostrarToastNotif === 'function') {
+                window.mostrarToastNotif('✅ Reserva Movi salva!', 'A reserva foi adicionada ao calendário.', { type: 'success' });
+            } else {
+                alert('✅ Reserva Movi salva!');
+            }
         } catch (err) {
             console.error(err);
             alert('Erro ao salvar: ' + (err.message || err));
@@ -6181,13 +6188,13 @@ function fecharHistoricoAnual() {
             const { error } = await db.from('reservas').delete().eq('id_reserva', idReserva);
             if (error) throw error;
             document.getElementById('modalMoviReserva').remove();
-            if (typeof carregarReservasCalendario === 'function') {
-                await carregarReservasCalendario();
-                renderCalendario();
-            }
             if (typeof carregarReservasSupabase === 'function') {
                 await carregarReservasSupabase();
                 if (typeof renderViews === 'function') renderViews();
+            }
+            if (typeof carregarReservasCalendario === 'function') {
+                carregarReservasCalendario();
+                renderCalendario();
             }
             if (typeof window.recarregarListaMoviRicardo === 'function') window.recarregarListaMoviRicardo();
         } catch (err) {
@@ -9713,7 +9720,8 @@ function fecharHistoricoAnual() {
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-        navigator.serviceWorker.register('service-worker.js')
+        // Registra com scope relativo pra funcionar em GitHub Pages com subpath
+        navigator.serviceWorker.register('service-worker.js', { scope: './' })
             .then(function(reg) { console.log('SW registrado:', reg.scope); })
             .catch(function(err) { console.log('SW erro:', err); });
     });

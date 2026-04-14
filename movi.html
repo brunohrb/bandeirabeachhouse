@@ -4,102 +4,178 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Movi 505 — Reservas</title>
-<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Movi 505">
+<link rel="apple-touch-icon" href="logo-nobg.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: linear-gradient(135deg, #2d7a7a 0%, #1a4d4d 100%); min-height: 100vh; color: #333; }
-    .container { max-width: 640px; margin: 0 auto; padding: 16px; }
-    .card { background: #fff; border-radius: 16px; padding: 22px; margin-bottom: 14px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
-    .header { display: flex; align-items: center; gap: 12px; padding: 12px 4px 20px; color: #fff; }
-    .header-title { font-size: 20px; font-weight: 700; flex: 1; }
-    .header-subtitle { font-size: 12px; opacity: .85; }
-    h2 { margin: 0 0 14px; font-size: 17px; color: #1a4d4d; }
-    label { display: block; margin-top: 12px; font-size: 13px; font-weight: 600; color: #555; }
-    input, textarea, button { font: inherit; }
-    input[type="text"], input[type="number"], input[type="date"], textarea {
-        width: 100%; padding: 12px 14px; margin-top: 6px; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 15px; outline: none; transition: border-color .2s;
-    }
-    input:focus, textarea:focus { border-color: #2d7a7a; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; }
-    .row > div { flex: 1; min-width: 140px; }
-    button.primary { background: #28a745; color: #fff; border: none; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 20px; transition: background .2s; }
-    button.primary:hover:not(:disabled) { background: #1e7e34; }
-    button.primary:disabled { opacity: .55; cursor: not-allowed; }
-    button.ghost { background: transparent; color: #555; border: 1.5px solid #ddd; padding: 10px 14px; border-radius: 10px; font-size: 13px; cursor: pointer; }
-    button.danger { background: #e53935; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: 600; }
-    .lista-vazia { text-align: center; padding: 30px 10px; color: #999; font-size: 13px; }
-    .reserva-item {
-        border: 1px solid #eee; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: #fafafa;
-        display: flex; flex-direction: column; gap: 4px;
-    }
-    .reserva-item .ri-head { display:flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .ri-datas { font-weight: 700; color: #1a4d4d; font-size: 14px; }
-    .ri-valor { font-weight: 700; color: #28a745; }
-    .ri-coment { font-size: 13px; color: #555; }
-    .ri-taxas { font-size: 11px; color: #888; }
-    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #323232; color: #fff; padding: 12px 22px; border-radius: 10px; font-size: 14px; z-index: 999; opacity: 0; transition: opacity .3s; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
-    .toast.show { opacity: 1; }
-    .toast.ok { background: #28a745; }
-    .toast.err { background: #e53935; }
-    .filtro-mes { display:flex; gap:8px; align-items:center; margin-bottom: 10px; }
-    .filtro-mes select { padding: 8px 10px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 13px; flex: 1; }
-    .logo { width: 40px; height: 40px; background: #fff; border-radius: 10px; padding: 4px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#2d7a7a 0%,#1a4d4d 100%);min-height:100vh;color:#333}
+.container{max-width:680px;margin:0 auto;padding:12px 12px env(safe-area-inset-bottom,12px)}
+.header{display:flex;align-items:center;gap:12px;padding:14px 4px 16px;color:#fff}
+.logo-box{width:44px;height:44px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.header-title{font-size:21px;font-weight:700}
+.header-sub{font-size:12px;opacity:.8;margin-top:2px}
+/* Tabs */
+.tabs{display:flex;gap:0;background:rgba(255,255,255,.15);border-radius:12px;padding:4px;margin-bottom:14px}
+.tab{flex:1;padding:10px 6px;text-align:center;font-size:13px;font-weight:600;color:rgba(255,255,255,.75);border-radius:9px;cursor:pointer;transition:all .2s;user-select:none}
+.tab.active{background:#fff;color:#1a4d4d;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+/* Cards */
+.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:14px;box-shadow:0 4px 16px rgba(0,0,0,.1)}
+h2{font-size:16px;font-weight:700;color:#1a4d4d;margin-bottom:14px}
+label{display:block;margin-top:12px;font-size:12px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.3px}
+input[type=text],input[type=number],input[type=date],select,textarea{width:100%;padding:12px 13px;margin-top:5px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:15px;font:inherit;outline:none;transition:border-color .2s;background:#fff}
+input:focus,select:focus,textarea:focus{border-color:#2d7a7a}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>div{flex:1;min-width:130px}
+button.primary{background:#2d7a7a;color:#fff;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;width:100%;margin-top:18px;transition:background .2s;font-family:inherit}
+button.primary:hover:not(:disabled){background:#1a4d4d}
+button.primary:disabled{opacity:.5;cursor:not-allowed}
+button.secondary{background:#f0f0f0;color:#333;border:none;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .2s}
+button.secondary:hover{background:#e0e0e0}
+button.danger{background:#e53935;color:#fff;border:none;padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;font-family:inherit}
+button.ghost{background:transparent;color:#666;border:1.5px solid #ddd;padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit}
+button.upload-btn{background:linear-gradient(135deg,#28a745,#1a7a2e);color:#fff;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;width:100%;margin-top:10px;font-family:inherit}
+/* Lista de reservas */
+.reserva-card{border:1px solid #eee;border-radius:12px;padding:13px 14px;margin-bottom:10px;background:#fafafa;position:relative}
+.reserva-card:last-child{margin-bottom:0}
+.rc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.rc-datas{font-weight:700;color:#1a4d4d;font-size:14px}
+.rc-valor{font-weight:700;color:#28a745;font-size:14px;white-space:nowrap}
+.rc-coment{font-size:13px;color:#555;margin-bottom:3px}
+.rc-taxas{font-size:11px;color:#999;display:flex;gap:10px;flex-wrap:wrap}
+.rc-actions{margin-top:8px;display:flex;gap:8px}
+.empty{text-align:center;padding:32px 16px;color:#aaa;font-size:13px}
+/* Totais */
+.totais-bar{background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:1px solid #c8e6c9;border-radius:12px;padding:14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-around}
+.total-item{text-align:center}
+.total-label{font-size:11px;color:#666;text-transform:uppercase;font-weight:600}
+.total-value{font-size:16px;font-weight:700;color:#1a4d4d;margin-top:2px}
+/* Filtros */
+.filtros-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.filtros-row select{flex:1;min-width:100px;margin:0;padding:8px 10px;font-size:13px;border-radius:8px}
+/* Upload area */
+.upload-area{border:2px dashed #ccc;border-radius:12px;padding:30px;text-align:center;color:#aaa;cursor:pointer;transition:all .2s;margin-top:10px}
+.upload-area:hover,.upload-area.drag{border-color:#2d7a7a;color:#2d7a7a;background:#f0f9f9}
+.upload-area-icon{font-size:40px;margin-bottom:8px}
+.upload-area-text{font-size:14px;font-weight:600}
+.upload-area-sub{font-size:11px;margin-top:4px;opacity:.7}
+.import-preview{border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;margin-top:14px}
+.import-preview table{width:100%;border-collapse:collapse;font-size:12px}
+.import-preview th{background:#f5f5f5;padding:8px 10px;text-align:left;font-weight:700;color:#555;border-bottom:1px solid #e0e0e0;white-space:nowrap}
+.import-preview td{padding:7px 10px;border-bottom:1px solid #f0f0f0;color:#333}
+.import-preview tr:last-child td{border-bottom:none}
+.import-preview .r-proprietario{background:#fff8e1}
+/* Badge */
+.badge-count{background:#2d7a7a;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px}
+/* Toast */
+.toast{position:fixed;bottom:env(safe-area-inset-bottom,0);bottom:calc(env(safe-area-inset-bottom,0px) + 20px);left:50%;transform:translateX(-50%) translateY(20px);background:#323232;color:#fff;padding:12px 22px;border-radius:12px;font-size:14px;z-index:999;opacity:0;transition:all .35s;box-shadow:0 4px 16px rgba(0,0,0,.2);white-space:nowrap;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:#28a745}
+.toast.err{background:#e53935}
+/* Loader */
+.loader{text-align:center;padding:20px;color:#999;font-size:13px}
+@media(max-width:480px){
+    .tab{font-size:11px;padding:9px 4px}
+    input[type=text],input[type=number],input[type=date]{font-size:16px}
+}
 </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo">🏠</div>
+        <div class="logo-box">🏠</div>
         <div>
             <div class="header-title">Movi 505</div>
-            <div class="header-subtitle">Preenchimento de reservas</div>
+            <div class="header-sub">Gestão de reservas</div>
         </div>
     </div>
 
-    <div class="card">
-        <h2>➕ Nova reserva</h2>
-        <label>💬 Comentário</label>
-        <input type="text" id="comentario" placeholder="Ex: Reserva proprietário, nome do hóspede...">
-
-        <div class="row">
-            <div>
-                <label>📅 Check-in</label>
-                <input type="date" id="checkin">
-            </div>
-            <div>
-                <label>📅 Check-out</label>
-                <input type="date" id="checkout">
-            </div>
-        </div>
-
-        <label>💰 Valor (R$)</label>
-        <input type="number" id="valor" min="0" step="0.01" placeholder="0.00">
-
-        <div class="row">
-            <div>
-                <label>📱 Taxa App (R$)</label>
-                <input type="number" id="taxaApp" min="0" step="0.01" placeholder="0.00">
-            </div>
-            <div>
-                <label>🏢 Taxa Short Stay (R$)</label>
-                <input type="number" id="taxaShort" min="0" step="0.01" placeholder="0.00">
-            </div>
-        </div>
-
-        <button class="primary" id="btnSalvar" onclick="salvar()">✅ Salvar reserva</button>
+    <div class="tabs">
+        <div class="tab active" onclick="trocarAba('nova')">➕ Nova</div>
+        <div class="tab" onclick="trocarAba('lista')">📋 Reservas<span class="badge-count" id="badgeCount">0</span></div>
+        <div class="tab" onclick="trocarAba('importar')">📤 Importar</div>
     </div>
 
-    <div class="card">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; gap:8px; flex-wrap: wrap;">
-            <h2 style="margin:0;">📋 Reservas cadastradas</h2>
-            <button class="ghost" onclick="carregarLista()">🔄 Atualizar</button>
+    <!-- ABA: Nova Reserva -->
+    <div class="tab-content active" id="aba-nova">
+        <div class="card">
+            <h2>➕ Nova Reserva</h2>
+            <label>💬 Comentário</label>
+            <input type="text" id="comentario" placeholder="Ex: Paulo proprietário, nome do hóspede...">
+            <div class="row">
+                <div>
+                    <label>📅 Check-in</label>
+                    <input type="date" id="checkin">
+                </div>
+                <div>
+                    <label>📅 Check-out</label>
+                    <input type="date" id="checkout">
+                </div>
+            </div>
+            <label>💰 Valor (R$)</label>
+            <input type="number" id="valor" min="0" step="0.01" placeholder="0.00">
+            <div class="row">
+                <div>
+                    <label>📱 Taxa App (R$)</label>
+                    <input type="number" id="taxaApp" min="0" step="0.01" placeholder="0.00">
+                </div>
+                <div>
+                    <label>🏢 Taxa Short Stay (R$)</label>
+                    <input type="number" id="taxaShort" min="0" step="0.01" placeholder="0.00">
+                </div>
+            </div>
+            <button class="primary" id="btnSalvar" onclick="salvar()">✅ Salvar Reserva</button>
         </div>
-        <div class="filtro-mes">
-            <span style="font-size:12px;color:#555;">Período:</span>
-            <select id="filtroAno"></select>
+    </div>
+
+    <!-- ABA: Lista de Reservas -->
+    <div class="tab-content" id="aba-lista">
+        <div class="card" style="padding-bottom:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                <h2 style="margin:0">📋 Todas as Reservas</h2>
+                <button class="ghost" onclick="carregarLista()">🔄 Atualizar</button>
+            </div>
+            <div class="filtros-row">
+                <select id="filtroAno" onchange="carregarLista()"></select>
+                <button class="secondary" onclick="baixarExcel()">⬇️ Baixar Excel</button>
+            </div>
+            <div id="totaisBar" class="totais-bar" style="display:none"></div>
+            <div id="lista"><div class="loader">Carregando...</div></div>
         </div>
-        <div id="lista"><div class="lista-vazia">Carregando...</div></div>
+    </div>
+
+    <!-- ABA: Importar Excel -->
+    <div class="tab-content" id="aba-importar">
+        <div class="card">
+            <h2>📤 Importar Planilha Excel</h2>
+            <p style="font-size:13px;color:#666;margin-bottom:10px;line-height:1.5">
+                Importe a planilha do Movi com as colunas:<br>
+                <strong>Comentário · Check-in · Check-out · Valor · Taxa App · Taxa Short Stay</strong><br>
+                <span style="font-size:11px;color:#999">Datas no formato DD/MM/AAAA ou AAAA-MM-DD. As reservas serão ADICIONADAS (não apaga as existentes).</span>
+            </p>
+
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()"
+                ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dragDrop(event)">
+                <div class="upload-area-icon">📁</div>
+                <div class="upload-area-text">Toque para selecionar a planilha</div>
+                <div class="upload-area-sub">.xlsx, .xls ou .csv</div>
+            </div>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="processarArquivo(this.files[0])">
+
+            <div id="importPreviewArea" style="display:none">
+                <div id="importResumo" style="font-size:13px;color:#555;margin:12px 0 8px;font-weight:600"></div>
+                <div class="import-preview" id="importPreview"></div>
+                <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+                    <button class="upload-btn" style="flex:1;margin:0" onclick="confirmarImport()">✅ Importar <span id="btnImportQtd"></span> reservas</button>
+                    <button class="secondary" style="margin:0" onclick="cancelarImport()">Cancelar</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -111,143 +187,402 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let unidadeMoviId = null;
+let listaCache = [];
+let importBuffer = []; // linhas prontas para inserir
 
-function toast(msg, tipo) {
+// ─── Utilitários ──────────────────────────────────────────────────
+function toast(msg, tipo, duracao) {
     const t = document.getElementById('toast');
     t.textContent = msg;
     t.className = 'toast show ' + (tipo || '');
-    setTimeout(() => t.classList.remove('show'), 3200);
+    clearTimeout(t._tid);
+    t._tid = setTimeout(() => t.classList.remove('show'), duracao || 3200);
 }
 
-async function carregarUnidadeMovi() {
-    const { data, error } = await db.from('unidades').select('id, nome').ilike('nome', '%movi%');
-    if (error || !data || data.length === 0) {
-        toast('Unidade Movi não encontrada.', 'err');
-        return null;
-    }
-    unidadeMoviId = data[0].id;
-    return unidadeMoviId;
-}
-
-function popularFiltroAno() {
-    const sel = document.getElementById('filtroAno');
-    const hoje = new Date();
-    const anos = [hoje.getFullYear() - 1, hoje.getFullYear(), hoje.getFullYear() + 1];
-    sel.innerHTML = anos.map(a => `<option value="${a}" ${a === hoje.getFullYear() ? 'selected' : ''}>${a}</option>`).join('');
-    sel.onchange = carregarLista;
-}
-
-async function carregarLista() {
-    if (!unidadeMoviId) await carregarUnidadeMovi();
-    if (!unidadeMoviId) return;
-    const ano = document.getElementById('filtroAno').value;
-    const lista = document.getElementById('lista');
-    lista.innerHTML = '<div class="lista-vazia">Carregando...</div>';
-    const { data, error } = await db.from('reservas')
-        .select('id, id_reserva, hospede, chegada, partida, receita, comissao_portais, comissao_short_stay, ano, mes, mes_ano')
-        .eq('unidade_id', unidadeMoviId)
-        .eq('ano', String(ano))
-        .order('chegada', { ascending: true });
-
-    if (error) { lista.innerHTML = '<div class="lista-vazia">Erro ao carregar: ' + error.message + '</div>'; return; }
-    if (!data || data.length === 0) { lista.innerHTML = '<div class="lista-vazia">Nenhuma reserva em ' + ano + '.</div>'; return; }
-
-    lista.innerHTML = data.map(r => {
-        const valor = Number(r.receita || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const taxaA = Number(r.comissao_portais || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const taxaS = Number(r.comissao_short_stay || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const chegada = r.chegada ? formatarData(r.chegada) : '—';
-        const partida = r.partida ? formatarData(r.partida) : '—';
-        return `
-            <div class="reserva-item">
-                <div class="ri-head">
-                    <span class="ri-datas">${chegada} → ${partida}</span>
-                    <span class="ri-valor">${valor}</span>
-                </div>
-                ${r.hospede ? `<div class="ri-coment">💬 ${escapeHtml(r.hospede)}</div>` : ''}
-                <div class="ri-taxas">Taxa App: ${taxaA} • Short Stay: ${taxaS}</div>
-                <div style="display:flex;gap:6px;margin-top:6px;">
-                    <button class="danger" onclick="excluir('${r.id_reserva}')">🗑️ Excluir</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function formatarData(iso) {
+function fmt(iso) {
+    if (!iso) return '—';
     const [a, m, d] = iso.split('-');
     return `${d}/${m}/${a}`;
 }
 
-function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fmtBRL(v) {
+    return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Converte data BR (DD/MM/AAAA) ou ISO (AAAA-MM-DD) para ISO
+function parseDateBR(str) {
+    if (!str) return null;
+    str = String(str).trim();
+    // Já ISO
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    // DD/MM/AAAA
+    const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    // JS Date (serial Excel: número) já convertido em Date por XLSX
+    return null;
+}
+
+function parseDateExcel(val) {
+    if (!val) return null;
+    if (val instanceof Date) {
+        return val.toISOString().slice(0, 10);
+    }
+    return parseDateBR(val);
+}
+
+function parseValorBR(val) {
+    if (val === null || val === undefined || val === '') return 0;
+    if (typeof val === 'number') return val;
+    const s = String(val).replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+    return parseFloat(s) || 0;
+}
+
+// ─── Abas ────────────────────────────────────────────────────────
+function trocarAba(id) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+        const ids = ['nova','lista','importar'];
+        t.classList.toggle('active', ids[i] === id);
+    });
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('aba-' + id).classList.add('active');
+    if (id === 'lista') carregarLista();
+}
+
+// ─── Unidade Movi ────────────────────────────────────────────────
+async function garantirUnidadeMovi() {
+    if (unidadeMoviId) return true;
+    const { data } = await db.from('unidades').select('id,nome').ilike('nome','%movi%');
+    if (!data || !data.length) { toast('Unidade Movi não encontrada no banco.','err'); return false; }
+    unidadeMoviId = data[0].id;
+    return true;
+}
+
+// ─── Filtro de ano ───────────────────────────────────────────────
+function popularFiltroAno() {
+    const sel = document.getElementById('filtroAno');
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const anos = [ano - 1, ano, ano + 1];
+    sel.innerHTML = anos.map(a => `<option value="${a}" ${a === ano ? 'selected':''}>${a}</option>`).join('');
+}
+
+// ─── Carregar lista ───────────────────────────────────────────────
+async function carregarLista() {
+    if (!await garantirUnidadeMovi()) return;
+    const ano = document.getElementById('filtroAno').value;
+    document.getElementById('lista').innerHTML = '<div class="loader">Carregando...</div>';
+    document.getElementById('totaisBar').style.display = 'none';
+
+    const { data, error } = await db.from('reservas')
+        .select('id,id_reserva,hospede,chegada,partida,receita,comissao_portais,comissao_short_stay,ano,mes_ano')
+        .eq('unidade_id', unidadeMoviId)
+        .eq('ano', String(ano))
+        .order('chegada', { ascending: true, nullsFirst: false })
+        .order('mes_ano', { ascending: true });
+
+    if (error) { document.getElementById('lista').innerHTML = '<div class="empty">Erro: ' + esc(error.message) + '</div>'; return; }
+    listaCache = data || [];
+
+    // Badge
+    document.getElementById('badgeCount').textContent = listaCache.length;
+
+    if (!listaCache.length) {
+        document.getElementById('lista').innerHTML = '<div class="empty">Nenhuma reserva em ' + ano + '.<br><small>Use a aba ➕ Nova ou 📤 Importar.</small></div>';
+        return;
+    }
+
+    // Totais
+    const totalReceita = listaCache.reduce((s, r) => s + Number(r.receita || 0), 0);
+    const totalTaxaApp = listaCache.reduce((s, r) => s + Number(r.comissao_portais || 0), 0);
+    const totalShort   = listaCache.reduce((s, r) => s + Number(r.comissao_short_stay || 0), 0);
+    document.getElementById('totaisBar').style.display = 'flex';
+    document.getElementById('totaisBar').innerHTML = `
+        <div class="total-item"><div class="total-label">Reservas</div><div class="total-value">${listaCache.length}</div></div>
+        <div class="total-item"><div class="total-label">Receita total</div><div class="total-value">${fmtBRL(totalReceita)}</div></div>
+        <div class="total-item"><div class="total-label">Taxa App</div><div class="total-value">${fmtBRL(totalTaxaApp)}</div></div>
+        <div class="total-item"><div class="total-label">Taxa Short Stay</div><div class="total-value">${fmtBRL(totalShort)}</div></div>
+    `;
+
+    // Cards
+    document.getElementById('lista').innerHTML = listaCache.map(r => {
+        const isProprietario = Number(r.receita || 0) === 0;
+        return `
+        <div class="reserva-card" style="${isProprietario ? 'background:#fff8e1;border-color:#ffe082' : ''}">
+            <div class="rc-head">
+                <span class="rc-datas">📅 ${fmt(r.chegada)} → ${fmt(r.partida)}</span>
+                <span class="rc-valor">${fmtBRL(r.receita)}</span>
+            </div>
+            ${r.hospede ? `<div class="rc-coment">💬 ${esc(r.hospede)}</div>` : ''}
+            <div class="rc-taxas">
+                <span>Taxa App: ${fmtBRL(r.comissao_portais)}</span>
+                <span>Short Stay: ${fmtBRL(r.comissao_short_stay)}</span>
+            </div>
+            <div class="rc-actions">
+                <button class="danger" onclick="excluir('${esc(r.id_reserva)}')">🗑️ Excluir</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ─── Salvar reserva manual ────────────────────────────────────────
 async function salvar() {
     const comentario = document.getElementById('comentario').value.trim();
-    const checkin = document.getElementById('checkin').value;
-    const checkout = document.getElementById('checkout').value;
-    const valor = parseFloat(document.getElementById('valor').value) || 0;
-    const taxaApp = parseFloat(document.getElementById('taxaApp').value) || 0;
-    const taxaShort = parseFloat(document.getElementById('taxaShort').value) || 0;
+    const checkin    = document.getElementById('checkin').value;
+    const checkout   = document.getElementById('checkout').value;
+    const valor      = parseFloat(document.getElementById('valor').value) || 0;
+    const taxaApp    = parseFloat(document.getElementById('taxaApp').value) || 0;
+    const taxaShort  = parseFloat(document.getElementById('taxaShort').value) || 0;
 
     if (!checkin || !checkout) { toast('Preencha check-in e check-out', 'err'); return; }
     if (new Date(checkout) <= new Date(checkin)) { toast('Check-out deve ser depois do check-in', 'err'); return; }
-
-    if (!unidadeMoviId) await carregarUnidadeMovi();
-    if (!unidadeMoviId) return;
-
-    const ano = checkin.slice(0, 4);
-    const mes = checkin.slice(5, 7);
-    const mesAno = `${ano}-${mes}`;
-    const d1 = checkin.slice(8, 10);
-    const d2 = checkout.slice(8, 10);
-    const idReserva = `MOVI_${ano}${mes}_${d1}-${d2}_${valor.toFixed(2)}`;
+    if (!await garantirUnidadeMovi()) return;
 
     const btn = document.getElementById('btnSalvar');
     btn.disabled = true; btn.textContent = 'Salvando...';
 
+    const ano    = checkin.slice(0,4);
+    const mes    = checkin.slice(5,7);
+    const d1     = checkin.slice(8,10);
+    const d2     = checkout.slice(8,10);
+    const idRes  = `MOVI_${ano}${mes}_${d1}-${d2}_${valor.toFixed(2)}`;
+
     const { error } = await db.from('reservas').insert({
         id: crypto.randomUUID(),
-        id_reserva: idReserva,
+        id_reserva: idRes,
         unidade_id: unidadeMoviId,
         hospede: comentario || null,
         chegada: checkin, partida: checkout,
-        ano, mes, mes_ano: mesAno,
-        receita: valor,
-        comissao_portais: taxaApp,
-        comissao_short_stay: taxaShort,
-        canal: 'Movi',
-        status: 'ativa'
+        ano, mes, mes_ano: `${ano}-${mes}`,
+        receita: valor, comissao_portais: taxaApp, comissao_short_stay: taxaShort,
+        canal: 'Movi', status: 'ativa'
     });
 
-    btn.disabled = false; btn.textContent = '✅ Salvar reserva';
+    btn.disabled = false; btn.textContent = '✅ Salvar Reserva';
 
-    if (error) { toast('Erro: ' + error.message, 'err'); return; }
+    if (error) { toast('Erro: ' + error.message, 'err', 5000); return; }
 
     toast('✅ Reserva salva!', 'ok');
-    // Limpar
     document.getElementById('comentario').value = '';
     document.getElementById('valor').value = '';
     document.getElementById('taxaApp').value = '';
     document.getElementById('taxaShort').value = '';
     document.getElementById('checkin').value = '';
     document.getElementById('checkout').value = '';
-    carregarLista();
+    // Atualiza badge
+    await carregarBadge();
 }
 
+async function carregarBadge() {
+    if (!unidadeMoviId) return;
+    const ano = new Date().getFullYear();
+    const { count } = await db.from('reservas').select('id', { count: 'exact', head: true })
+        .eq('unidade_id', unidadeMoviId).eq('ano', String(ano));
+    document.getElementById('badgeCount').textContent = count || 0;
+}
+
+// ─── Excluir ──────────────────────────────────────────────────────
 async function excluir(idReserva) {
     if (!confirm('Excluir esta reserva?')) return;
     const { error } = await db.from('reservas').delete().eq('id_reserva', idReserva);
-    if (error) { toast('Erro ao excluir: ' + error.message, 'err'); return; }
+    if (error) { toast('Erro: ' + error.message, 'err'); return; }
     toast('Reserva excluída', 'ok');
     carregarLista();
 }
 
+// ─── Baixar Excel ─────────────────────────────────────────────────
+function baixarExcel() {
+    if (!listaCache.length) { toast('Nenhuma reserva para exportar', 'err'); return; }
+    const ano = document.getElementById('filtroAno').value;
+    const rows = listaCache.map(r => ({
+        'Comentário': r.hospede || '',
+        'Check-in': r.chegada || '',
+        'Check-out': r.partida || '',
+        'Valor': Number(r.receita || 0),
+        'Taxa App': Number(r.comissao_portais || 0),
+        'Taxa Short Stay': Number(r.comissao_short_stay || 0),
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Movi 505');
+    XLSX.writeFile(wb, `Movi505_${ano}.xlsx`);
+}
+
+// ─── Importar Excel ───────────────────────────────────────────────
+function dragOver(e) { e.preventDefault(); document.getElementById('uploadArea').classList.add('drag'); }
+function dragLeave() { document.getElementById('uploadArea').classList.remove('drag'); }
+function dragDrop(e) { e.preventDefault(); dragLeave(); processarArquivo(e.dataTransfer.files[0]); }
+
+function processarArquivo(file) {
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const linhas = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, dateNF: 'dd/mm/yyyy' });
+
+            importBuffer = [];
+            const erros = [];
+
+            // Detectar se tem cabeçalho (primeira linha com texto "check-in", "checkin" etc.)
+            let startRow = 0;
+            if (linhas[0]) {
+                const priLinha = linhas[0].map(c => String(c || '').toLowerCase());
+                if (priLinha.some(c => c.includes('check') || c.includes('valor') || c.includes('comentar'))) {
+                    startRow = 1;
+                }
+            }
+
+            for (let i = startRow; i < linhas.length; i++) {
+                const row = linhas[i];
+                if (!row || row.length < 2) continue;
+
+                // Tenta detectar o layout
+                // Pode ter 5 colunas (sem comentário): checkin, checkout, valor, taxaApp, taxaShort
+                // Pode ter 6 colunas (com comentário): comentário, checkin, checkout, valor, taxaApp, taxaShort
+                let comentario = '', checkin = null, checkout = null, valor = 0, taxaApp = 0, taxaShort = 0;
+
+                const c0 = parseDateExcel(row[0]);
+                const c1 = parseDateExcel(row[1]);
+
+                if (c0 && c1) {
+                    // 5 colunas: checkin, checkout, valor, taxaApp, taxaShort
+                    checkin   = c0;
+                    checkout  = c1;
+                    valor     = parseValorBR(row[2]);
+                    taxaApp   = parseValorBR(row[3]);
+                    taxaShort = parseValorBR(row[4]);
+                    comentario = '';
+                } else if (!c0 && c1) {
+                    // 6 colunas: comentário, checkin, checkout, valor, taxaApp, taxaShort
+                    comentario = String(row[0] || '').trim();
+                    checkin    = c1;
+                    checkout   = parseDateExcel(row[2]);
+                    valor      = parseValorBR(row[3]);
+                    taxaApp    = parseValorBR(row[4]);
+                    taxaShort  = parseValorBR(row[5]);
+                } else {
+                    // Linha inválida (cabeçalho extra, totais, vazia)
+                    continue;
+                }
+
+                if (!checkin || !checkout) {
+                    erros.push(`Linha ${i + 1}: datas inválidas`);
+                    continue;
+                }
+                if (new Date(checkout) <= new Date(checkin)) {
+                    erros.push(`Linha ${i + 1}: check-out antes ou igual ao check-in`);
+                    continue;
+                }
+
+                importBuffer.push({ comentario, checkin, checkout, valor, taxaApp, taxaShort });
+            }
+
+            mostrarPreview(erros);
+        } catch (err) {
+            toast('Erro ao ler o arquivo: ' + err.message, 'err', 5000);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+    document.getElementById('fileInput').value = '';
+}
+
+function mostrarPreview(erros) {
+    const area = document.getElementById('importPreviewArea');
+    const resumo = document.getElementById('importResumo');
+    const preview = document.getElementById('importPreview');
+    const btnQtd = document.getElementById('btnImportQtd');
+
+    if (!importBuffer.length) {
+        toast('Nenhuma reserva válida encontrada no arquivo. Verifique o formato.', 'err', 5000);
+        return;
+    }
+
+    resumo.innerHTML = `<span style="color:#28a745">✅ ${importBuffer.length} reservas encontradas</span>` +
+        (erros.length ? ` &nbsp;|&nbsp; <span style="color:#e53935">⚠️ ${erros.length} linha(s) ignorada(s)</span>` : '');
+    btnQtd.textContent = importBuffer.length;
+
+    const linhasPreview = importBuffer.slice(0, 10);
+    preview.innerHTML = `<table>
+        <tr><th>Check-in</th><th>Check-out</th><th>Valor</th><th>Taxa App</th><th>Short Stay</th><th>Comentário</th></tr>
+        ${linhasPreview.map(r => `
+        <tr class="${Number(r.valor)===0?'r-proprietario':''}">
+            <td>${fmt(r.checkin)}</td><td>${fmt(r.checkout)}</td>
+            <td>${fmtBRL(r.valor)}</td><td>${fmtBRL(r.taxaApp)}</td><td>${fmtBRL(r.taxaShort)}</td>
+            <td>${esc(r.comentario)}</td>
+        </tr>`).join('')}
+        ${importBuffer.length > 10 ? `<tr><td colspan="6" style="text-align:center;color:#999;padding:8px">... e mais ${importBuffer.length - 10} reservas</td></tr>` : ''}
+    </table>`;
+
+    area.style.display = 'block';
+}
+
+async function confirmarImport() {
+    if (!importBuffer.length) return;
+    if (!await garantirUnidadeMovi()) return;
+
+    const btn = document.querySelector('[onclick="confirmarImport()"]');
+    btn.disabled = true; btn.textContent = 'Importando...';
+
+    let ok = 0, erros = 0;
+    // Inserir em lotes de 50
+    const loteSize = 50;
+    for (let i = 0; i < importBuffer.length; i += loteSize) {
+        const lote = importBuffer.slice(i, i + loteSize);
+        const registros = lote.map(r => {
+            const ano  = r.checkin.slice(0,4);
+            const mes  = r.checkin.slice(5,7);
+            const d1   = r.checkin.slice(8,10);
+            const d2   = r.checkout.slice(8,10);
+            return {
+                id: crypto.randomUUID(),
+                id_reserva: `MOVI_${ano}${mes}_${d1}-${d2}_${Number(r.valor).toFixed(2)}`,
+                unidade_id: unidadeMoviId,
+                hospede: r.comentario || null,
+                chegada: r.checkin, partida: r.checkout,
+                ano, mes, mes_ano: `${ano}-${mes}`,
+                receita: r.valor, comissao_portais: r.taxaApp, comissao_short_stay: r.taxaShort,
+                canal: 'Movi', status: 'ativa'
+            };
+        });
+
+        const { error } = await db.from('reservas').upsert(registros, { onConflict: 'id_reserva' });
+        if (error) { erros += lote.length; console.error(error); }
+        else ok += lote.length;
+    }
+
+    btn.disabled = false;
+
+    if (erros > 0 && ok === 0) {
+        toast(`❌ Erro ao importar. Verifique o console.`, 'err', 5000);
+    } else if (erros > 0) {
+        toast(`⚠️ ${ok} importadas, ${erros} com erro.`, '', 5000);
+    } else {
+        toast(`✅ ${ok} reservas importadas com sucesso!`, 'ok', 4000);
+    }
+
+    cancelarImport();
+    trocarAba('lista');
+}
+
+function cancelarImport() {
+    importBuffer = [];
+    document.getElementById('importPreviewArea').style.display = 'none';
+    document.getElementById('importResumo').textContent = '';
+    document.getElementById('importPreview').innerHTML = '';
+}
+
+// ─── Inicialização ────────────────────────────────────────────────
 window.addEventListener('load', async () => {
     popularFiltroAno();
-    await carregarUnidadeMovi();
-    carregarLista();
+    await garantirUnidadeMovi();
+    await carregarBadge();
+    // Hoje como default no check-in
+    document.getElementById('checkin').value = new Date().toISOString().slice(0,10);
 });
 </script>
 </body>
