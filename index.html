@@ -976,6 +976,17 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
                 </div>
                     
 
+<div class="card" style="background:#fff3cd;border-left:4px solid #ffc107;">
+    <h3 style="margin-bottom: 12px;">🔄 Versão do App</h3>
+    <div style="font-size:13px;color:#795548;margin-bottom:12px;">
+        Versão atual: <strong>v6 (2026-04-14 — admin/movi fixes)</strong>
+    </div>
+    <button class="btn btn-primary" onclick="forcarAtualizacaoApp()">🔄 Limpar cache e recarregar</button>
+    <div style="font-size:11px;color:#888;margin-top:8px;">
+        Use este botão se mudanças não aparecerem após atualização.
+    </div>
+</div>
+
 <div class="card">
     <h3 style="margin-bottom: 20px;">🔔 Notificações</h3>
     <p style="color: var(--text-light); margin-bottom: 16px; font-size: 14px;">
@@ -1097,8 +1108,7 @@ th{background-color:#f8f9fa;font-weight:600;text-transform:uppercase;font-size:1
             <button class="cal-sync-btn" id="calSyncBtn" onclick="syncSmoobuRealtime()">
                 <span id="calSyncIcon">&#x21bb;</span> Sincronizar
             </button>
-            <button class="btn btn-outline" onclick="abrirLinkRicardo()" title="Abrir/copiar link para o Ricardo gerenciar a Movi 505">🔗 Ricardo (Movi)</button>
-            <button class="btn btn-outline" onclick="calHoje()">Hoje</button>
+            <button class="btn btn-outline" onclick="abrirLinkRicardo()" title="Abrir página Movi 505">🔗 Movi</button>
         </div>
     </div>
 
@@ -1720,6 +1730,27 @@ function mostrarSistema() {
         // Sync automático agora é feito via GitHub Actions (de hora em hora)
     });
 }
+async function forcarAtualizacaoApp() {
+    try {
+        // 1) Apaga todos os caches do navegador
+        if ('caches' in window) {
+            const names = await caches.keys();
+            await Promise.all(names.map(n => caches.delete(n)));
+        }
+        // 2) Desregistra todos os Service Workers
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+        }
+        alert('✅ Cache limpo! Recarregando...');
+        // 3) Força reload sem cache
+        location.reload(true);
+    } catch (e) {
+        alert('Erro: ' + e.message);
+        location.reload(true);
+    }
+}
+
 function logout() {
     ['autenticado','tipoUsuario','nomeUsuario','unidadesPermitidas'].forEach(k => {
         sessionStorage.removeItem(k);
@@ -6337,8 +6368,15 @@ function fecharHistoricoAnual() {
             });
 
             // 3) Upsert em lote
-            const { error } = await db.from('reservas').upsert(registros, { onConflict: 'id_reserva' });
-            if (error) throw error;
+            console.log('📤 Enviando registros Movi:', registros);
+            const { data: inseridos, error } = await db.from('reservas')
+                .upsert(registros, { onConflict: 'id_reserva' })
+                .select();
+            if (error) {
+                console.error('❌ Erro upsert:', error);
+                throw error;
+            }
+            console.log(`✅ ${(inseridos || []).length} reservas inseridas/atualizadas`);
 
             // 4) Recarrega caches
             if (typeof carregarReservasSupabase === 'function') {
@@ -6350,10 +6388,15 @@ function fecharHistoricoAnual() {
                 if (typeof renderCalendario === 'function') renderCalendario();
             }
 
-            alert(`✅ ${registros.length} reservas da Movi 505 importadas!`);
+            alert(`✅ ${registros.length} reservas da Movi 505 importadas!\n\nSe o calendário ainda estiver vazio:\n1. Verifique no Supabase SQL Editor se as políticas RLS estão OK\n2. Clique em "🔄 Limpar cache e recarregar" em Configurações`);
         } catch (err) {
-            console.error(err);
-            alert('Erro ao importar: ' + (err.message || err));
+            console.error('Erro completo:', err);
+            const msg = err.message || err.hint || err.details || JSON.stringify(err);
+            alert('❌ Erro ao importar: ' + msg + '\n\n' +
+                  'Possíveis causas:\n' +
+                  '• RLS bloqueando insert na tabela "reservas" (rode o SQL que te passei)\n' +
+                  '• Unidade Movi 505 não existe (criada automaticamente — verifique na tabela unidades)\n' +
+                  '• Ver console do navegador (F12) para detalhes');
         }
     };
 
