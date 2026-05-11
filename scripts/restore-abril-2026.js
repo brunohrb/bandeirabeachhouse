@@ -7,20 +7,17 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { randomUUID } = require('crypto');
-const path = require('path');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('❌ SUPABASE_URL e SUPABASE_ANON_KEY são obrigatórios');
+    console.error('SUPABASE_URL e SUPABASE_ANON_KEY sao obrigatorios');
     process.exit(1);
 }
 
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Dados de 103-F e 201-H recuperados dos backups diários
-// receita=0 significa que não havia valor disponível nos backups (deletado antes de 15/04)
 const DADOS_103F_201H = [
   // --- Apto 103-F ---
   { id_reserva:"130663375", unidade:"Apto 103-F", hospede:"Paula", chegada:"2026-04-25", partida:"2026-04-26", receita:300, canal:"Booking.com", status:"ativa", num_hospedes:1 },
@@ -57,7 +54,6 @@ const DADOS_103F_201H = [
 async function main() {
     console.log('Restauracao de Abril 2026 iniciada');
 
-    // 1. Buscar unidades
     const { data: unidades, error: errUn } = await db.from('unidades').select('id, nome');
     if (errUn) throw new Error('Erro unidades: ' + errUn.message);
 
@@ -81,70 +77,82 @@ async function main() {
         return null;
     }
 
-    // 2. Carregar outras unidades do JSON
     const DADOS_OUTRAS = require('./restore-abril-outras.json');
     const todosDados = [...DADOS_103F_201H, ...DADOS_OUTRAS];
     console.log('Total de registros a processar:', todosDados.length);
 
-    // 3. Verificar quais já existem
     const { data: existentes } = await db.from('reservas')
-        .select('id_reserva')
-        .eq('mes_ano', '2026-04');
+        .select('id_reserva').eq('mes_ano', '2026-04');
     const idsExistentes = new Set((existentes || []).map(r => String(r.id_reserva)));
     console.log('Ja existem no banco para Abril 2026:', idsExistentes.size);
 
-    // 4. Montar registros para inserir
+    function montarRegistro(r, comDetalhes) {
+        const unidade_id = findUnidadeId(r.unidade);
+        if (!unidade_id) { console.warn('Unidade nao encontrada:', r.unidade); return null; }
+        const base = {
+            id: randomUUID(),
+            id_reserva: String(r.id_reserva),
+            unidade_id,
+            ano: '2026', mes: '04', mes_ano: '2026-04',
+            receita: r.receita || 0,
+            comissao_portais: r.comissao_portais || 0,
+            comissao_short_stay: 0,
+            status: r.status || 'ativa',
+        };
+        if (comDetalhes) {
+            base.hospede = r.hospede || null;
+            base.chegada = r.chegada || null;
+            base.partida = r.partida || null;
+            base.num_hospedes = r.num_hospedes || 1;
+            base.canal = r.canal || 'Direto';
+        }
+        return base;
+    }
+
     const paraInserir = todosDados
         .filter(r => !idsExistentes.has(String(r.id_reserva)))
-        .map(r => {
-            const unidade_id = findUnidadeId(r.unidade);
-            if (!unidade_id) {
-                console.warn('  Unidade nao encontrada:', r.unidade, '| ID:', r.id_reserva);
-                return null;
-            }
-            return {
-                id: randomUUID(),
-                id_reserva: String(r.id_reserva),
-                unidade_id,
-                ano: '2026', mes: '04', mes_ano: '2026-04',
-                receita: r.receita || 0,
-                comissao_portais: r.comissao_portais || 0,
-                comissao_short_stay: 0,
-                status: r.status || 'ativa',
-                hospede: r.hospede || null,
-                chegada: r.chegada || null,
-                partida: r.partida || null,
-                num_hospedes: r.num_hospedes || 1,
-                canal: r.canal || 'Direto',
-            };
-        })
+        .map(r => montarRegistro(r, true))
         .filter(Boolean);
 
     console.log('Registros para inserir:', paraInserir.length);
 
     const semReceita = paraInserir.filter(r => !r.receita);
     if (semReceita.length > 0) {
-        console.log('ATENCAO: ' + semReceita.length + ' registros com receita=0 (corrigir manualmente):');
-        semReceita.forEach(r => console.log('  -', r.id_reserva, r.hospede || '(sem nome)'));
+        console.log('ATENCAO: ' + semReceita.length + ' com receita=0 (corrigir manualmente):');
+        semReceita.forEach(r => console.log('  -', r.id_reserva, r.hospede || ''));
     }
 
     if (paraInserir.length === 0) {
-        console.log('Nada a inserir - todos os registros ja existem.');
-        return;
+        console.log('Nada a inserir - todos os registros ja existem.'); return;
     }
 
-    // 5. Inserir em lotes
-    for (let i = 0; i < paraInserir.length; i += 500) {
-        const lote = paraInserir.slice(i, i + 500);
-        const { error } = await db.from('reservas').insert(lote);
-        if (error) throw new Error('Erro ao inserir: ' + error.message);
-        console.log('Inseridos:', Math.min(i + 500, paraInserir.length) + '/' + paraInserir.length);
+    async function inserirLotes(dados) {
+        for (let i = 0; i < dados.length; i += 500) {
+            const lote = dados.slice(i, i + 500);
+            const { error: e } = await db.from('reservas').insert(lote);
+            if (e) throw e;
+            console.log('Inseridos: ' + Math.min(i + 500, dados.length) + '/' + dados.length);
+        }
     }
 
-    console.log('Restauracao concluida! ' + paraInserir.length + ' registros inseridos.');
-    if (semReceita.length > 0) {
+    try {
+        await inserirLotes(paraInserir);
+    } catch (e) {
+        if (e.message && e.message.includes('column')) {
+            console.log('Colunas extras nao existem no Supabase — tentando sem hospede/chegada/partida/canal...');
+            const semDetalhes = todosDados
+                .filter(r => !idsExistentes.has(String(r.id_reserva)))
+                .map(r => montarRegistro(r, false))
+                .filter(Boolean);
+            await inserirLotes(semDetalhes);
+        } else {
+            throw new Error('Erro ao inserir: ' + e.message);
+        }
+    }
+
+    console.log('Restauracao concluida!');
+    if (semReceita.length > 0)
         console.log('Atualize os ' + semReceita.length + ' registros com receita=0 no Supabase Dashboard.');
-    }
 }
 
 main().catch(err => { console.error('Erro fatal:', err.message); process.exit(1); });
