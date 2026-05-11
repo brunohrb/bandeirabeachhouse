@@ -1866,55 +1866,45 @@ async function salvarDespesaSupabase(despesa) {
 async function carregarReservasSupabase() {
     try {
         console.log("🔄 Carregando do Supabase...");
-        
-        let todasReservas = [];
-        let inicio = 0;
-        const limite = 1000;
-        let temMais = true;
 
-        while (temMais) {
-            const { data, error } = await db
-                .from("reservas")
-.select(`
-                    id_reserva,
-                    ano,
-                    mes,
-                    mes_ano,
-                    receita,
-                    comissao_portais,
-                    comissao_short_stay,
-                    status,
-                    hospede,
-                    chegada,
-                    partida,
-                    num_hospedes,
-                    canal,
-                    unidades!inner (nome)
-                `)
-                .range(inicio, inicio + limite - 1);
-
-            if (error) {
-                console.error("❌ Erro Supabase:", error);
-                console.log("💾 Usando localStorage");
-                CACHE_RESERVAS = getDb(DB_RESERVAS);
-                return;
-            }
-
-            if (!data || data.length === 0) {
-                temMais = false;
-            } else {
-                todasReservas.push(...data);
+        async function buscarPaginas(selectStr) {
+            const resultados = [];
+            let inicio = 0;
+            const limite = 1000;
+            while (true) {
+                const { data, error } = await db
+                    .from("reservas")
+                    .select(selectStr)
+                    .range(inicio, inicio + limite - 1);
+                if (error) throw error;
+                if (!data || data.length === 0) break;
+                resultados.push(...data);
                 inicio += limite;
-                
-                if (data.length < limite) {
-                    temMais = false;
-                }
+                if (data.length < limite) break;
+            }
+            return resultados;
+        }
+
+        const selectComCanal = `id_reserva, ano, mes, mes_ano, receita, comissao_portais, comissao_short_stay, status, hospede, chegada, partida, num_hospedes, canal, unidades!inner (nome)`;
+        const selectSemCanal = `id_reserva, ano, mes, mes_ano, receita, comissao_portais, comissao_short_stay, status, hospede, chegada, partida, num_hospedes, unidades!inner (nome)`;
+
+        let todasReservas;
+        let temCanal = true;
+        try {
+            todasReservas = await buscarPaginas(selectComCanal);
+        } catch (e) {
+            if (e.message && e.message.toLowerCase().includes('canal')) {
+                console.warn("⚠️ Coluna 'canal' não encontrada no cache do schema — carregando sem ela");
+                temCanal = false;
+                todasReservas = await buscarPaginas(selectSemCanal);
+            } else {
+                throw e;
             }
         }
 
         console.log(`🌐 ${todasReservas.length} reservas carregadas do Supabase`);
-        
-CACHE_RESERVAS = todasReservas.map(r => ({
+
+        CACHE_RESERVAS = todasReservas.map(r => ({
             idReserva: r.id_reserva,
             unidade: r.unidades.nome,
             ano: r.ano,
@@ -1929,7 +1919,7 @@ CACHE_RESERVAS = todasReservas.map(r => ({
             chegada: r.chegada || null,
             partida: r.partida || null,
             numHospedes: r.num_hospedes || 1,
-            canal: r.canal || null
+            canal: temCanal ? (r.canal || null) : null
         }));
 
     } catch (err) {
