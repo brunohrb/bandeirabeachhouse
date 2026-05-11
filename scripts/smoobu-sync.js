@@ -97,19 +97,25 @@ async function fetchWithRetry(url, opts, retries = 3) {
 /* ───── fetch reservas ───── */
 
 async function fetchSmoobuReservations() {
-    const anoAtual   = new Date().getFullYear();
+    const hoje       = new Date();
+    const anoAtual   = hoje.getFullYear();
+    const mesAtual   = String(hoje.getMonth() + 1).padStart(2, '0');
     const anoProximo = anoAtual + 1;
     const reservas = [];
     let page       = 1;
     let totalPages = 1;
 
-    console.log(`📅 Buscando reservas de ${anoAtual}-01-01 a ${anoProximo}-12-31`);
+    // Busca apenas do mês atual em diante — a API do Smoobu não retorna reservas
+    // históricas com confiabilidade, e deletar+não-reinserir apagaria dados de meses passados.
+    const fromDate = `${anoAtual}-${mesAtual}-01`;
+    const toDate   = `${anoProximo}-12-31`;
+    console.log(`📅 Buscando reservas de ${fromDate} a ${toDate}`);
 
     while (page <= totalPages) {
         const params = new URLSearchParams({
             pageSize: 100, page,
-            arrivalFrom: `${anoAtual}-01-01`,
-            arrivalTo:   `${anoProximo}-12-31`,
+            arrivalFrom: fromDate,
+            arrivalTo:   toDate,
             showCancellation: true,
         });
 
@@ -267,18 +273,23 @@ async function main() {
         return;
     }
 
-    // 4. Deletar reservas antigas (agora sabemos que temos dados novos)
-    const anoAtual = new Date().getFullYear();
-    const anoProximo = anoAtual + 1;
-    console.log(`🗑️ Apagando reservas de ${anoAtual} e ${anoProximo}...`);
+    // 4. Deletar apenas do mês atual em diante (preserva dados históricos de meses passados).
+    // Meses anteriores não são re-sincronizados porque a API do Smoobu não retorna
+    // reservas históricas com confiabilidade — deletar sem re-inserir apagaria dados.
+    const hoje2    = new Date();
+    const anoAtual = hoje2.getFullYear();
+    const mesAtual = String(hoje2.getMonth() + 1).padStart(2, '0');
+    const mesAnoAtual = `${anoAtual}-${mesAtual}`;
+    console.log(`🗑️ Apagando reservas a partir de ${mesAnoAtual}...`);
 
     for (const u of unidades) {
         // Preservar reservas manuais/bloqueios (id_reserva começa com 'manual-')
-        const [{ data: d1 }, { data: d2 }] = await Promise.all([
-            db.from('reservas').delete().eq('unidade_id', u.id).eq('ano', String(anoAtual)).not('id_reserva', 'like', 'manual-%').select(),
-            db.from('reservas').delete().eq('unidade_id', u.id).eq('ano', String(anoProximo)).not('id_reserva', 'like', 'manual-%').select()
-        ]);
-        const t = (d1?.length ?? 0) + (d2?.length ?? 0);
+        const { data: deleted } = await db.from('reservas').delete()
+            .eq('unidade_id', u.id)
+            .gte('mes_ano', mesAnoAtual)
+            .not('id_reserva', 'like', 'manual-%')
+            .select();
+        const t = deleted?.length ?? 0;
         if (t > 0) console.log(`  🗑️ ${t} apagadas de "${u.nome}"`);
     }
 
