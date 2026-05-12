@@ -81,10 +81,18 @@ async function main() {
     const todosDados = [...DADOS_103F_201H, ...DADOS_OUTRAS];
     console.log('Total de registros a processar:', todosDados.length);
 
-    const { data: existentes } = await db.from('reservas')
-        .select('id_reserva').eq('mes_ano', '2026-04');
-    const idsExistentes = new Set((existentes || []).map(r => String(r.id_reserva)));
-    console.log('Ja existem no banco para Abril 2026:', idsExistentes.size);
+    // Apaga registros do restore que podem ter unidade_id errado (re-insere com IDs atuais)
+    const idsDoRestore = todosDados.map(r => String(r.id_reserva));
+    console.log('Apagando registros antigos do restore para re-inserir com IDs corretos...');
+    const { error: errDel } = await db.from('reservas')
+        .delete()
+        .eq('mes_ano', '2026-04')
+        .in('id_reserva', idsDoRestore);
+    if (errDel) console.warn('Aviso ao apagar:', errDel.message);
+    else console.log('Registros antigos apagados com sucesso.');
+
+    const idsExistentes = new Set(); // sempre re-insere tudo
+    console.log('Re-inserindo todos os registros com unidade_id atuais...');
 
     function montarRegistro(r, comDetalhes) {
         const unidade_id = findUnidadeId(r.unidade);
