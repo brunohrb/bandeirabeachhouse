@@ -273,24 +273,27 @@ async function main() {
         return;
     }
 
-    // 4. Deletar apenas do mês atual em diante (preserva dados históricos de meses passados).
-    // Meses anteriores não são re-sincronizados porque a API do Smoobu não retorna
-    // reservas históricas com confiabilidade — deletar sem re-inserir apagaria dados.
-    const hoje2    = new Date();
-    const anoAtual = hoje2.getFullYear();
-    const mesAtual = String(hoje2.getMonth() + 1).padStart(2, '0');
-    const mesAnoAtual = `${anoAtual}-${mesAtual}`;
-    console.log(`🗑️ Apagando reservas a partir de ${mesAnoAtual}...`);
+    // 4. Deletar APENAS os id_reserva específicos que vamos reinserir.
+    // Isso garante que dados históricos (meses anteriores) nunca são tocados,
+    // pois a API do Smoobu só retorna reservas do mês atual em diante.
+    console.log(`🗑️ Apagando ${paraInserir.length} reservas que serão reinseridas...`);
 
     for (const u of unidades) {
-        // Preservar reservas manuais/bloqueios (id_reserva começa com 'manual-')
-        const { data: deleted } = await db.from('reservas').delete()
-            .eq('unidade_id', u.id)
-            .gte('mes_ano', mesAnoAtual)
-            .not('id_reserva', 'like', 'manual-%')
-            .select();
-        const t = deleted?.length ?? 0;
-        if (t > 0) console.log(`  🗑️ ${t} apagadas de "${u.nome}"`);
+        const idsUni = paraInserir
+            .filter(r => r.unidade_id === u.id)
+            .map(r => r.id_reserva);
+        if (idsUni.length === 0) continue;
+
+        // Deletar em lotes de 200 (limite do IN clause)
+        for (let i = 0; i < idsUni.length; i += 200) {
+            const loteIds = idsUni.slice(i, i + 200);
+            const { data: deleted } = await db.from('reservas').delete()
+                .eq('unidade_id', u.id)
+                .in('id_reserva', loteIds)
+                .select();
+            const t = deleted?.length ?? 0;
+            if (t > 0) console.log(`  🗑️ ${t} apagadas de "${u.nome}"`);
+        }
     }
 
     // 5. Inserir em lotes (tenta com detalhes, se falhar tenta sem)
