@@ -81,6 +81,18 @@ async function main() {
     const todosDados = [...DADOS_103F_201H, ...DADOS_OUTRAS];
     console.log('Total de registros a processar:', todosDados.length);
 
+    // Limpa TODOS os registros de abril das unidades "outras" (remove falsos com IDs inventados)
+    const unidadesOutras = ['apto 104 -G', 'Casa 2.5', 'Casa 2.7', 'Apto 102-C'];
+    console.log('Limpando registros incorretos das unidades outras...');
+    for (const nomeUn of unidadesOutras) {
+        const uid = findUnidadeId(nomeUn);
+        if (uid) {
+            const { error: e } = await db.from('reservas').delete().eq('mes_ano', '2026-04').eq('unidade_id', uid);
+            if (e) console.warn('Aviso ao limpar ' + nomeUn + ':', e.message);
+            else console.log('Apagados todos os registros de abril de: ' + nomeUn);
+        }
+    }
+
     // Apaga registros do restore que podem ter unidade_id errado (re-insere com IDs atuais)
     const idsDoRestore = todosDados.map(r => String(r.id_reserva));
     console.log('Apagando registros antigos do restore para re-inserir com IDs corretos...');
