@@ -58,7 +58,7 @@ async function main() {
         if (mapaExato[nome]) return mapaExato[nome];
         const norm = nome.toLowerCase().replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
         if (mapaNorm[norm]) return mapaNorm[norm];
-        const numMatch = nome.match(/(\d+(?:\.\d+)?)/); 
+        const numMatch = nome.match(/(\d+(?:\.\d+)?)/);
         if (numMatch) {
             const found = unidades.find(u => {
                 const uNum = u.nome.match(/(\d+(?:\.\d+)?)/);
@@ -117,7 +117,7 @@ async function main() {
             chegada: r['Chegada'] || null,
             partida: r['Partida'] || null,
             num_hospedes: parseInt(r['Nº Hóspedes'] || 1) || 1,
-            canal: r['Canal'] || 'Direto',
+            canal: r['Canal'] || null,
         };
     }).filter(Boolean);
 
