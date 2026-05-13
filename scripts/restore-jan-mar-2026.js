@@ -202,6 +202,7 @@ const DADOS = [
 async function main() {
     console.log('Restauracao Jan-Mar 2026 iniciada');
     console.log('Total de registros:', DADOS.length);
+    console.log('Supabase URL:', SUPABASE_URL?.replace(/https?:\/\/([^.]+).*/, 'https://$1.supabase.co'));
 
     const { data: unidades, error: errUn } = await db.from('unidades').select('id, nome');
     if (errUn) throw new Error('Erro unidades: ' + errUn.message);
@@ -277,6 +278,22 @@ async function main() {
         const { error: e } = await db.from('reservas').insert(lote);
         if (e) throw new Error('Erro ao inserir: ' + e.message);
         console.log(`Inseridos: ${Math.min(i + 500, paraInserir.length)}/${paraInserir.length}`);
+    }
+
+    // VERIFICAÇÃO: consultar o banco imediatamente após a inserção
+    console.log('Verificando registros no banco...');
+    const { data: verif, error: errVerif } = await db
+        .from('reservas')
+        .select('id_reserva, mes_ano, unidade_id')
+        .in('mes_ano', ['2026-01', '2026-02', '2026-03'])
+        .not('id_reserva', 'like', 'MOVI%');
+    if (errVerif) {
+        console.error('ERRO na verificacao:', errVerif.message);
+    } else {
+        console.log(`VERIFICACAO: ${verif?.length ?? 0} registros Smoobu Jan-Mar 2026 no banco agora`);
+        const porMesVerif = {};
+        (verif || []).forEach(r => { porMesVerif[r.mes_ano] = (porMesVerif[r.mes_ano] || 0) + 1; });
+        Object.entries(porMesVerif).sort().forEach(([m, c]) => console.log(`  ${m}: ${c}`));
     }
 
     console.log('Restauracao Jan-Mar 2026 concluida!');
