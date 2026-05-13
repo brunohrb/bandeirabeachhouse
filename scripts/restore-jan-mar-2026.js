@@ -250,11 +250,10 @@ async function main() {
     const paraInserir = DADOS.map(r => {
         const unidade_id = findUnidadeId(r.unidade);
         if (!unidade_id) { console.warn('Unidade nao encontrada:', r.unidade); return null; }
-        const chegada = parseDate(r.cheg);
         const mesNum = r.cheg.split('/')[1];
         const mesAno = `2026-${mesNum}`;
         return {
-            id: require('crypto').randomUUID(),
+            id: randomUUID(),
             id_reserva: String(r.id_reserva),
             unidade_id,
             ano: '2026',
@@ -264,11 +263,6 @@ async function main() {
             comissao_portais: r.com || 0,
             comissao_short_stay: 0,
             status: 'ativa',
-            hospede: r.hospede || null,
-            chegada,
-            partida: parseDate(r.part),
-            num_hospedes: 1,
-            canal: mapCanal(r.portal),
         };
     }).filter(Boolean);
 
