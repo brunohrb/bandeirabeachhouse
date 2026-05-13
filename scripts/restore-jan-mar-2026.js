@@ -224,7 +224,7 @@ async function main() {
         const numMatch = nome.match(/(\d+(?:\.\d+)?)/);
         if (numMatch) {
             const found = unidades.find(u => {
-                const uNum = u.nome.match(/(\d+(?:\.\d+)?)/);
+                const uNum = u.nome.match(/(\d+(?:\.\d+)?)/)
                 return uNum && uNum[1] === numMatch[1];
             });
             if (found) return found.id;
@@ -253,7 +253,7 @@ async function main() {
         const mesNum = r.cheg.split('/')[1];
         const mesAno = `2026-${mesNum}`;
         return {
-            id: randomUUID(),
+            id: require('crypto').randomUUID(),
             id_reserva: String(r.id_reserva),
             unidade_id,
             ano: '2026',
