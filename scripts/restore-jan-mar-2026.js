@@ -1,6 +1,7 @@
 /**
- * Restaura dados de Janeiro, Fevereiro e Março de 2026
- * Fonte: BookingList20260514_1.xlsx (163 registros, exportado do Smoobu)
+ * Restaura dados de Dezembro/2025 + Janeiro-Março/2026
+ * Fonte: BookingList20260514_1.xlsx (169 registros, exportado do Smoobu)
+ * Regra de negócio: mês contábil = mês do check-in
  *
  * Uso via GitHub Actions: Actions → Restaurar Jan-Mar 2026 → Run workflow
  */
@@ -39,8 +40,16 @@ function findUnidadeId(alojamento, unidades) {
     return null;
 }
 
-// 163 reservas Jan-Mar 2026 extraídas diretamente do Smoobu (BookingList20260514_1.xlsx)
+// 169 reservas Dez/2025 + Jan-Mar/2026 extraídas do Smoobu (BookingList20260514_1.xlsx)
+// Regra: mês contábil = mês do check-in
 const DADOS = [
+  // 6 reservas de Réveillon — check-in dezembro/2025
+  {"id_reserva":"121751431","alojamento":"Casa 2.7","hospede":"Manoela Martins","chegada":"2025-12-29","partida":"2026-01-01","ano":"2025","mes":"12","receita":16260.3,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"110075846","alojamento":"Apto 201-H","hospede":"Maria de Lourdes Ferreira Gomes","chegada":"2025-12-31","partida":"2026-01-01","ano":"2025","mes":"12","receita":1488,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"109806956","alojamento":"Apto 103-F","hospede":"Rebeca Braga","chegada":"2025-12-27","partida":"2026-01-01","ano":"2025","mes":"12","receita":6864.75,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"105486461","alojamento":"Casa 2.5","hospede":"Felipe Holanda ( falta pgnto com 102)","chegada":"2025-12-28","partida":"2026-01-01","ano":"2025","mes":"12","receita":19500,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"101670973","alojamento":"Apto 102-C","hospede":"Felipe holanda (à pagar junto com 2.5 )","chegada":"2025-12-27","partida":"2026-01-01","ano":"2025","mes":"12","receita":6500,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"99486608","alojamento":"apto 104 -G","hospede":"Allana Layana (josias )","chegada":"2025-12-28","partida":"2026-01-01","ano":"2025","mes":"12","receita":4000,"com":0,"num":1,"canal":"Direto"},
   {"id_reserva":"133674432","alojamento":"Apto 201-H","hospede":"Afrania Lorena Lima Pereira","chegada":"2026-03-30","partida":"2026-03-31","ano":"2026","mes":"03","receita":248.63,"com":32.32,"num":2,"canal":"Booking.com"},
   {"id_reserva":"133509032","alojamento":"Apto 201-H","hospede":"Allan Júnior","chegada":"2026-03-29","partida":"2026-03-30","ano":"2026","mes":"03","receita":216.11,"com":28.09,"num":2,"canal":"Booking.com"},
   {"id_reserva":"132735717","alojamento":"Apto 103-F","hospede":"Gabriela Alves","chegada":"2026-03-24","partida":"2026-03-25","ano":"2026","mes":"03","receita":216.11,"com":28.09,"num":4,"canal":"Booking.com"},
@@ -236,7 +245,7 @@ async function main() {
         });
     }
     if (semMatch.length > 0) console.warn('Sem match de unidade:', [...new Set(semMatch)]);
-    console.log(`Registros prontos para inserir: ${registros.length}/163`);
+    console.log(`Registros prontos para inserir: ${registros.length}/169`);
 
     // Deletar APENAS os id_reserva específicos (por unidade) - não apaga manual/MOVI
     const unidadesIds = [...new Set(registros.map(r => r.unidade_id))];
@@ -269,13 +278,13 @@ async function main() {
     // Verificação final
     const { data: verif } = await db.from('reservas')
         .select('id_reserva, mes_ano, unidade_id')
-        .in('mes_ano', ['2026-01', '2026-02', '2026-03'])
+        .in('mes_ano', ['2025-12', '2026-01', '2026-02', '2026-03'])
         .not('id_reserva', 'like', 'MOVI%')
         .not('id_reserva', 'like', 'manual-%');
-    console.log(`VERIFICACAO FINAL: ${verif?.length ?? 0} registros Smoobu Jan-Mar 2026 no banco`);
+    console.log(`VERIFICACAO FINAL: ${verif?.length ?? 0} registros Smoobu Dez/2025+Jan-Mar/2026 no banco`);
 
     if ((verif?.length ?? 0) === registros.length) {
-        console.log('SUCESSO! Todos os registros estao presentes.');
+        console.log('SUCESSO! Todos os 169 registros estao presentes.');
     } else {
         console.warn(`ATENCAO: Esperado ${registros.length}, encontrado ${verif?.length ?? 0}`);
     }
