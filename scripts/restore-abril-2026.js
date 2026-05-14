@@ -6,7 +6,7 @@
  * Jean Castro (check-in 31/03) → mês MARÇO (não abril)
  * Todos os demais → mês ABRIL
  *
- * Uso via GitHub Actions: Actions → Restaurar Abril 2026 → Run workflow
+ * Uso via GitHub Actions: Actions → Restaurar Dados Abril 2026 → Run workflow
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -127,7 +127,6 @@ async function main() {
     if (semMatch.length > 0) console.warn('Sem match de unidade:', [...new Set(semMatch)]);
     console.log(`Registros prontos para inserir: ${registros.length}/49`);
 
-    // Deletar os id_reserva específicos (remove Jean Castro de abril se estiver lá)
     const unidadesIds = [...new Set(registros.map(r => r.unidade_id))];
     let totalDeletado = 0;
     for (const uid of unidadesIds) {
@@ -135,17 +134,13 @@ async function main() {
         for (let i = 0; i < ids.length; i += 200) {
             const lote = ids.slice(i, i + 200);
             const { data: del, error: errDel } = await db.from('reservas')
-                .delete()
-                .eq('unidade_id', uid)
-                .in('id_reserva', lote)
-                .select('id');
+                .delete().eq('unidade_id', uid).in('id_reserva', lote).select('id');
             if (errDel) console.warn('Erro delete:', errDel);
             else totalDeletado += (del?.length || 0);
         }
     }
-    console.log(`Deletados (duplicatas limpas): ${totalDeletado}`);
+    console.log(`Deletados: ${totalDeletado}`);
 
-    // Inserir em lotes
     let totalInserido = 0;
     for (let i = 0; i < registros.length; i += 200) {
         const lote = registros.slice(i, i + 200);
@@ -155,24 +150,18 @@ async function main() {
         console.log(`Inseridos: ${totalInserido}/${registros.length}`);
     }
 
-    // Verificação final
     const { data: verifAbr } = await db.from('reservas')
-        .select('id_reserva')
-        .eq('mes_ano', '2026-04')
-        .not('id_reserva', 'like', 'MOVI%')
-        .not('id_reserva', 'like', 'manual-%');
+        .select('id_reserva').eq('mes_ano', '2026-04')
+        .not('id_reserva', 'like', 'MOVI%').not('id_reserva', 'like', 'manual-%');
     const { data: verifJC } = await db.from('reservas')
-        .select('id_reserva, mes_ano')
-        .eq('id_reserva', '132569062');
+        .select('id_reserva, mes_ano').eq('id_reserva', '132569062');
 
     console.log(`VERIFICACAO: ${verifAbr?.length ?? 0} registros Smoobu em abril/2026`);
     if (verifJC?.length) {
         const jc = verifJC[0];
-        if (jc.mes_ano === '2026-03') {
-            console.log('SUCESSO! Jean Castro (132569062) esta corretamente em MARCO (2026-03).');
-        } else {
-            console.warn(`ATENCAO: Jean Castro esta em ${jc.mes_ano} — deveria ser 2026-03!`);
-        }
+        console.log(jc.mes_ano === '2026-03'
+            ? 'SUCESSO! Jean Castro em MARCO (2026-03).'
+            : `ATENCAO: Jean Castro em ${jc.mes_ano} — deveria ser 2026-03!`);
     }
     console.log(verifAbr?.length === 48 ? 'SUCESSO! 48 registros em abril.' : `ATENCAO: Esperado 48, encontrado ${verifAbr?.length}`);
 }
