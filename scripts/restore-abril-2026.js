@@ -1,12 +1,15 @@
 /**
- * Script de restauração de dados de Abril 2026
- * Recuperado a partir dos backups diários do repositório.
+ * Restaura dados de Abril/2026
+ * Fonte: BookingList20260514_3.xlsx (49 registros, exportado do Smoobu)
+ * Regra de negócio: mês contábil = mês do check-in
  *
- * Uso via GitHub Actions: Actions → Restaurar Dados Abril 2026 → Run workflow
+ * Jean Castro (check-in 31/03) → mês MARÇO (não abril)
+ * Todos os demais → mês ABRIL
+ *
+ * Uso via GitHub Actions: Actions → Restaurar Abril 2026 → Run workflow
  */
 
 const { createClient } = require('@supabase/supabase-js');
-const { randomUUID } = require('crypto');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
@@ -16,163 +19,162 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
     process.exit(1);
 }
 
+console.log('Supabase URL:', SUPABASE_URL.replace(/https?:\/\/([^.]+).*/, 'https://$1.supabase.co'));
+
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const DADOS_103F_201H = [
-  // --- Apto 103-F ---
-  { id_reserva:"130663375", unidade:"Apto 103-F", hospede:"Paula", chegada:"2026-04-25", partida:"2026-04-26", receita:300, canal:"Booking.com", status:"ativa", num_hospedes:1 },
-  { id_reserva:"132103302", unidade:"Apto 103-F", hospede:"Francisco Beloiano", chegada:"2026-04-06", partida:"2026-04-12", receita:0, canal:"Booking.com", status:"ativa", num_hospedes:1 },
-  { id_reserva:"132750357", unidade:"Apto 103-F", hospede:"Carolina Guilheme Ramalho", chegada:"2026-04-02", partida:"2026-04-05", receita:0, canal:"Booking.com", status:"ativa", num_hospedes:1 },
-  { id_reserva:"134472602", unidade:"Apto 103-F", hospede:"Jose Tarcisio Neto", chegada:"2026-04-06", partida:"2026-04-07", receita:0, canal:"Booking.com", status:"ativa", num_hospedes:3 },
-  { id_reserva:"134523217", unidade:"Apto 103-F", hospede:"Andreia Andreia Pereira Jesus", chegada:"2026-04-15", partida:"2026-04-19", receita:1080, canal:"Airbnb", status:"ativa", num_hospedes:2 },
-  { id_reserva:"134625082", unidade:"Apto 103-F", hospede:"Ala Diogenes", chegada:"2026-04-12", partida:"2026-04-13", receita:0, canal:"Booking.com", status:"ativa", num_hospedes:3 },
-  { id_reserva:"134664517", unidade:"Apto 103-F", hospede:"Moises", chegada:"2026-04-19", partida:"2026-04-20", receita:302, canal:"Direto", status:"ativa", num_hospedes:4 },
-  { id_reserva:"134668762", unidade:"Apto 103-F", hospede:"Bia", chegada:"2026-04-07", partida:"2026-04-08", receita:0, canal:"Direto", status:"ativa", num_hospedes:1 },
-  { id_reserva:"134721772", unidade:"Apto 103-F", hospede:"Beatriz", chegada:"2026-04-08", partida:"2026-04-09", receita:0, canal:"Direto", status:"ativa", num_hospedes:1 },
-  { id_reserva:"135379887", unidade:"Apto 103-F", hospede:"Marcelo Bezerra", chegada:"2026-04-13", partida:"2026-04-14", receita:216.11, canal:"Booking.com", status:"ativa", num_hospedes:2 },
-  { id_reserva:"136366072", unidade:"Apto 103-F", hospede:"Luciana Gadelha Miranda", chegada:"2026-04-24", partida:"2026-04-25", receita:203.40, canal:"Booking.com", status:"ativa", num_hospedes:2 },
-  { id_reserva:"136774597", unidade:"Apto 103-F", hospede:"Thais Marques Bezerra", chegada:"2026-04-24", partida:"2026-04-25", receita:216.11, canal:"Booking.com", status:"ativa", num_hospedes:4 },
-  { id_reserva:"136996692", unidade:"Apto 103-F", hospede:"", chegada:"2026-04-28", partida:"2026-04-29", receita:286.54, canal:"", status:"cancelada", num_hospedes:1 },
-  // --- Apto 201-H ---
-  { id_reserva:"122430666", unidade:"Apto 201-H", hospede:"", chegada:"2026-04-01", partida:"2026-04-02", receita:641.52, canal:"", status:"cancelada", num_hospedes:1 },
-  { id_reserva:"132158962", unidade:"Apto 201-H", hospede:"Saionara Oliveira Martins", chegada:"2026-04-10", partida:"2026-04-12", receita:0, canal:"Direto", status:"ativa", num_hospedes:6 },
-  { id_reserva:"132808017", unidade:"Apto 201-H", hospede:"", chegada:"2026-04-01", partida:"2026-04-02", receita:456.88, canal:"", status:"cancelada", num_hospedes:1 },
-  { id_reserva:"133327857", unidade:"Apto 201-H", hospede:"Ramon Sousa", chegada:"2026-04-02", partida:"2026-04-05", receita:0, canal:"Booking.com", status:"ativa", num_hospedes:2 },
-  { id_reserva:"134235227", unidade:"Apto 201-H", hospede:"", chegada:"2026-04-01", partida:"2026-04-02", receita:480.96, canal:"", status:"cancelada", num_hospedes:1 },
-  { id_reserva:"134438242", unidade:"Apto 201-H", hospede:"NORONHA JANF", chegada:"2026-04-06", partida:"2026-04-08", receita:0, canal:"Booking.com", status:"ativa", num_hospedes:2 },
-  { id_reserva:"134734032", unidade:"Apto 201-H", hospede:"ELIEZER GABRIEL DA SILVA JUNIOR", chegada:"2026-04-12", partida:"2026-04-13", receita:0, canal:"Booking.com", status:"ativa", num_hospedes:3 },
-  { id_reserva:"134748767", unidade:"Apto 201-H", hospede:"Felipe Alberto Gomes da Cunha", chegada:"2026-04-08", partida:"2026-04-09", receita:0, canal:"Booking.com", status:"ativa", num_hospedes:2 },
-  { id_reserva:"135471512", unidade:"Apto 201-H", hospede:"Felipe Marinho", chegada:"2026-04-15", partida:"2026-04-17", receita:380.98, canal:"Booking.com", status:"ativa", num_hospedes:1 },
-  { id_reserva:"135578437", unidade:"Apto 201-H", hospede:"Renato Silva", chegada:"2026-04-18", partida:"2026-04-19", receita:381.38, canal:"Booking.com", status:"ativa", num_hospedes:2 },
-  { id_reserva:"135679547", unidade:"Apto 201-H", hospede:"Daisy Leite Vieira Silva", chegada:"2026-04-20", partida:"2026-04-21", receita:254.70, canal:"Booking.com", status:"ativa", num_hospedes:2 },
-  { id_reserva:"135803057", unidade:"Apto 201-H", hospede:"Romario Silva", chegada:"2026-04-17", partida:"2026-04-18", receita:250, canal:"Direto", status:"ativa", num_hospedes:2 },
-  { id_reserva:"135962197", unidade:"Apto 201-H", hospede:"Sergio Coelho Sobrinho", chegada:"2026-04-19", partida:"2026-04-20", receita:216.11, canal:"Booking.com", status:"ativa", num_hospedes:2 },
-  { id_reserva:"136241262", unidade:"Apto 201-H", hospede:"Alan David", chegada:"2026-04-21", partida:"2026-04-22", receita:254.25, canal:"Booking.com", status:"ativa", num_hospedes:3 },
-  { id_reserva:"136278567", unidade:"Apto 201-H", hospede:"Adilane Braga", chegada:"2026-04-25", partida:"2026-04-26", receita:346.50, canal:"Booking.com", status:"ativa", num_hospedes:2 },
+function normalizarNome(nome) {
+    if (!nome) return '';
+    return nome.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function findUnidadeId(alojamento, unidades) {
+    const norm = normalizarNome(alojamento);
+    let u = unidades.find(u => normalizarNome(u.nome) === norm);
+    if (u) return u.id;
+    const num = alojamento.match(/(\d+(?:\.\d+)?)/);
+    if (num) {
+        u = unidades.find(u => u.nome.includes(num[1]));
+        if (u) return u.id;
+    }
+    return null;
+}
+
+// 49 registros do BookingList20260514_3.xlsx
+// Regra: mês contábil = mês do check-in
+// Jean Castro (check-in 31/03) → mes_ano='2026-03' (mês MARÇO)
+const DADOS = [
+  // Jean Castro — check-in 31/03/26, saída 01/04 → MARÇO (regra: mês do check-in)
+  {"id_reserva":"132569062","alojamento":"apto 104 -G","hospede":"Jean Castro","chegada":"2026-03-31","partida":"2026-04-01","ano":"2026","mes":"03","receita":302.18,"com":0,"num":1,"canal":"Direto"},
+  // 48 reservas com check-in em ABRIL
+  {"id_reserva":"137107992","alojamento":"apto 104 -G","hospede":"Lopes de Lima Cleciano","chegada":"2026-04-27","partida":"2026-04-28","ano":"2026","mes":"04","receita":286.54,"com":37.25,"num":1,"canal":"Direto"},
+  {"id_reserva":"136864352","alojamento":"Apto 102-C","hospede":"Francisca izaudina","chegada":"2026-04-25","partida":"2026-04-27","ano":"2026","mes":"04","receita":1200,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"136774597","alojamento":"Apto 103-F","hospede":"Thaís Marques Bezerra","chegada":"2026-04-24","partida":"2026-04-25","ano":"2026","mes":"04","receita":216.11,"com":28.09,"num":1,"canal":"Direto"},
+  {"id_reserva":"136464497","alojamento":"Casa 2.5","hospede":"Complemento patrick","chegada":"2026-04-26","partida":"2026-04-27","ano":"2026","mes":"04","receita":750,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"136366072","alojamento":"Apto 103-F","hospede":"Luciana Gadelha Miranda","chegada":"2026-04-21","partida":"2026-04-22","ano":"2026","mes":"04","receita":203.4,"com":26.44,"num":1,"canal":"Direto"},
+  {"id_reserva":"136278567","alojamento":"Apto 201-H","hospede":"Adilane Braga","chegada":"2026-04-25","partida":"2026-04-26","ano":"2026","mes":"04","receita":346.5,"com":45.05,"num":1,"canal":"Direto"},
+  {"id_reserva":"136241262","alojamento":"Apto 201-H","hospede":"Alan David","chegada":"2026-04-21","partida":"2026-04-22","ano":"2026","mes":"04","receita":254.25,"com":33.05,"num":1,"canal":"Direto"},
+  {"id_reserva":"136196167","alojamento":"apto 104 -G","hospede":"JAQUELINE VASCONCELOS","chegada":"2026-04-21","partida":"2026-04-22","ano":"2026","mes":"04","receita":201.72,"com":26.22,"num":1,"canal":"Direto"},
+  {"id_reserva":"135997552","alojamento":"Apto 102-C","hospede":"Davi Batista","chegada":"2026-04-17","partida":"2026-04-19","ano":"2026","mes":"04","receita":1042.48,"com":135.52,"num":1,"canal":"Direto"},
+  {"id_reserva":"135962197","alojamento":"Apto 201-H","hospede":"Sergio Coelho Sobrinho","chegada":"2026-04-19","partida":"2026-04-20","ano":"2026","mes":"04","receita":216.11,"com":28.09,"num":1,"canal":"Direto"},
+  {"id_reserva":"135961472","alojamento":"apto 104 -G","hospede":"Bertille Cartier","chegada":"2026-04-17","partida":"2026-04-18","ano":"2026","mes":"04","receita":296.44,"com":38.54,"num":1,"canal":"Direto"},
+  {"id_reserva":"135886137","alojamento":"Casa 2.5","hospede":"PATRICK VELOSO MAGALHAES DA SILVA RAISSA KETHLYN GOMES DE ARAUJO RAQUEL GOMES FELIPE ANTONIA GOMES","chegada":"2026-04-24","partida":"2026-04-26","ano":"2026","mes":"04","receita":1647.54,"com":214.18,"num":1,"canal":"Direto"},
+  {"id_reserva":"135803057","alojamento":"Apto 201-H","hospede":"Romário Silva","chegada":"2026-04-17","partida":"2026-04-18","ano":"2026","mes":"04","receita":250,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"135729427","alojamento":"apto 104 -G","hospede":"José tarcisio Neto","chegada":"2026-04-15","partida":"2026-04-16","ano":"2026","mes":"04","receita":254.7,"com":33.11,"num":1,"canal":"Direto"},
+  {"id_reserva":"135679547","alojamento":"Apto 201-H","hospede":"Daisy Leite Vieira Silva","chegada":"2026-04-20","partida":"2026-04-21","ano":"2026","mes":"04","receita":254.7,"com":33.11,"num":1,"canal":"Direto"},
+  {"id_reserva":"135580562","alojamento":"apto 104 -G","hospede":"Bruna rizzato","chegada":"2026-04-18","partida":"2026-04-21","ano":"2026","mes":"04","receita":800,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"135578437","alojamento":"Apto 201-H","hospede":"Renato Silva","chegada":"2026-04-18","partida":"2026-04-19","ano":"2026","mes":"04","receita":381.38,"com":49.58,"num":1,"canal":"Direto"},
+  {"id_reserva":"135534652","alojamento":"Casa 2.5","hospede":"Bloqueio Sistema","chegada":"2026-04-15","partida":"2026-04-19","ano":"2026","mes":"04","receita":0,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"135471512","alojamento":"Apto 201-H","hospede":"Felype Marinho","chegada":"2026-04-15","partida":"2026-04-17","ano":"2026","mes":"04","receita":380.98,"com":49.53,"num":1,"canal":"Direto"},
+  {"id_reserva":"135388382","alojamento":"apto 104 -G","hospede":"Ingrid complemento","chegada":"2026-04-13","partida":"2026-04-14","ano":"2026","mes":"04","receita":216,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"135379887","alojamento":"Apto 103-F","hospede":"Marcelo Bezerra","chegada":"2026-04-13","partida":"2026-04-14","ano":"2026","mes":"04","receita":216.11,"com":28.09,"num":1,"canal":"Direto"},
+  {"id_reserva":"135322172","alojamento":"Casa 2.7","hospede":"Bloqueio Sistema","chegada":"2026-04-15","partida":"2026-04-22","ano":"2026","mes":"04","receita":0,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"135275637","alojamento":"apto 104 -G","hospede":"Ingrid Alves","chegada":"2026-04-12","partida":"2026-04-13","ano":"2026","mes":"04","receita":195.08,"com":25.36,"num":1,"canal":"Direto"},
+  {"id_reserva":"135032882","alojamento":"apto 104 -G","hospede":"Socorro Ribeiro","chegada":"2026-04-24","partida":"2026-04-25","ano":"2026","mes":"04","receita":250,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"134866292","alojamento":"Casa 2.7","hospede":"Amanda","chegada":"2026-04-10","partida":"2026-04-13","ano":"2026","mes":"04","receita":2400,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"134748767","alojamento":"Apto 201-H","hospede":"Felipe Alberto Gomes da Cunha","chegada":"2026-04-08","partida":"2026-04-09","ano":"2026","mes":"04","receita":206.55,"com":26.85,"num":1,"canal":"Direto"},
+  {"id_reserva":"134734032","alojamento":"Apto 201-H","hospede":"ELIEZER GABRIEL DA SILVA JÚNIOR","chegada":"2026-04-12","partida":"2026-04-13","ano":"2026","mes":"04","receita":203.4,"com":26.44,"num":1,"canal":"Direto"},
+  {"id_reserva":"134721772","alojamento":"Apto 103-F","hospede":"Beatriz","chegada":"2026-04-08","partida":"2026-04-09","ano":"2026","mes":"04","receita":100,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"134668762","alojamento":"Apto 103-F","hospede":"Bia","chegada":"2026-04-07","partida":"2026-04-08","ano":"2026","mes":"04","receita":120,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"134664517","alojamento":"Apto 103-F","hospede":"Moisés","chegada":"2026-04-19","partida":"2026-04-20","ano":"2026","mes":"04","receita":302,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"134625082","alojamento":"Apto 103-F","hospede":"Ala Diogenes","chegada":"2026-04-12","partida":"2026-04-13","ano":"2026","mes":"04","receita":216.11,"com":28.09,"num":1,"canal":"Direto"},
+  {"id_reserva":"134525687","alojamento":"Apto 102-C","hospede":"Célia Mara Ladeia Colen","chegada":"2026-04-09","partida":"2026-04-12","ano":"2026","mes":"04","receita":1661.67,"com":216.02,"num":1,"canal":"Direto"},
+  {"id_reserva":"134523217","alojamento":"Apto 103-F","hospede":"Andreia Andreia Pereira Jesus","chegada":"2026-04-15","partida":"2026-04-19","ano":"2026","mes":"04","receita":1080,"com":196.7,"num":1,"canal":"Direto"},
+  {"id_reserva":"134472602","alojamento":"Apto 103-F","hospede":"José tarcisio Neto","chegada":"2026-04-06","partida":"2026-04-07","ano":"2026","mes":"04","receita":183.6,"com":23.87,"num":1,"canal":"Direto"},
+  {"id_reserva":"134438242","alojamento":"Apto 201-H","hospede":"NORONHA JANF","chegada":"2026-04-06","partida":"2026-04-08","ano":"2026","mes":"04","receita":330.48,"com":42.96,"num":1,"canal":"Direto"},
+  {"id_reserva":"134380832","alojamento":"apto 104 -G","hospede":"Naiara sales","chegada":"2026-04-10","partida":"2026-04-12","ano":"2026","mes":"04","receita":518,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"133818162","alojamento":"apto 104 -G","hospede":"Roberta ( complemento )","chegada":"2026-04-03","partida":"2026-04-05","ano":"2026","mes":"04","receita":800,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"133792707","alojamento":"Apto 102-C","hospede":"andre","chegada":"2026-04-12","partida":"2026-04-15","ano":"2026","mes":"04","receita":900,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"133327857","alojamento":"Apto 201-H","hospede":"Ramon Sousa","chegada":"2026-04-02","partida":"2026-04-05","ano":"2026","mes":"04","receita":1631.06,"com":212.04,"num":1,"canal":"Direto"},
+  {"id_reserva":"132750357","alojamento":"Apto 103-F","hospede":"Carolina Guilheme Ramalho","chegada":"2026-04-02","partida":"2026-04-05","ano":"2026","mes":"04","receita":1540.45,"com":200.26,"num":1,"canal":"Direto"},
+  {"id_reserva":"132158962","alojamento":"Apto 201-H","hospede":"Saionara oliveira Martins","chegada":"2026-04-10","partida":"2026-04-12","ano":"2026","mes":"04","receita":600,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"132103302","alojamento":"Apto 103-F","hospede":"Francisco Beloiano","chegada":"2026-04-10","partida":"2026-04-12","ano":"2026","mes":"04","receita":600,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"132098697","alojamento":"apto 104 -G","hospede":"Rodrigues Andy","chegada":"2026-04-25","partida":"2026-04-27","ano":"2026","mes":"04","receita":669.06,"com":86.98,"num":1,"canal":"Direto"},
+  {"id_reserva":"131891107","alojamento":"Apto 102-C","hospede":"Ana Paula","chegada":"2026-04-01","partida":"2026-04-05","ano":"2026","mes":"04","receita":3500,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"131876697","alojamento":"apto 104 -G","hospede":"Roberta Gadelha","chegada":"2026-04-01","partida":"2026-04-03","ano":"2026","mes":"04","receita":2000,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"131287545","alojamento":"Casa 2.7","hospede":"Nós Vamos  semana santa","chegada":"2026-04-01","partida":"2026-04-05","ano":"2026","mes":"04","receita":0,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"130663375","alojamento":"Apto 103-F","hospede":"Paula","chegada":"2026-04-25","partida":"2026-04-26","ano":"2026","mes":"04","receita":300,"com":0,"num":1,"canal":"Direto"},
+  {"id_reserva":"118725501","alojamento":"apto 104 -G","hospede":"Proprietários","chegada":"2026-04-06","partida":"2026-04-10","ano":"2026","mes":"04","receita":0,"com":0,"num":1,"canal":"Direto"}
 ];
 
 async function main() {
-    console.log('Restauracao de Abril 2026 iniciada');
-
     const { data: unidades, error: errUn } = await db.from('unidades').select('id, nome');
-    if (errUn) throw new Error('Erro unidades: ' + errUn.message);
+    if (errUn || !unidades) { console.error('Erro ao carregar unidades:', errUn); process.exit(1); }
+    console.log('Unidades no banco:', unidades.map(u => u.nome).join(', '));
 
-    const mapaUnidades = {};
-    unidades.forEach(u => {
-        mapaUnidades[u.nome] = u.id;
-        mapaUnidades[u.nome.toLowerCase()] = u.id;
-        const norm = u.nome.toLowerCase().replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
-        mapaUnidades[norm] = u.id;
-        const num = u.nome.match(/(\d+(?:\.\d+)?)/);
-        if (num) mapaUnidades['_num_' + num[1]] = u.id;
-    });
-
-    function findUnidadeId(nome) {
-        if (mapaUnidades[nome]) return mapaUnidades[nome];
-        if (mapaUnidades[nome.toLowerCase()]) return mapaUnidades[nome.toLowerCase()];
-        const norm = nome.toLowerCase().replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
-        if (mapaUnidades[norm]) return mapaUnidades[norm];
-        const num = nome.match(/(\d+(?:\.\d+)?)/);
-        if (num && mapaUnidades['_num_' + num[1]]) return mapaUnidades['_num_' + num[1]];
-        return null;
-    }
-
-    const DADOS_OUTRAS = require('./restore-abril-outras.json');
-    const todosDados = [...DADOS_103F_201H, ...DADOS_OUTRAS];
-    console.log('Total de registros a processar:', todosDados.length);
-
-    // Limpa TODOS os registros de abril das unidades "outras" (remove falsos com IDs inventados)
-    const unidadesOutras = ['apto 104 -G', 'Casa 2.5', 'Casa 2.7', 'Apto 102-C'];
-    console.log('Limpando registros incorretos das unidades outras...');
-    for (const nomeUn of unidadesOutras) {
-        const uid = findUnidadeId(nomeUn);
-        if (uid) {
-            const { error: e } = await db.from('reservas').delete().eq('mes_ano', '2026-04').eq('unidade_id', uid);
-            if (e) console.warn('Aviso ao limpar ' + nomeUn + ':', e.message);
-            else console.log('Apagados todos os registros de abril de: ' + nomeUn);
-        }
-    }
-
-    // Apaga registros do restore que podem ter unidade_id errado (re-insere com IDs atuais)
-    const idsDoRestore = todosDados.map(r => String(r.id_reserva));
-    console.log('Apagando registros antigos do restore para re-inserir com IDs corretos...');
-    const { error: errDel } = await db.from('reservas')
-        .delete()
-        .eq('mes_ano', '2026-04')
-        .in('id_reserva', idsDoRestore);
-    if (errDel) console.warn('Aviso ao apagar:', errDel.message);
-    else console.log('Registros antigos apagados com sucesso.');
-
-    const idsExistentes = new Set(); // sempre re-insere tudo
-    console.log('Re-inserindo todos os registros com unidade_id atuais...');
-
-    function montarRegistro(r, comDetalhes) {
-        const unidade_id = findUnidadeId(r.unidade);
-        if (!unidade_id) { console.warn('Unidade nao encontrada:', r.unidade); return null; }
-        const base = {
-            id: randomUUID(),
-            id_reserva: String(r.id_reserva),
-            unidade_id,
-            ano: '2026', mes: '04', mes_ano: '2026-04',
-            receita: r.receita || 0,
-            comissao_portais: r.comissao_portais || 0,
+    const registros = [];
+    const semMatch = [];
+    for (const r of DADOS) {
+        const uid = findUnidadeId(r.alojamento, unidades);
+        if (!uid) { semMatch.push(r.alojamento); continue; }
+        registros.push({
+            id_reserva: r.id_reserva,
+            unidade_id: uid,
+            ano: r.ano,
+            mes: r.mes,
+            mes_ano: r.ano + '-' + r.mes,
+            receita: r.receita,
+            comissao_portais: r.com,
             comissao_short_stay: 0,
-            status: r.status || 'ativa',
-        };
-        if (comDetalhes) {
-            base.hospede = r.hospede || null;
-            base.chegada = r.chegada || null;
-            base.partida = r.partida || null;
-            base.num_hospedes = r.num_hospedes || 1;
-            base.canal = r.canal || 'Direto';
-        }
-        return base;
+            status: 'ativa',
+            hospede: r.hospede,
+            chegada: r.chegada,
+            partida: r.partida,
+            num_hospedes: r.num,
+            canal: r.canal
+        });
     }
+    if (semMatch.length > 0) console.warn('Sem match de unidade:', [...new Set(semMatch)]);
+    console.log(`Registros prontos para inserir: ${registros.length}/49`);
 
-    const paraInserir = todosDados
-        .filter(r => !idsExistentes.has(String(r.id_reserva)))
-        .map(r => montarRegistro(r, true))
-        .filter(Boolean);
-
-    console.log('Registros para inserir:', paraInserir.length);
-
-    const semReceita = paraInserir.filter(r => !r.receita);
-    if (semReceita.length > 0) {
-        console.log('ATENCAO: ' + semReceita.length + ' com receita=0 (corrigir manualmente):');
-        semReceita.forEach(r => console.log('  -', r.id_reserva, r.hospede || ''));
-    }
-
-    if (paraInserir.length === 0) {
-        console.log('Nada a inserir - todos os registros ja existem.'); return;
-    }
-
-    async function inserirLotes(dados) {
-        for (let i = 0; i < dados.length; i += 500) {
-            const lote = dados.slice(i, i + 500);
-            const { error: e } = await db.from('reservas').insert(lote);
-            if (e) throw e;
-            console.log('Inseridos: ' + Math.min(i + 500, dados.length) + '/' + dados.length);
+    // Deletar os id_reserva específicos (remove Jean Castro de abril se estiver lá)
+    const unidadesIds = [...new Set(registros.map(r => r.unidade_id))];
+    let totalDeletado = 0;
+    for (const uid of unidadesIds) {
+        const ids = registros.filter(r => r.unidade_id === uid).map(r => r.id_reserva);
+        for (let i = 0; i < ids.length; i += 200) {
+            const lote = ids.slice(i, i + 200);
+            const { data: del, error: errDel } = await db.from('reservas')
+                .delete()
+                .eq('unidade_id', uid)
+                .in('id_reserva', lote)
+                .select('id');
+            if (errDel) console.warn('Erro delete:', errDel);
+            else totalDeletado += (del?.length || 0);
         }
     }
+    console.log(`Deletados (duplicatas limpas): ${totalDeletado}`);
 
-    try {
-        await inserirLotes(paraInserir);
-    } catch (e) {
-        if (e.message && e.message.includes('column')) {
-            console.log('Colunas extras nao existem no Supabase — tentando sem hospede/chegada/partida/canal...');
-            const semDetalhes = todosDados
-                .filter(r => !idsExistentes.has(String(r.id_reserva)))
-                .map(r => montarRegistro(r, false))
-                .filter(Boolean);
-            await inserirLotes(semDetalhes);
+    // Inserir em lotes
+    let totalInserido = 0;
+    for (let i = 0; i < registros.length; i += 200) {
+        const lote = registros.slice(i, i + 200);
+        const { data: ins, error: errIns } = await db.from('reservas').insert(lote).select('id');
+        if (errIns) { console.error(`Erro insert lote ${i}:`, errIns); process.exit(1); }
+        totalInserido += (ins?.length || 0);
+        console.log(`Inseridos: ${totalInserido}/${registros.length}`);
+    }
+
+    // Verificação final
+    const { data: verifAbr } = await db.from('reservas')
+        .select('id_reserva')
+        .eq('mes_ano', '2026-04')
+        .not('id_reserva', 'like', 'MOVI%')
+        .not('id_reserva', 'like', 'manual-%');
+    const { data: verifJC } = await db.from('reservas')
+        .select('id_reserva, mes_ano')
+        .eq('id_reserva', '132569062');
+
+    console.log(`VERIFICACAO: ${verifAbr?.length ?? 0} registros Smoobu em abril/2026`);
+    if (verifJC?.length) {
+        const jc = verifJC[0];
+        if (jc.mes_ano === '2026-03') {
+            console.log('SUCESSO! Jean Castro (132569062) esta corretamente em MARCO (2026-03).');
         } else {
-            throw new Error('Erro ao inserir: ' + e.message);
+            console.warn(`ATENCAO: Jean Castro esta em ${jc.mes_ano} — deveria ser 2026-03!`);
         }
     }
-
-    console.log('Restauracao concluida!');
-    if (semReceita.length > 0)
-        console.log('Atualize os ' + semReceita.length + ' registros com receita=0 no Supabase Dashboard.');
+    console.log(verifAbr?.length === 48 ? 'SUCESSO! 48 registros em abril.' : `ATENCAO: Esperado 48, encontrado ${verifAbr?.length}`);
 }
 
-main().catch(err => { console.error('Erro fatal:', err.message); process.exit(1); });
+main().catch(e => { console.error(e); process.exit(1); });

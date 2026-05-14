@@ -40,8 +40,8 @@ function findUnidadeId(alojamento, unidades) {
     return null;
 }
 
-// 169 reservas Dez/2025 + Jan-Mar/2026 extraídas do Smoobu (BookingList20260514_1.xlsx)
-// Regra: mês contábil = mês do check-in
+// 170 reservas Dez/2025 + Jan-Mar/2026 extraídas do Smoobu (BookingList20260514_1.xlsx + BookingList20260514_3.xlsx)
+// Regra: mês contábil = mês do check-in (Jean Castro check-in 31/03 → contabiliza em março)
 const DADOS = [
   // 6 reservas de Réveillon — check-in dezembro/2025
   {"id_reserva":"121751431","alojamento":"Casa 2.7","hospede":"Manoela Martins","chegada":"2025-12-29","partida":"2026-01-01","ano":"2025","mes":"12","receita":16260.3,"com":0,"num":1,"canal":"Direto"},
@@ -212,7 +212,9 @@ const DADOS = [
   {"id_reserva":"109049591","alojamento":"Apto 201-H","hospede":"Cássio Xavier Silva","chegada":"2026-02-10","partida":"2026-02-11","ano":"2026","mes":"02","receita":331.37,"com":43.08,"num":3,"canal":"Booking.com"},
   {"id_reserva":"105908471","alojamento":"Apto 102-C","hospede":"Diego Alves Silvaa","chegada":"2026-01-01","partida":"2026-01-04","ano":"2026","mes":"01","receita":1674,"com":304.88,"num":4,"canal":"Airbnb"},
   {"id_reserva":"104682123","alojamento":"Apto 201-H","hospede":"JEAN SILVA","chegada":"2026-01-01","partida":"2026-01-04","ano":"2026","mes":"01","receita":865.22,"com":112.48,"num":2,"canal":"Booking.com"},
-  {"id_reserva":"102934268","alojamento":"Apto 103-F","hospede":"JEAN SILVA","chegada":"2026-01-01","partida":"2026-01-04","ano":"2026","mes":"01","receita":865.22,"com":112.48,"num":3,"canal":"Booking.com"}
+  {"id_reserva":"102934268","alojamento":"Apto 103-F","hospede":"JEAN SILVA","chegada":"2026-01-01","partida":"2026-01-04","ano":"2026","mes":"01","receita":865.22,"com":112.48,"num":3,"canal":"Booking.com"},
+  // Jean Castro — check-in 31/03/26, saída 01/04 → contabiliza em MARÇO (regra: mês do check-in)
+  {"id_reserva":"132569062","alojamento":"apto 104 -G","hospede":"Jean Castro","chegada":"2026-03-31","partida":"2026-04-01","ano":"2026","mes":"03","receita":302.18,"com":0,"num":1,"canal":"Direto"}
 ];
 
 async function main() {
@@ -245,7 +247,7 @@ async function main() {
         });
     }
     if (semMatch.length > 0) console.warn('Sem match de unidade:', [...new Set(semMatch)]);
-    console.log(`Registros prontos para inserir: ${registros.length}/169`);
+    console.log(`Registros prontos para inserir: ${registros.length}/170`);
 
     // Deletar APENAS os id_reserva específicos (por unidade) - não apaga manual/MOVI
     const unidadesIds = [...new Set(registros.map(r => r.unidade_id))];
@@ -284,7 +286,7 @@ async function main() {
     console.log(`VERIFICACAO FINAL: ${verif?.length ?? 0} registros Smoobu Dez/2025+Jan-Mar/2026 no banco`);
 
     if ((verif?.length ?? 0) === registros.length) {
-        console.log('SUCESSO! Todos os 169 registros estao presentes.');
+        console.log('SUCESSO! Todos os 170 registros estao presentes.');
     } else {
         console.warn(`ATENCAO: Esperado ${registros.length}, encontrado ${verif?.length ?? 0}`);
     }
