@@ -105,11 +105,14 @@ async function fetchSmoobuReservations() {
     let page       = 1;
     let totalPages = 1;
 
-    // Busca apenas do mês atual em diante — a API do Smoobu não retorna reservas
-    // históricas com confiabilidade, e deletar+não-reinserir apagaria dados de meses passados.
-    const fromDate = `${anoAtual}-${mesAtual}-01`;
+    // Busca do mês ANTERIOR em diante — garante que reservas com check-in no final do mês
+    // passado (ex: 30/abr com saída em maio) sejam contabilizadas no mês correto (check-in).
+    const mesAnterior = hoje.getMonth() === 0 ? 12 : hoje.getMonth(); // getMonth() é 0-based
+    const anoAnterior = hoje.getMonth() === 0 ? anoAtual - 1 : anoAtual;
+    const mesAnteriorStr = String(mesAnterior).padStart(2, '0');
+    const fromDate = `${anoAnterior}-${mesAnteriorStr}-01`;
     const toDate   = `${anoProximo}-12-31`;
-    console.log(`📅 Buscando reservas de ${fromDate} a ${toDate}`);
+    console.log(`📅 Buscando reservas de ${fromDate} a ${toDate} (inclui mês anterior para check-ins de virada de mês)`);
 
     while (page <= totalPages) {
         const params = new URLSearchParams({
