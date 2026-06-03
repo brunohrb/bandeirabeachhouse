@@ -119,7 +119,9 @@ async function fetchSmoobuReservations() {
             pageSize: 100, page,
             arrivalFrom: fromDate,
             arrivalTo:   toDate,
-            showCancellation: true,
+            // showCancellation omitido (default false) — busca apenas reservas ativas.
+            // Com showCancellation:true a API retornava registros type='cancellation'
+            // que eram gravados como status='cancelada', apagando os registros ativos.
         });
 
         const response = await fetchWithRetry(
