@@ -1,8 +1,9 @@
 /**
  * Restaura dados de Maio/2026
  * Fonte: BookingList20260603_2.xlsx (43 registros, exportado do Smoobu)
- * Todos os registros presentes no export de maio → mes_ano='2026-05',
- * incluindo Antonio Rqmon (check-in 30/04, checkout 03/05) que o Smoobu inclui na lista de maio.
+ * Regra: mês contábil = mês do CHECK-IN (data de chegada).
+ * Antonio Rqmon (check-in 30/04, checkout 03/05) → mes_ano='2026-04' (ABRIL).
+ * Todos os demais (check-in em maio) → mes_ano='2026-05' (MAIO).
  *
  * Uso via GitHub Actions: Actions → Restaurar Dados Maio 2026 → Run workflow
  */
@@ -39,7 +40,9 @@ function findUnidadeId(alojamento, unidades) {
     return null;
 }
 
-// 43 registros do BookingList20260603_2.xlsx — todos em mes_ano='2026-05'
+// 43 registros — mês contábil = mês do check-in
+// Antonio Rqmon (check-in 30/04) → mes='04' (ABRIL)
+// Demais 42 (check-in em maio) → mes='05' (MAIO)
 const DADOS = [
   // ─── Apto 102-C ───
   {"id_reserva":"141488902","alojamento":"Apto 102-C","hospede":"Ivonilson Costa","chegada":"2026-05-30","partida":"2026-05-31","ano":"2026","mes":"05","receita":864.45,"com":112.38,"num":5,"canal":"Booking.com"},
@@ -63,8 +66,8 @@ const DADOS = [
   {"id_reserva":"134894652","alojamento":"Apto 103-F","hospede":"Nathalia Ribeiro","chegada":"2026-05-01","partida":"2026-05-03","ano":"2026","mes":"05","receita":500.00,"com":0,"num":2,"canal":"Direto"},
 
   // ─── Apto 104-G ───
-  // Antonio Rqmon: check-in 30/04, checkout 03/05 — incluído em maio conforme export Smoobu
-  {"id_reserva":"137471692","alojamento":"apto 104 -G","hospede":"Antonio Rqmon","chegada":"2026-04-30","partida":"2026-05-03","ano":"2026","mes":"05","receita":1133.89,"com":147.41,"num":2,"canal":"Booking.com"},
+  // Antonio Rqmon: check-in 30/04 → ABRIL (regra: mês do check-in)
+  {"id_reserva":"137471692","alojamento":"apto 104 -G","hospede":"Antonio Rqmon","chegada":"2026-04-30","partida":"2026-05-03","ano":"2026","mes":"04","receita":1133.89,"com":147.41,"num":2,"canal":"Booking.com"},
   {"id_reserva":"128643817","alojamento":"apto 104 -G","hospede":"Ana Wladia","chegada":"2026-05-08","partida":"2026-05-10","ano":"2026","mes":"05","receita":600.00,"com":0,"num":1,"canal":"Direto"},
   {"id_reserva":"139510037","alojamento":"apto 104 -G","hospede":"Araceli (transferencia)","chegada":"2026-05-14","partida":"2026-05-16","ano":"2026","mes":"05","receita":0,"com":0,"num":1,"canal":"Direto"},
   {"id_reserva":"139118822","alojamento":"apto 104 -G","hospede":"Roberto Neri","chegada":"2026-05-16","partida":"2026-05-17","ano":"2026","mes":"05","receita":286.54,"com":37.25,"num":4,"canal":"Booking.com"},
@@ -101,7 +104,6 @@ async function main() {
     if (errUn) throw new Error('Erro ao carregar unidades: ' + errUn.message);
     console.log(`🏠 Unidades: ${unidades.map(u => u.nome).join(', ')}`);
 
-    // Montar registros com unidade_id resolvido
     const registros = DADOS.map(d => {
         const unidade_id = findUnidadeId(d.alojamento, unidades);
         if (!unidade_id) {
@@ -130,32 +132,39 @@ async function main() {
     const ignorados = DADOS.length - registros.length;
     if (ignorados > 0) console.warn(`⚠️ ${ignorados} registros ignorados por falta de mapeamento`);
 
-    // Agrupar por unidade_id
     const porUnidade = {};
     for (const r of registros) {
         if (!porUnidade[r.unidade_id]) porUnidade[r.unidade_id] = [];
         porUnidade[r.unidade_id].push(r);
     }
 
-    for (const [uid] of Object.entries(porUnidade)) {
+    for (const [uid, regs] of Object.entries(porUnidade)) {
         const nomeUnidade = unidades.find(u => u.id === uid)?.nome ?? uid;
 
-        // Apaga TODOS os registros de maio desta unidade (não só os id_reservas conhecidos),
-        // eliminando registros obsoletos de syncs anteriores com IDs diferentes.
-        const { error: errDel } = await db.from('reservas').delete()
+        const { error: errDel05 } = await db.from('reservas').delete()
             .eq('unidade_id', uid)
             .eq('mes_ano', '2026-05');
-        if (errDel) throw new Error(`Erro ao deletar maio de ${nomeUnidade}: ${errDel.message}`);
+        if (errDel05) throw new Error(`Erro ao deletar maio de ${nomeUnidade}: ${errDel05.message}`);
         console.log(`🗑️  Apagados TODOS os registros 2026-05 de "${nomeUnidade}"`);
+
+        const idsAbril = regs.filter(r => r.mes_ano === '2026-04').map(r => r.id_reserva);
+        if (idsAbril.length > 0) {
+            const { error: errDel04 } = await db.from('reservas').delete()
+                .eq('unidade_id', uid)
+                .in('id_reserva', idsAbril);
+            if (errDel04) throw new Error(`Erro ao deletar abril de ${nomeUnidade}: ${errDel04.message}`);
+            console.log(`🗑️  Apagado id_reserva ${idsAbril.join(',')} de abril de "${nomeUnidade}"`);
+        }
     }
 
-    // Inserir todos
     const { error: errIns } = await db.from('reservas').insert(registros);
     if (errIns) throw new Error('Erro ao inserir: ' + errIns.message);
     console.log(`✅ ${registros.length} registros inseridos`);
 
-    const receitaTotal = registros.reduce((s, r) => s + r.receita, 0);
-    console.log(`📊 Maio (2026-05): ${registros.length} registros — receita R$ ${receitaTotal.toFixed(2)}`);
+    const maio  = registros.filter(r => r.mes_ano === '2026-05');
+    const abril = registros.filter(r => r.mes_ano === '2026-04');
+    console.log(`📊 Maio  (2026-05): ${maio.length} registros — R$ ${maio.reduce((s,r)=>s+r.receita,0).toFixed(2)}`);
+    console.log(`📊 Abril (2026-04): ${abril.length} registro  — R$ ${abril.reduce((s,r)=>s+r.receita,0).toFixed(2)} (Antonio Rqmon)`);
     console.log('🎉 Restore de Maio/2026 concluído!');
 }
 
