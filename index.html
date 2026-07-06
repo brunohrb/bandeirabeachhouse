@@ -4662,23 +4662,23 @@ const unidadeMovi = unidadesMovi && unidadesMovi.length > 0 ? unidadesMovi[0] : 
                 let mesAtual = null, anoProcessado = null;
                 
                 for (let i = 1; i < linhas.length; i++) {
-                    const [periodo, valor, taxaApp] = linhas[i];
-                    
+                    const [periodo, valor, taxaApp, taxaShort] = linhas[i];
+
                     if (periodo instanceof Date) {
                         anoProcessado = periodo.getFullYear().toString();
                         mesAtual = String(periodo.getMonth() + 1).padStart(2, '0');
                         continue;
                     }
-                    
+
                     if (typeof valor !== 'number' || valor <= 0 || !anoProcessado) continue;
 // 🔥 Aceita APENAS ano atual e próximo
 if (anoProcessado !== anoAtual.toString() && anoProcessado !== anoProximo.toString()) {
     continue; // Pula esta linha
 }
-                    
+
                     const dias = String(periodo).match(/(\d{1,2})\s*a\s*(\d{1,2})/);
                     const id = `MOVI_${anoProcessado}${mesAtual}_${dias?.[1] || '01'}-${dias?.[2] || '01'}_${valor.toFixed(2)}`;
-                    
+
                     reservas.push({
                         idReserva: id,
                         unidade: "Movi 505",
@@ -4688,7 +4688,7 @@ if (anoProcessado !== anoAtual.toString() && anoProcessado !== anoProximo.toStri
                         receita: valor,
                         comissao: typeof taxaApp === 'number' ? taxaApp : 0,
                         comissaoPortais: typeof taxaApp === 'number' ? taxaApp : 0,
-                        comissaoShortStay: 0,
+                        comissaoShortStay: typeof taxaShort === 'number' ? taxaShort : 0,
                         status: 'ativa'
                     });
                 }
