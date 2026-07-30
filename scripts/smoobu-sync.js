@@ -190,7 +190,6 @@ async function main() {
     const smoobuRaw     = await fetchSmoobuReservations();
     const reservasNovas = smoobuRaw.map(processReservation).filter(Boolean);
 
-    // Log de tipos ignorados
     const ignoradosTipo = smoobuRaw.filter(r => String(r.type ?? '').toLowerCase().includes('modification')).length;
     console.log(`✅ ${reservasNovas.length} reservas válidas (${ignoradosTipo} modificações ignoradas de ${smoobuRaw.length} brutas)`);
 
@@ -254,6 +253,29 @@ async function main() {
         console.log('⚠️ Nenhuma reserva mapeada. Nada alterado.');
         return;
     }
+
+    // Salvar comissões existentes antes de deletar.
+    // A API do Smoobu retorna commission-included=null para reservas já finalizadas,
+    // então preservamos o valor que já estava no banco quando a API não traz nada.
+    const todosIds = paraInserir.map(r => r.id_reserva);
+    const comissoesExistentes = {};
+    for (let i = 0; i < todosIds.length; i += 200) {
+        const lote = todosIds.slice(i, i + 200);
+        const { data: existentes } = await db.from('reservas')
+            .select('id_reserva, comissao_portais')
+            .in('id_reserva', lote)
+            .gt('comissao_portais', 0);
+        (existentes ?? []).forEach(r => { comissoesExistentes[r.id_reserva] = r.comissao_portais; });
+    }
+    const preservadas = Object.keys(comissoesExistentes).length;
+    if (preservadas > 0) console.log(`💾 ${preservadas} comissões existentes salvas para preservação`);
+
+    // Aplicar comissão preservada nos registros onde a API retornou 0/null
+    paraInserir.forEach(r => {
+        if (!r.comissao_portais && comissoesExistentes[r.id_reserva]) {
+            r.comissao_portais = comissoesExistentes[r.id_reserva];
+        }
+    });
 
     console.log(`🗑️ Apagando ${paraInserir.length} reservas que serão reinseridas...`);
 
