@@ -145,16 +145,16 @@ async function fetchSmoobuReservations() {
                 console.log('⚠️ API retornou "bookings" em vez de "reservations" — usando bookings');
             }
 
-            // Log detalhado da primeira reserva para debug de campos
+            // Log detalhado de uma reserva "booking" real (não modification)
             const items0 = data.reservations ?? data.bookings ?? [];
             if (items0.length > 0) {
-                const sample = items0[0];
-                console.log('🔍 Campos da API:', Object.keys(sample).join(', '));
-                console.log('🔍 Exemplo — id:', sample.id,
+                console.log('🔍 Campos da API:', Object.keys(items0[0]).join(', '));
+                const sample = items0.find(r => r.type === 'booking' && (r.price ?? 0) > 0) ?? items0[0];
+                console.log('🔍 Exemplo (type:', sample.type, ') — id:', sample.id,
                     '| arrival:', sample.arrival,
-                    '| type:', sample.type,
                     '| price:', sample.price,
                     '| commission-included:', sample['commission-included'],
+                    '| price-details:', JSON.stringify(sample['price-details']),
                     '| apartment:', JSON.stringify(sample.apartment));
             }
         }
@@ -181,7 +181,14 @@ function processReservation(r) {
         String(r.status ?? '').toLowerCase().includes('cancel');
 
     const receita  = parseFloat(r.totalPrice ?? r.total_price ?? r.price ?? r.amount ?? 0) || 0;
-    const comissao = parseFloat(r['commission-included'] ?? r.commission ?? r.channelCommission ?? r['commission-amount'] ?? 0) || 0;
+    // Tenta ler comissão de vários campos possíveis, incluindo price-details
+    const pd = r['price-details'] ?? {};
+    const comissao = parseFloat(
+        r['commission-included'] ??
+        pd.commission ?? pd.channelCommission ?? pd['channel-commission'] ??
+        pd.hostCommission ?? pd['host-commission'] ??
+        r.commission ?? r.channelCommission ?? r['commission-amount'] ?? 0
+    ) || 0;
     const nomeUnidade = (r.apartment?.name ?? r.unit?.name ?? r.property?.name ?? 'N/A').trim();
 
     // Dados extras para reservas futuras / mensagem de limpeza
@@ -213,6 +220,17 @@ async function main() {
     const smoobuRaw     = await fetchSmoobuReservations();
     const reservasNovas = smoobuRaw.map(processReservation).filter(Boolean);
     console.log(`✅ ${reservasNovas.length} reservas válidas de ${smoobuRaw.length} brutas`);
+
+    // Log das primeiras comissões para diagnóstico
+    const comComissao = reservasNovas.filter(r => r.comissao > 0);
+    console.log(`💰 ${comComissao.length}/${reservasNovas.length} reservas com comissão > 0`);
+    if (comComissao.length > 0) {
+        comComissao.slice(0, 3).forEach(r =>
+            console.log(`   ✅ ${r.unidade} | ${r.chegada} | canal: ${r.canal} | receita: ${r.receita} | comissao: ${r.comissao}`)
+        );
+    } else {
+        console.log('   ⚠️ Nenhuma reserva com comissão — campo pode não estar disponível na API desta conta');
+    }
 
     // Proteção: se API retornou 0 reservas, pode ser erro — não apagar dados
     if (reservasNovas.length === 0) {
