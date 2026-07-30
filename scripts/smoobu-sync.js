@@ -154,7 +154,7 @@ async function fetchSmoobuReservations() {
                     '| arrival:', sample.arrival,
                     '| type:', sample.type,
                     '| price:', sample.price,
-                    '| commission:', sample.commission,
+                    '| commission-included:', sample['commission-included'],
                     '| apartment:', JSON.stringify(sample.apartment));
             }
         }
@@ -181,7 +181,7 @@ function processReservation(r) {
         String(r.status ?? '').toLowerCase().includes('cancel');
 
     const receita  = parseFloat(r.totalPrice ?? r.total_price ?? r.price ?? r.amount ?? 0) || 0;
-    const comissao = parseFloat(r.commission ?? r.channelCommission ?? r['commission-amount'] ?? 0) || 0;
+    const comissao = parseFloat(r['commission-included'] ?? r.commission ?? r.channelCommission ?? r['commission-amount'] ?? 0) || 0;
     const nomeUnidade = (r.apartment?.name ?? r.unit?.name ?? r.property?.name ?? 'N/A').trim();
 
     // Dados extras para reservas futuras / mensagem de limpeza
