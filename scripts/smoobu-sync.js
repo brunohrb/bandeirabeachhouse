@@ -41,7 +41,7 @@ function encontrarUnidadeId(nomeSmoobu, mapaExato, mapaNormalizado, unidades) {
     if (numMatch) {
         const num = numMatch[1];
         const found = unidades.find(u => {
-            const uNum = u.nome.match(/(\d+(?:\.\d+)?)/);
+            const uNum = u.nome.match(/(\d+(?:\.\d+)?/);
             return uNum && uNum[1] === num;
         });
         if (found) return found.id;
@@ -190,6 +190,7 @@ async function main() {
     const smoobuRaw     = await fetchSmoobuReservations();
     const reservasNovas = smoobuRaw.map(processReservation).filter(Boolean);
 
+    // Log de tipos ignorados
     const ignoradosTipo = smoobuRaw.filter(r => String(r.type ?? '').toLowerCase().includes('modification')).length;
     console.log(`✅ ${reservasNovas.length} reservas válidas (${ignoradosTipo} modificações ignoradas de ${smoobuRaw.length} brutas)`);
 
