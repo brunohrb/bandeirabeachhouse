@@ -110,7 +110,7 @@ CLAUDE.md                                  # Este arquivo
 
 ## Unidades do sistema
 | Unidade | Smoobu? | Origem dados |
-|---------|---------|--------------|
+|---------|---------|-------------|
 | Apto 103-F | ✅ Sim | Smoobu sync |
 | Apto 201-H | ✅ Sim | Smoobu sync |
 | Apto 102-C | ✅ Sim | Smoobu sync |
@@ -125,7 +125,7 @@ Reservas Movi: `id_reserva` = `MOVI_YYYYMM_DD-DD_valor` (datas codificadas no ID
 
 ## Edge Function — Ações disponíveis (smoobu-proxy)
 | Ação | Método Smoobu | Descrição |
-|------|--------------|-----------|
+|------|--------------|----------|
 | `getReservations` | GET /api/reservations | Busca reservas por período |
 | `getApartments` | GET /api/apartments | Lista apartamentos |
 | `getChannels` | GET /api/channels | Lista canais/portais |
@@ -177,7 +177,7 @@ params.append("apartments[]", String(apartmentId))  // com [] no nome
 
 ### Tabs do calendário
 | Tab | ID container | Função ao abrir |
-|-----|-------------|-----------------|
+|-----|-------------|----------------|
 | 📅 Reservas | `calReservasContainer` | `renderCalendario()` |
 | 💰 Preços | `calPrecosContainer` | `carregarPrecos()` |
 | 💬 Mensagens | `calMsgsContainer` | `carregarThreads()` |
@@ -316,6 +316,37 @@ bloquearDatasSelecao()        // Bloqueia datas selecionadas via drag
 7. `pendingPrecoChanges`: campo `field='min'` é mapeado para propriedade `'minStay'` em `adicionarPendingPreco`
 8. `price: null` / `minStay: null` no pending = não enviar esse campo ao Smoobu (não sobrescrever)
 
+## 🚨 PROBLEMA RECORRENTE: Faturamento/Comissão zerado no fechamento do mês
+
+**Aconteceu em:** maio/2026, junho/2026, julho/2026 (3 meses seguidos)
+**Sintoma:** Bruno abre o sistema no início do mês e vê faturamento muito baixo (ex: R$2.000 em vez de R$4.500) e comissão R$0,00 para meses já fechados.
+
+### Causa raiz
+O sync (`scripts/smoobu-sync.js`) fazia DELETE→INSERT em **todas** as reservas retornadas pela API. Quando o Smoobu retornava uma reserva como tipo `modification` (reserva modificada), ela era **ignorada** pelo filtro, e a reserva original era **apagada** pelo DELETE. Resultado: registros sumiam do banco ao virar o mês.
+
+### Correção permanente (implementada em jul/2026)
+O sync agora tem 2 estratégias:
+- **Meses passados** (check-in antes do 1º dia do mês atual): **nunca deleta** — só faz INSERT se o registro não existe no banco. Dados históricos ficam intocados.
+- **Mês atual + futuro**: DELETE→INSERT normal (com preservação de comissão existente).
+
+### Se acontecer de novo (diagnóstico rápido)
+1. **Confirmar o problema**: filtrar no sistema por unidade + mês com problema. Ver se receita está muito abaixo do esperado.
+2. **Pegar o export do Smoobu**: Bruno exporta o BookingList do mês afetado em **Smoobu → Relatórios → BookingList** (arquivo `.xlsx`).
+3. **Comparar**: somar `Preço` do Excel filtrando pela unidade e mês (usando data de check-in). Se diferir do sistema, registros estão faltando no banco.
+4. **Correr o fix**: usar o script `scripts/fix-junho-2026.js` como modelo — substituir o array `RESERVAS` com os dados do Excel do mês afetado. Os campos são: `id_reserva` = coluna "Posição" do Excel, `receita` = coluna "Preço", `comissao` = coluna "Comissão incluída". Executar via GitHub Actions workflow `Fix Faturamento Junho 2026` (ou criar um equivalente para o mês afetado).
+5. **Regra do mês**: sempre usar **data de check-in** para definir em qual mês a reserva entra. Ex: check-in 29/06, check-out 02/07 → conta em junho.
+
+### Scripts disponíveis para fix manual
+| Script | Uso |
+|--------|-----|
+| `scripts/fix-junho-2026.js` | Modelo: INSERT faltando + UPDATE comissão=0. Adaptar para outro mês. |
+| `scripts/restore-comissoes-junho-2026.js` | Só restaura comissão (quando faturamento está ok mas comissão está 0). |
+
+### Dependências dos scripts
+Os scripts de fix precisam de `@supabase/supabase-js` no `package.json` (já está). Os workflows usam Node 22 (já configurado). Se der erro `MODULE_NOT_FOUND`, verificar se `package.json` tem a dependência e se `package-lock.json` está em sync com ele no branch `main`.
+
+---
+
 ## Histórico de problemas resolvidos
 - `getRates 422`: parâmetro era `apartments=ID`, corrigido para `apartments[]=ID`
 - `updateRates 422`: IDs precisam ser `Number()` e formato é `operations[].dates`
@@ -324,3 +355,4 @@ bloquearDatasSelecao()        // Bloqueia datas selecionadas via drag
 - Threads mostravam "Hospede": campos errados, correto é `booking.guest_name` e `booking.id`
 - Movi 505 sumia do calendário: datas não estavam em `chegada`/`partida`, extraídas do ID via regex
 - Pending price sync não funcionava: `field='min'` não batia com propriedade `'minStay'`; `price:0` era falsy no edge function — corrigido com `null` e verificação `!= null`
+- Faturamento zerado ao virar o mês (maio, junho, julho/2026): sync apagava registros "modification" do Smoobu. Corrigido em jul/2026 — meses passados nunca são deletados pelo sync.
