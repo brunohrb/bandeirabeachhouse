@@ -41,7 +41,7 @@ function encontrarUnidadeId(nomeSmoobu, mapaExato, mapaNormalizado, unidades) {
     if (numMatch) {
         const num = numMatch[1];
         const found = unidades.find(u => {
-            const uNum = u.nome.match(/(\d+(?:\.\d+)?)/);
+            const uNum = u.nome.match(/(\d+(?:\.\d+)?)/); 
             return uNum && uNum[1] === num;
         });
         if (found) return found.id;
@@ -255,49 +255,68 @@ async function main() {
         return;
     }
 
-    // Salvar comissões existentes antes de deletar.
-    // A API do Smoobu retorna commission-included=null para reservas já finalizadas,
-    // então preservamos o valor que já estava no banco quando a API não traz nada.
-    const todosIds = paraInserir.map(r => r.id_reserva);
+    // Separar registros: meses passados (check-in antes do mês atual) vs mês atual/futuro.
+    // Meses passados NUNCA são deletados — só inserimos o que está faltando.
+    // Isso evita que o sync apague dados de meses fechados por falhas da API do Smoobu
+    // (ex: reservas retornadas como "modification" ou fora do range da busca).
+    const hoje = new Date();
+    const primeiroDiaMesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`;
+    const passado      = paraInserir.filter(r => r.chegada < primeiroDiaMesAtual);
+    const presenteFut  = paraInserir.filter(r => r.chegada >= primeiroDiaMesAtual);
+    console.log(`📅 Estratégia: ${passado.length} de meses passados (só INSERT se faltando) | ${presenteFut.length} mês atual/futuro (DELETE+INSERT)`);
+
+    // Para meses passados: identificar quais já existem no banco
+    const idsPassado = passado.map(r => r.id_reserva);
+    const existentesPassadoSet = new Set();
+    for (let i = 0; i < idsPassado.length; i += 200) {
+        const lote = idsPassado.slice(i, i + 200);
+        const { data: rows } = await db.from('reservas').select('id_reserva').in('id_reserva', lote);
+        (rows ?? []).forEach(r => existentesPassadoSet.add(r.id_reserva));
+    }
+    const novosPassado = passado.filter(r => !existentesPassadoSet.has(r.id_reserva));
+    if (passado.length > 0) {
+        console.log(`   📥 ${novosPassado.length} faltando no banco de meses passados (${passado.length - novosPassado.length} já existem — mantidos)`);
+    }
+
+    // Para mês atual/futuro: salvar comissões existentes antes de deletar
+    // (API retorna commission-included=null para reservas já finalizadas)
     const comissoesExistentes = {};
-    for (let i = 0; i < todosIds.length; i += 200) {
-        const lote = todosIds.slice(i, i + 200);
-        const { data: existentes } = await db.from('reservas')
-            .select('id_reserva, comissao_portais')
-            .in('id_reserva', lote)
-            .gt('comissao_portais', 0);
-        (existentes ?? []).forEach(r => { comissoesExistentes[r.id_reserva] = r.comissao_portais; });
-    }
-    const preservadas = Object.keys(comissoesExistentes).length;
-    if (preservadas > 0) console.log(`💾 ${preservadas} comissões existentes salvas para preservação`);
-
-    // Aplicar comissão preservada nos registros onde a API retornou 0/null
-    paraInserir.forEach(r => {
-        if (!r.comissao_portais && comissoesExistentes[r.id_reserva]) {
-            r.comissao_portais = comissoesExistentes[r.id_reserva];
+    if (presenteFut.length > 0) {
+        const idsPresenteFut = presenteFut.map(r => r.id_reserva);
+        for (let i = 0; i < idsPresenteFut.length; i += 200) {
+            const lote = idsPresenteFut.slice(i, i + 200);
+            const { data: existentes } = await db.from('reservas')
+                .select('id_reserva, comissao_portais')
+                .in('id_reserva', lote)
+                .gt('comissao_portais', 0);
+            (existentes ?? []).forEach(r => { comissoesExistentes[r.id_reserva] = r.comissao_portais; });
         }
-    });
+        const preservadas = Object.keys(comissoesExistentes).length;
+        if (preservadas > 0) console.log(`💾 ${preservadas} comissões do mês atual salvas para preservação`);
 
-    console.log(`🗑️ Apagando ${paraInserir.length} reservas que serão reinseridas...`);
+        presenteFut.forEach(r => {
+            if (!r.comissao_portais && comissoesExistentes[r.id_reserva]) {
+                r.comissao_portais = comissoesExistentes[r.id_reserva];
+            }
+        });
 
-    for (const u of unidades) {
-        const idsUni = paraInserir
-            .filter(r => r.unidade_id === u.id)
-            .map(r => r.id_reserva);
-        if (idsUni.length === 0) continue;
-
-        for (let i = 0; i < idsUni.length; i += 200) {
-            const loteIds = idsUni.slice(i, i + 200);
-            const { data: deleted } = await db.from('reservas').delete()
-                .eq('unidade_id', u.id)
-                .in('id_reserva', loteIds)
-                .select();
-            const t = deleted?.length ?? 0;
-            if (t > 0) console.log(`  🗑️ ${t} apagadas de "${u.nome}"`);
+        // Deletar apenas registros do mês atual/futuro
+        console.log(`🗑️ Apagando ${presenteFut.length} registros do mês atual/futuro para reinserir...`);
+        for (const u of unidades) {
+            const idsUni = presenteFut.filter(r => r.unidade_id === u.id).map(r => r.id_reserva);
+            if (idsUni.length === 0) continue;
+            for (let i = 0; i < idsUni.length; i += 200) {
+                const loteIds = idsUni.slice(i, i + 200);
+                const { data: deleted } = await db.from('reservas').delete()
+                    .eq('unidade_id', u.id).in('id_reserva', loteIds).select();
+                const t = deleted?.length ?? 0;
+                if (t > 0) console.log(`  🗑️ ${t} apagadas de "${u.nome}"`);
+            }
         }
     }
 
-    console.log(`📝 ${paraInserir.length} para inserir`);
+    const paraInserirFinal = [...novosPassado, ...presenteFut];
+    console.log(`📝 ${paraInserirFinal.length} para inserir (${novosPassado.length} passado + ${presenteFut.length} presente/futuro)`);
 
     async function inserirLotes(dados) {
         for (let i = 0; i < dados.length; i += 500) {
@@ -309,20 +328,20 @@ async function main() {
     }
 
     try {
-        await inserirLotes(paraInserir);
+        await inserirLotes(paraInserirFinal);
     } catch (e) {
         if (e.message && e.message.includes('column') && usarDetalhes) {
             console.log('⚠️ Colunas extras não existem. Inserindo sem elas...');
             const semDetalhes = reservasNovas
                 .map(r => montarRegistro(r, false))
-                .filter(r => r.unidade_id);
+                .filter(r => r.unidade_id && (!r.chegada || r.chegada >= primeiroDiaMesAtual || !existentesPassadoSet.has(r.id_reserva)));
             await inserirLotes(semDetalhes);
         } else {
             throw new Error('Erro inserir lote: ' + e.message);
         }
     }
 
-    console.log(`🎉 Concluído! ${paraInserir.length} reservas sincronizadas.`);
+    console.log(`🎉 Concluído! ${paraInserirFinal.length} reservas sincronizadas.`);
 }
 
 main().catch(err => { console.error('❌ Erro fatal:', err.message); process.exit(1); });
