@@ -1,4 +1,7 @@
 {
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  },
   "devDependencies": {
     "xlsx": "^0.18.5"
   }
