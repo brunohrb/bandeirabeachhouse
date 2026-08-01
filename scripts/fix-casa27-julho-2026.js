@@ -1,9 +1,9 @@
 /**
  * Fix Casa 2.7 — Julho 2026
  *
- * O banco tem 4 registros para Casa 2.7/julho, mas o BookingList do Smoobu
- * exportado em 01/08/2026 mostra apenas 2 reservas corretas.
- * Este script apaga tudo de Casa 2.7/2026-07 e reinserve os 2 corretos.
+ * O banco tem 4 registros para Casa 2.7/julho, mas o BookingList correto
+ * (BookingList20260801_2.xlsx, check-in 01/07 a 31/07) mostra 3 reservas.
+ * Este script apaga tudo de Casa 2.7/2026-07 e reinserve os 3 corretos.
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -19,8 +19,19 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Dados corretos extraídos do BookingList20260801_1.xlsx
+// Dados corretos extraídos do BookingList20260801_2.xlsx (check-in 01/07 a 31/07)
 const RESERVAS_CORRETAS = [
+    {
+        id_reserva: "139902027",
+        chegada: "2026-07-10",
+        partida: "2026-07-12",
+        hospede: "proprietarios",
+        receita: 0,
+        comissao: 0,
+        canal: "Direto",
+        num_hospedes: 1,
+        status: "ativa",
+    },
     {
         id_reserva: "147305991",
         chegada: "2026-07-16",
@@ -33,14 +44,15 @@ const RESERVAS_CORRETAS = [
         status: "ativa",
     },
     {
-        id_reserva: "139902027",
-        chegada: "2026-07-10",
-        partida: "2026-07-12",
-        hospede: "proprietarios",
-        receita: 0,
-        comissao: 0,
-        canal: "Direto",
-        num_hospedes: 1,
+        // check-in 31/07 → conta em julho pela regra da data de entrada
+        id_reserva: "139656067",
+        chegada: "2026-07-31",
+        partida: "2026-08-02",
+        hospede: "Mendes Wefelnberg Joelma",
+        receita: 3152.70,
+        comissao: 409.85,
+        canal: "Booking.com",
+        num_hospedes: 2,
         status: "ativa",
     },
 ];
@@ -75,7 +87,7 @@ async function main() {
     if (errDel) throw new Error('Erro ao apagar: ' + errDel.message);
     console.log(`\n🗑️ ${atual?.length ?? 0} registros apagados`);
 
-    // Inserir os 2 corretos
+    // Inserir os 3 corretos
     const registros = RESERVAS_CORRETAS.map(r => ({
         id: randomUUID(),
         id_reserva: r.id_reserva,
@@ -101,7 +113,8 @@ async function main() {
     registros.forEach(r => console.log(`  ✅ ${r.id_reserva} | ${r.chegada} | R$ ${r.receita} | ${r.canal}`));
 
     console.log('\n🎉 Concluído! Casa 2.7 julho/2026 corrigida.');
-    console.log('   Receita correta: R$ 6.800,00 (1 reserva paga + 1 bloqueio proprietários)');
+    console.log('   Receita correta: R$ 9.952,70 | Comissão: R$ 409,85');
+    console.log('   (R$ 6.800 Brunna + R$ 3.152,70 Joelma check-in 31/07 + R$ 0 proprietários)');
 }
 
 main().catch(err => { console.error('❌ Erro fatal:', err.message); process.exit(1); });
