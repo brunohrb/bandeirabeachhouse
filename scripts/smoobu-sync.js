@@ -75,15 +75,16 @@ async function fetchWithRetry(url, opts, retries = 3) {
 /* ───── fetch reservas ───── */
 
 async function fetchSmoobuReservations() {
-    const hoje       = new Date();
-    const anoAtual   = hoje.getFullYear();
-    const anoProximo = anoAtual + 1;
+    const hoje     = new Date();
+    const anoAtual = hoje.getFullYear();
     const reservas = [];
     let page       = 1;
     let totalPages = 1;
 
     const fromDate = `${anoAtual}-01-01`;
-    const toDate   = `${anoProximo}-12-31`;
+    // Último dia do 2º mês após o mês atual (ex: agosto → 31/out; dezembro → 28/fev do ano seguinte)
+    const doisMesesAFrente = new Date(hoje.getFullYear(), hoje.getMonth() + 3, 0);
+    const toDate = `${doisMesesAFrente.getFullYear()}-${String(doisMesesAFrente.getMonth() + 1).padStart(2, '0')}-${String(doisMesesAFrente.getDate()).padStart(2, '0')}`;
     console.log(`📅 Buscando reservas de ${fromDate} a ${toDate}`);
 
     while (page <= totalPages) {
