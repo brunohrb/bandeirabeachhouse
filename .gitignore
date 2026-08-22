@@ -2,3 +2,7 @@ node_modules/
 scripts/node_modules/
 *.env
 .env
+
+# chaves privadas — NUNCA versionar
+*.key
+ssh-key-*

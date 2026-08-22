@@ -54,6 +54,17 @@ await db.from('reservas').delete().eq('unidade_id', uid).in('id_reserva', idsNov
 await db.from('reservas').insert(registros);
 ```
 
+### 🔑 Chaves e segredos NUNCA vão para o repo
+- O repositório é **público** (GitHub Pages). Tudo que for commitado é visível para qualquer pessoa.
+- `*.key` e `ssh-key-*` estão no `.gitignore` — a chave SSH do Oracle ficou versionada de 23/07/2026
+  até 22/08/2026 e **precisa ser rotacionada** (a chave antiga deve ser considerada comprometida).
+- Segredos ficam em: GitHub Secrets (Actions), Supabase Secrets (Edge Functions) ou `.env` local.
+- Antes de commitar, conferir: `git diff --cached --name-only`.
+
+### 💻 Rodar o projeto em outra máquina/VM
+Ver `SETUP-VM.md` — o contexto do Claude vem do próprio `CLAUDE.md` versionado,
+basta clonar o repo e rodar `claude` dentro da pasta.
+
 ### 📁 Onde ficam arquivos críticos
 - **Arquivos servidos pelo Pages**: raiz do repo (`index.html`, `movi.html`, `service-worker.js`, `manifest.webmanifest`)
 - **Paths no manifest/SW**: SEMPRE relativos (`./index.html`, scope `./`) porque GitHub Pages serve em subpath `/bandeirabeachhouse/`
