@@ -345,6 +345,38 @@ O sync agora tem 2 estratégias:
 ### Dependências dos scripts
 Os scripts de fix precisam de `@supabase/supabase-js` no `package.json` (já está). Os workflows usam Node 22 (já configurado). Se der erro `MODULE_NOT_FOUND`, verificar se `package.json` tem a dependência e se `package-lock.json` está em sync com ele no branch `main`.
 
+## 🎨 Visual novo — pasta `new/` (ambiente paralelo)
+
+A repaginada visual vive em `new/`, servida em `.../temporada/new/` — **sem tocar** no
+`index.html` de produção. Enquanto estiver validando, mexer só aqui.
+
+| Arquivo | O que é |
+|---|---|
+| `new/index.html` | Cópia do `index.html` de produção + 3 inserções (bootstrap de tema, `skin.css`, `skin.js`) |
+| `new/skin.css` | Toda a repaginada. Carrega DEPOIS do CSS antigo e redesenha em cima do HTML existente |
+| `new/skin.js` | Motor de aparência: cor escolhida pelo usuário + claro/escuro/automático |
+| `new/manifest.webmanifest` | PWA da pasta nova (ícones de verdade, atalhos, maskable) |
+| `new/service-worker.js` | Cópia do SW com `CACHE_NAME = 'bandeira-new-v1'` (não colide com o de produção) |
+| `new/icon-*.png`, `new/apple-touch-icon.png` | Ícones opacos gerados do logo (o antigo era transparente → fundo preto no iOS) |
+
+### Como a skin funciona (importante)
+- **Não reescreve o HTML.** O `skin.css` mira as classes que já existem (`.card`, `.menu-item`,
+  `.indicador-card`, `.cal-*`, `.wa-*`…) e **remapeia as variáveis antigas**
+  (`--primary-color`, `--bg-light`, `--border-color`…) para as novas `--bs-*`. Por isso o CSS
+  original herda o visual novo sozinho.
+- Estilo inline no HTML só é vencido com `!important` — é por isso que a tela de login
+  (`#telaLogin`) tem regras com `!important`.
+- **A cor é do usuário, não fixa**: `skin.js` deriva a paleta inteira de UMA cor em HSL e grava
+  em `localStorage` (`bsCor`, `bsModo`). Cada pessoa tem a sua; não vai pro banco.
+- Botão 🎨 flutuante (canto inferior direito) abre o seletor: 12 cores + cor livre + claro/escuro/auto.
+
+### Ao mexer aqui
+1. Se mudar `index.html` de produção, **regerar** `new/index.html` a partir dele (senão a versão
+   nova fica velha) — as inserções são: bootstrap de tema + `<link skin.css>` no `</head>`,
+   `<script skin.js>` no `</body>`, ícones, e `../movi.html` no `abrirLinkRicardo()`.
+2. Bump do `CACHE_NAME` em `new/service-worker.js` a cada deploy (v1 → v2…).
+3. `new/` não é servido pelo GitHub Pages de produção — o destino é o servidor do texnet.
+
 ---
 
 ## Histórico de problemas resolvidos
