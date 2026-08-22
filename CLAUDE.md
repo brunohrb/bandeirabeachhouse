@@ -375,7 +375,22 @@ A repaginada visual vive em `new/`, servida em `.../temporada/new/` — **sem to
    nova fica velha) — as inserções são: bootstrap de tema + `<link skin.css>` no `</head>`,
    `<script skin.js>` no `</body>`, ícones, e `../movi.html` no `abrirLinkRicardo()`.
 2. Bump do `CACHE_NAME` em `new/service-worker.js` a cada deploy (v1 → v2…).
-3. `new/` não é servido pelo GitHub Pages de produção — o destino é o servidor do texnet.
+3. `new/` não é servido pelo GitHub Pages de produção — o destino é a VM do texnet
+   (`imoveis.texnet.com.br/temporada/`), que **não** puxa do GitHub.
+
+### Como isso chega na VM (sem GitHub)
+`scripts/instalar-visual-novo.sh` é **autossuficiente** (~39 KB): cola no terminal da VM e
+roda. Ele acha a pasta do sistema, copia o `index.html` de lá para `new/` aplicando as
+inserções, gera os ícones a partir do `logo-nobg.png` que já está na VM (Pillow; se não
+tiver, cai pro logo atual) e escreve `skin.css`/`skin.js`/`manifest` embutidos nele.
+Produção nunca é escrita — só lida.
+
+**Ao mudar `new/skin.css`, `new/skin.js` ou `new/manifest.webmanifest`, regere o instalador:**
+```bash
+python3 scripts/gerar-instalador.py     # reembute a skin em scripts/instalar-visual-novo.sh
+```
+O template com os marcadores (`__CSS__`, `__JS__`, `__MANIFEST__`, `__PATCH__`) fica em
+`scripts/instalador.template.sh`.
 
 ---
 
